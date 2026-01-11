@@ -1,26 +1,34 @@
+// backend/src/index.ts faylini oching va quyidagicha qiling:
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { verifyTelegramData } from './controllers/telegramAuth';
 
-// Environment variables
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// CORS sozlamalari
-app.use(cors());
-app.use(express.json());
+// CORS sozlamalari - frontend bilan ishlash uchun muhim
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true
+}));
 
-// Socket.IO
+app.use(express.json());
+app.post('/api/verify-telegram', verifyTelegramData);
+
+// Socket.IO server
 const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  transports: ['websocket', 'polling'] // Transport protokollari
 });
 
 // Asosiy route
@@ -37,18 +45,39 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Socket connection
+// Socket connection handler
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
+  console.log('✅ New client connected:', socket.id);
+  
+  // Oddiy test event
+  socket.emit('welcome', { 
+    message: 'Connected to Like Duel server', 
+    serverTime: new Date().toISOString() 
+  });
+  
+  // Echo test
+  socket.on('echo', (data) => {
+    console.log('Echo received:', data);
+    socket.emit('echo_response', { 
+      original: data, 
+      timestamp: new Date().toISOString() 
+    });
+  });
+  
+  // O'yin logikasi uchun placeholder eventlar
+  socket.on('join_queue', (userData) => {
+    console.log('User joined queue:', userData);
+    // Queue logikasi keyinroq
+  });
   
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+    console.log('❌ Client disconnected:', socket.id);
   });
 });
 
 // Serverni ishga tushirish
 server.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`📡 WebSocket server ready`);
-  console.log(`🌐 Health check: http://localhost:${PORT}/health`);
+  console.log(`🚀 Backend server running on port ${PORT}`);
+  console.log(`📡 WebSocket ready at ws://localhost:${PORT}`);
+  console.log(`🌐 Health: http://localhost:${PORT}/health`);
 });
