@@ -50,41 +50,53 @@ const QueueScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-green-50 p-4">
-      <div className="max-w-md mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-emerald-50 p-4">
+      <div className="max-w-md mx-auto py-6">
         <header className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Finding Opponent 🔍</h1>
-          <p className="text-gray-600">Please wait while we match you</p>
+          <h1 className="text-4xl font-extrabold text-gray-800 mb-2 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            Finding Opponent
+          </h1>
+          <p className="text-gray-600 font-medium">Please wait while we match you</p>
         </header>
 
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
-          {/* Animation */}
-          <div className="flex justify-center mb-8">
-            <div className="relative w-40 h-40">
-              <div className="absolute inset-0 border-4 border-blue-200 rounded-full animate-ping"></div>
-              <div className="absolute inset-4 border-4 border-blue-300 rounded-full animate-pulse"></div>
-              <div className="absolute inset-8 border-4 border-blue-400 rounded-full"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-4xl">⚔️</span>
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 mb-6 border border-white/20">
+          {/* Enhanced Animation */}
+          <div className="flex justify-center mb-10">
+            <div className="relative w-48 h-48">
+              <div className="absolute inset-0 border-4 border-cyan-300/50 rounded-full animate-ping"></div>
+              <div className="absolute inset-2 border-4 border-blue-400/70 rounded-full animate-pulse"></div>
+              <div className="absolute inset-6 border-4 border-cyan-500 rounded-full"></div>
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full shadow-xl">
+                <span className="text-6xl animate-bounce">⚔️</span>
               </div>
             </div>
           </div>
 
-          {/* Queue Info */}
-          <div className="text-center mb-8">
-            <div className="text-6xl font-bold text-blue-600 mb-2">{position}</div>
-            <p className="text-gray-600">Position in queue</p>
+          {/* Queue Info with better design */}
+          <div className="text-center mb-10">
+            <div className="inline-block">
+              <div className="text-7xl font-black bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent mb-3 drop-shadow-lg">
+                #{position}
+              </div>
+              <p className="text-gray-600 font-semibold uppercase tracking-wider text-sm">Position in queue</p>
+            </div>
           </div>
 
           <div className="space-y-4">
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <span className="text-gray-600">⏱️ Wait Time</span>
-              <span className="font-bold">{waitTime}s</span>
+            <div className="flex justify-between items-center p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-2xl border border-cyan-200/50 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⏱️</span>
+                <span className="text-gray-700 font-semibold">Wait Time</span>
+              </div>
+              <span className="font-bold text-xl text-cyan-600">{waitTime}s</span>
             </div>
             
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <span className="text-gray-600">👥 Players Online</span>
-              <span className="font-bold">{position + 15}+</span>
+            <div className="flex justify-between items-center p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200/50 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">👥</span>
+                <span className="text-gray-700 font-semibold">Players Online</span>
+              </div>
+              <span className="font-bold text-xl text-emerald-600">{position + 15}+</span>
             </div>
           </div>
         </div>
@@ -92,13 +104,16 @@ const QueueScreen = () => {
         <div className="space-y-4">
           <button
             onClick={handleLeaveQueue}
-            className="w-full bg-white text-red-600 py-4 rounded-xl text-lg font-bold border-2 border-red-200 hover:bg-red-50 transition"
+            className="w-full bg-white/90 backdrop-blur-sm text-red-600 py-5 rounded-2xl text-lg font-bold border-2 border-red-200 hover:bg-red-50 hover:border-red-400 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
           >
-            ← Leave Queue
+            <span>←</span>
+            <span>Leave Queue</span>
           </button>
           
-          <div className="text-center text-gray-500 text-sm">
-            <p>Average match time: 10-30 seconds</p>
+          <div className="text-center p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50">
+            <p className="text-gray-600 text-sm font-medium">
+              <span className="font-semibold text-gray-700">Average match time:</span> 10-30 seconds
+            </p>
           </div>
         </div>
       </div>

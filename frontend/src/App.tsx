@@ -21,9 +21,8 @@ function App() {
     }
   }, []);
   return (
-
     <Router>
-      <div className="App">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50">
         <Routes>
           <Route path="/" element={<WelcomeScreen />} />
           <Route path="/queue" element={<QueueScreen />} />

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Like Duel game backend",
   "main": "dist/index.js",
+
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "tsc",
