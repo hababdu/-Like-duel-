@@ -1,183 +1,191 @@
-// frontend/src/screens/WelcomeScreen.tsx
+// frontend/src/screens/WelcomeScreen.tsx - TO'LIQ YANGI VERSIYA
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {  initSocket } from '../utils/socket';
+import { jwtDecode } from 'jwt-decode'; // npm install jwt-decode
 
-// Oddiy interface'lar
-interface SimpleUser {
+interface TelegramUser {
   id: string;
-  name: string;
-  gender: 'male' | 'female' | 'other';
+  firstName: string;
+  username?: string;
   rating: number;
   coins: number;
   level: number;
+  dailySuperLikes: number;
 }
 
 const WelcomeScreen = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<SimpleUser | null>(null);
-  const [showGenderModal, setShowGenderModal] = useState(false);
+  const [user, setUser] = useState<TelegramUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock user data - keyin Telegram WebApp bilan almashtiriladi
-    const mockUser: SimpleUser = {
-      id: 'test-user-123',
-      name: 'Player',
-      gender: 'other',
-      rating: 1500,
-      coins: 100,
-      level: 1
+    const authenticateUser = async () => {
+      // Telegram WebApp mavjudligini tekshirish
+      if (!window.Telegram?.WebApp) {
+        console.log('Not in Telegram environment');
+        setLoading(false);
+        return;
+      }
+
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      
+      const initData = tg;
+      
+      if (!initData) {
+        console.error('No initData from Telegram');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // 1. Backend'ga authentication so'rovi
+        const response = await fetch('https://your-backend.onrender.com/api/auth/telegram', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ initData })
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          // 2. User ma'lumotlarini saqlash
+          setUser(data.user);
+          
+          // 3. JWT token'ni localStorage'ga saqlash
+          localStorage.setItem('auth_token', data.token);
+          localStorage.setItem('user_data', JSON.stringify(data.user));
+          
+          // 4. Socket.io ulanishini yangilash
+          const socket = initSocket();
+          socket.auth = { token: data.token };
+          socket.connect();
+          
+          console.log('✅ User authenticated:', data.user.name);
+        } else {
+          console.error('Authentication failed:', data.error);
+        }
+      } catch (error) {
+        console.error('Auth request failed:', error);
+      } finally {
+        setLoading(false);
+      }
     };
+
+    // Avval localStorage'dan tekshirish
+    const savedUser = localStorage.getItem('user_data');
+    const savedToken = localStorage.getItem('auth_token');
     
-    setUser(mockUser);
+    if (savedUser && savedToken) {
+      // Token amal qilish muddatini tekshirish
+      try {
+        const decoded: any = jwtDecode(savedToken);
+        const isExpired = decoded.exp * 1000 < Date.now();
+        
+        if (!isExpired) {
+          setUser(JSON.parse(savedUser));
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+      }
+    }
+    
+    // Yangi authentication
+    authenticateUser();
   }, []);
 
-  const handleEnterQueue = () => {
-    if (!user?.gender || user.gender === 'other') {
-      setShowGenderModal(true);
-    } else {
+  const handleStartGame = () => {
+    if (user) {
       navigate('/queue');
+    } else {
+      alert('Please authenticate first');
     }
   };
 
-  const handleGenderSelect = (gender: 'male' | 'female') => {
-    if (user) {
-      setUser({ ...user, gender });
-      setShowGenderModal(false);
-      navigate('/queue');
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4">Telegram bilan autentifikatsiya qilinmoqda...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 p-4">
-      <div className="max-w-md mx-auto py-6">
-        {/* Header with animated title */}
-        <header className="text-center mb-8 animate-fade-in">
-          <div className="inline-block mb-3">
-            <h1 className="text-5xl font-extrabold bg-gradient-to-r from-purple-600 via-pink-500 to-blue-600 bg-clip-text text-transparent mb-2 drop-shadow-sm">
-              Like Duel
-            </h1>
-            <span className="text-4xl block mt-1">⚔️</span>
-          </div>
-          <p className="text-gray-600 font-medium mt-2">Real-time matching game</p>
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 p-4">
+      <div className="max-w-md mx-auto">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">Like Duel 🎮</h1>
+          <p className="text-gray-600">Telegram orqali kirish</p>
         </header>
 
-        {/* User Card with improved design */}
-        {user && (
-          <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border border-white/20 transform transition-all hover:scale-[1.02] hover:shadow-3xl">
-            <div className="flex items-center mb-6">
-              <div className="relative">
-                <div className="w-20 h-20 bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg ring-4 ring-white/50">
-                  {user.name.charAt(0)}
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
+        {user ? (
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <div className="flex items-center mb-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4">
+                {user.firstName.charAt(0)}
               </div>
-              <div className="ml-4 flex-1">
-                <h2 className="text-2xl font-bold text-gray-800">{user.name}</h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm font-semibold text-purple-600">Level {user.level}</span>
-                  <div className="h-1 w-1 bg-gray-400 rounded-full"></div>
-                  <span className="text-xs text-gray-500">Beginner</span>
-                </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">{user.firstName}</h2>
+                {user.username && (
+                  <p className="text-gray-600">@{user.username}</p>
+                )}
+                <p className="text-gray-600">Level {user.level}</p>
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 rounded-2xl border border-blue-200/50">
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Rating</p>
-                <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold text-blue-600">{user.rating}</p>
-                  <span className="text-lg">⭐</span>
-                </div>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">Rating</p>
+                <p className="text-xl font-bold text-blue-600">{user.rating} ⭐</p>
               </div>
-              <div className="bg-gradient-to-br from-amber-50 to-yellow-100/50 p-4 rounded-2xl border border-amber-200/50">
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Coins</p>
-                <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold text-amber-600">{user.coins}</p>
-                  <span className="text-lg">🪙</span>
-                </div>
+              <div className="bg-yellow-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">Coins</p>
+                <p className="text-xl font-bold text-yellow-600">{user.coins} 🪙</p>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">Wins</p>
+                <p className="text-xl font-bold text-green-600">0 🏆</p>
+              </div>
+              <div className="bg-pink-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">Super Likes</p>
+                <p className="text-xl font-bold text-pink-600">{user.dailySuperLikes} 💖</p>
               </div>
             </div>
             
-            {user.gender === 'other' && (
-              <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl border border-orange-200/50">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">⚠️</span>
-                  <p className="text-sm font-medium text-orange-700">
-                    Please select your gender to start playing
-                  </p>
-                </div>
-              </div>
-            )}
+            <button 
+              onClick={handleStartGame}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 rounded-xl text-lg font-bold hover:opacity-90 transition shadow-lg"
+            >
+              🎮 Start Duel
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Authentication Required</h2>
+            <p className="text-gray-600 mb-6">
+              Please open this app from Telegram to play Like Duel
+            </p>
+            <div className="p-4 bg-orange-50 rounded-lg">
+              <p className="text-orange-700">
+                ⚠️ This game requires Telegram Mini App environment
+              </p>
+            </div>
           </div>
         )}
 
-        {/* Action Buttons with enhanced design */}
-        <div className="space-y-3">
-          <button 
-            onClick={handleEnterQueue}
-            className="w-full bg-gradient-to-r from-purple-600 via-pink-500 to-rose-500 text-white py-5 rounded-2xl text-lg font-bold hover:from-purple-700 hover:via-pink-600 hover:to-rose-600 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transform flex items-center justify-center gap-2"
-          >
-            <span className="text-2xl">🎮</span>
-            <span>Start Duel</span>
-          </button>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={() => navigate('/profile')}
-              className="bg-white/90 backdrop-blur-sm text-gray-800 py-4 rounded-2xl text-base font-semibold border-2 border-gray-200 hover:bg-white hover:border-purple-300 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              <span className="text-xl">👤</span>
-              <span>Profile</span>
-            </button>
-            
-            <button 
-              onClick={() => navigate('/leaderboard')}
-              className="bg-white/90 backdrop-blur-sm text-gray-800 py-4 rounded-2xl text-base font-semibold border-2 border-gray-200 hover:bg-white hover:border-amber-300 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              <span className="text-xl">🏆</span>
-              <span>Leaderboard</span>
-            </button>
-          </div>
+        <div className="text-center text-gray-500 text-sm mt-6">
+          <p>Built with ❤️ for Telegram Mini Apps</p>
         </div>
-
-        {/* Enhanced Gender Modal */}
-        {showGenderModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" onClick={() => setShowGenderModal(false)}>
-            <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl transform transition-all scale-100 border border-gray-100" onClick={(e) => e.stopPropagation()}>
-              <div className="text-center mb-6">
-                <h3 className="text-3xl font-bold text-gray-800 mb-2">Select Gender</h3>
-                <p className="text-gray-600">
-                  This helps us find suitable opponents for you
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <button
-                  onClick={() => handleGenderSelect('male')}
-                  className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-2xl transition-all duration-200 transform hover:scale-105 active:scale-95 border-2 border-blue-200 hover:border-blue-400 shadow-md hover:shadow-lg"
-                >
-                  <div className="text-5xl mb-3">👨</div>
-                  <div className="font-bold text-blue-700 text-lg">Male</div>
-                </button>
-                
-                <button
-                  onClick={() => handleGenderSelect('female')}
-                  className="p-6 bg-gradient-to-br from-pink-50 to-pink-100 hover:from-pink-100 hover:to-pink-200 rounded-2xl transition-all duration-200 transform hover:scale-105 active:scale-95 border-2 border-pink-200 hover:border-pink-400 shadow-md hover:shadow-lg"
-                >
-                  <div className="text-5xl mb-3">👩</div>
-                  <div className="font-bold text-pink-700 text-lg">Female</div>
-                </button>
-              </div>
-              
-              <button
-                onClick={() => setShowGenderModal(false)}
-                className="w-full py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors rounded-xl hover:bg-gray-100"
-              >
-                Maybe later
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

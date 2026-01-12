@@ -1,22 +1,53 @@
 // frontend/src/screens/ProfileScreen.tsx
-import { useState } from 'react';
+import { useState , useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const ProfileScreen = () => {
+// User interfeysini import qilish yoki bu yerda aniqlash
+interface AppUser {
+  id: string;
+  name: string;
+  username?: string;
+  telegramId?: number;
+  rating?: number;
+  coins?: number;
+}
+
+// Prop interfeysi
+interface ProfileScreenProps {
+  user: AppUser;
+  onUserUpdate?: (updatedUser: AppUser) => void; // Agar user yangilansa
+}
+
+const ProfileScreen = ({ user: propUser, onUserUpdate }: ProfileScreenProps) => {
   const navigate = useNavigate();
+  
+  // Local state - prop user bilan boshlash
   const [user, setUser] = useState({
-    name: 'Player',
+    name: propUser.name || 'Player',
     gender: 'other' as 'male' | 'female' | 'other',
     bio: 'I love playing games!',
-    rating: 1500,
-    coins: 100,
+    rating: propUser.rating || 1500,
+    coins: propUser.coins || 100,
     level: 1,
     wins: 0,
     losses: 0,
     streakDays: 0,
     dailySuperLikes: 3,
   });
+  
   const [isEditing, setIsEditing] = useState(false);
+
+  // User prop o'zgarishini kuzatish
+  useEffect(() => {
+    if (propUser) {
+      setUser(prev => ({
+        ...prev,
+        name: propUser.name || prev.name,
+        rating: propUser.rating || prev.rating,
+        coins: propUser.coins || prev.coins,
+      }));
+    }
+  }, [propUser]);
 
   const quests = [
     { id: 1, title: 'Play 5 duels', progress: 2, goal: 5, reward: 50 },
@@ -32,7 +63,20 @@ const ProfileScreen = () => {
 
   const handleSave = () => {
     setIsEditing(false);
+    
+    // Agar user yangilash funksiyasi mavjud bo'lsa
+    if (onUserUpdate) {
+      const updatedUser: AppUser = {
+        ...propUser,
+        name: user.name,
+        rating: user.rating,
+        coins: user.coins,
+      };
+      onUserUpdate(updatedUser);
+    }
+    
     // Bu yerda backendga yangilash yuboriladi
+    console.log('Saving user changes:', user);
   };
 
   return (
@@ -86,6 +130,14 @@ const ProfileScreen = () => {
               {isEditing ? 'Cancel' : 'Edit'}
             </button>
           </div>
+
+          {/* Telegram username ko'rsatish */}
+          {propUser.username && (
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">Telegram:</p>
+              <p className="font-medium text-indigo-600">@{propUser.username}</p>
+            </div>
+          )}
 
           {/* Enhanced Bio */}
           <div className="mb-6">
