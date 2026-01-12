@@ -1,44 +1,80 @@
+// WelcomeScreen.tsx - TO'LIQ YANGI VERSIYA
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './WelcomeScreen.css';
 
-interface TelegramUser {
+// App.tsx bilan bir xil interface
+interface AppUser {
   id: string;
-  firstName: string;
+  name: string;
   username?: string;
+  telegramId?: number;
   rating: number;
   coins: number;
   level: number;
   dailySuperLikes: number;
   wins?: number;
+  bio?: string;
+  gender?: 'male' | 'female' | 'other';
 }
 
-const WelcomeScreen = () => {
+interface WelcomeScreenProps {
+  onUserAuthenticated?: (user: AppUser) => void;
+}
+
+const WelcomeScreen = ({ onUserAuthenticated }: WelcomeScreenProps) => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<TelegramUser | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [animationStep, setAnimationStep] = useState(0);
 
   useEffect(() => {
     const authenticateUser = async () => {
+      // Check if user already exists in localStorage
+      const savedUser = localStorage.getItem('like_duel_user');
+      if (savedUser) {
+        try {
+          const parsedUser: AppUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+          
+          // Automatically navigate to home if user exists
+          setTimeout(() => {
+            navigate('/home');
+          }, 500);
+          
+          setLoading(false);
+          return;
+        } catch (error) {
+          console.error('Error parsing saved user:', error);
+        }
+      }
+
       // Mock authentication for development
       setTimeout(() => {
-        setUser({
-          id: '123',
-          firstName: 'Telegram User',
+        const mockUser: AppUser = {
+          id: `user-${Date.now()}`,
+          name: 'Telegram User',
           username: 'telegramuser',
+          telegramId: 123456789,
           rating: 1500,
           coins: 100,
           level: 1,
           dailySuperLikes: 3,
-          wins: 0
-        });
+          wins: 0,
+          bio: 'I love playing games!',
+          gender: 'other'
+        };
+        
+        setUser(mockUser);
+        if (onUserAuthenticated) {
+          onUserAuthenticated(mockUser);
+        }
         setLoading(false);
       }, 1500);
     };
 
     authenticateUser();
-  }, []);
+  }, [onUserAuthenticated, navigate]);
 
   useEffect(() => {
     if (!loading && user) {
@@ -51,7 +87,7 @@ const WelcomeScreen = () => {
 
   const handleStartGame = () => {
     if (user) {
-      navigate('/queue');
+      navigate('/home');
     } else {
       alert('Please authenticate first');
     }
@@ -59,6 +95,28 @@ const WelcomeScreen = () => {
 
   const handlePracticeMode = () => {
     navigate('/practice');
+  };
+
+  const handleQuickStart = () => {
+    // Create a temporary guest user
+    const guestUser: AppUser = {
+      id: `guest-${Date.now()}`,
+      name: 'Guest Player',
+      rating: 1500,
+      coins: 100,
+      level: 1,
+      dailySuperLikes: 3,
+      wins: 0
+    };
+    
+    setUser(guestUser);
+    if (onUserAuthenticated) {
+      onUserAuthenticated(guestUser);
+    }
+    
+    setTimeout(() => {
+      navigate('/home');
+    }, 500);
   };
 
   const animationTexts = [
@@ -131,12 +189,12 @@ const WelcomeScreen = () => {
               <div className="user-header">
                 <div className="user-avatar-container">
                   <div className="user-avatar">
-                    {user.firstName.charAt(0)}
+                    {user.name?.charAt(0) || 'U'}
                   </div>
                   <div className="user-badge">Lvl {user.level}</div>
                 </div>
                 <div className="user-info">
-                  <h2 className="user-name">{user.firstName}</h2>
+                  <h2 className="user-name">{user.name}</h2>
                   {user.username && (
                     <p className="user-username">@{user.username}</p>
                   )}
@@ -186,7 +244,7 @@ const WelcomeScreen = () => {
                   onClick={handleStartGame}
                 >
                   <span className="button-icon">⚔️</span>
-                  <span className="button-text">Start Quick Duel</span>
+                  <span className="button-text">Enter App</span>
                   <span className="button-arrow">→</span>
                 </button>
                 
@@ -253,17 +311,55 @@ const WelcomeScreen = () => {
         ) : (
           <div className="authentication-card">
             <div className="auth-icon">🔐</div>
-            <h2 className="auth-title">Authentication Required</h2>
+            <h2 className="auth-title">Welcome to Like Duel!</h2>
             <p className="auth-message">
-              Please open this app from Telegram to play Like Duel
+              Start playing instantly or connect with Telegram for better experience
             </p>
+            
+            <div className="auth-options">
+              <button 
+                className="auth-button telegram-button"
+                onClick={() => {
+                  // Telegram login simulation
+                  const mockUser: AppUser = {
+                    id: `telegram-${Date.now()}`,
+                    name: 'Telegram User',
+                    username: 'telegramuser',
+                    telegramId: Math.floor(Math.random() * 1000000),
+                    rating: 1500,
+                    coins: 200, // Telegram users get bonus coins
+                    level: 1,
+                    dailySuperLikes: 5, // Telegram users get more Super Likes
+                    wins: 0
+                  };
+                  
+                  setUser(mockUser);
+                  if (onUserAuthenticated) {
+                    onUserAuthenticated(mockUser);
+                  }
+                }}
+              >
+                <span className="auth-button-icon">📱</span>
+                <span className="auth-button-text">Connect with Telegram</span>
+              </button>
+              
+              <div className="auth-divider">
+                <span className="divider-text">OR</span>
+              </div>
+              
+              <button 
+                className="auth-button guest-button"
+                onClick={handleQuickStart}
+              >
+                <span className="auth-button-icon">🎮</span>
+                <span className="auth-button-text">Continue as Guest</span>
+              </button>
+            </div>
+            
             <div className="auth-warning">
               <span className="warning-icon">⚠️</span>
-              <span className="warning-text">Requires Telegram Mini App</span>
+              <span className="warning-text">Guest progress is saved locally only</span>
             </div>
-            <button className="auth-button" onClick={() => window.location.reload()}>
-              Try Again
-            </button>
           </div>
         )}
 

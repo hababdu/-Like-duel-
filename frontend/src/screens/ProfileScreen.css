@@ -1,959 +1,683 @@
-/* ===== ProfileScreen.css ===== */
+/* ProfileScreen.css */
+.profile-screen {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  color: white;
+}
 
-/* Variables */
-:root {
-    /* Colors */
-    --telegram-brand: #0088cc;
-    --telegram-brand-dark: #0077b3;
-    --telegram-accent-blue: #34aadc;
-    --telegram-accent-green: #34a853;
-    --telegram-accent-yellow: #f9a825;
-    --telegram-accent-pink: #e91e63;
-    --telegram-accent-purple: #7048e8;
-    --telegram-text-primary: #000000;
-    --telegram-text-secondary: #707579;
-    --telegram-bg-primary: #ffffff;
-    --telegram-bg-secondary: #f0f0f0;
-    --telegram-bg-tertiary: #e0e0e0;
-    --telegram-border: #e5e5e5;
-    
-    /* Custom Colors */
-    --rating-blue: #4dabf7;
-    --coins-yellow: #ffd43b;
-    --winrate-green: #51cf66;
-    --superlikes-pink: #f06595;
-    --male-blue: #339af0;
-    --female-pink: #f06595;
-    --other-gray: #868e96;
-    --success: #40c057;
-    --warning: #fd7e14;
-    
-    /* Gradients */
-    --gradient-brand: linear-gradient(135deg, var(--telegram-brand) 0%, var(--telegram-accent-blue) 100%);
-    --gradient-purple: linear-gradient(135deg, var(--telegram-accent-purple) 0%, #9775fa 100%);
-    --gradient-pink: linear-gradient(135deg, var(--telegram-accent-pink) 0%, #f783ac 100%);
-    --gradient-gold: linear-gradient(135deg, var(--coins-yellow) 0%, #ffec99 100%);
-    --gradient-avatar: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-    --gradient-bg: linear-gradient(135deg, #f0f7ff 0%, #fdf2ff 100%);
-    
-    /* Shadows */
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
-    --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.2);
-    --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
-    
-    /* Border Radius */
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 20px;
-    --radius-2xl: 24px;
-    --radius-full: 9999px;
-    
-    /* Transitions */
-    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  /* Base Styles */
-  .profile-screen {
-    min-height: 100vh;
-    background: var(--gradient-bg);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  }
-  
-  /* Header */
-  .profile-header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--telegram-border);
-    padding: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: var(--shadow-sm);
-  }
-  
-  .back-button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: none;
-    border: none;
-    color: var(--telegram-brand);
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: var(--radius-md);
-    transition: all var(--transition-fast);
-  }
-  
-  .back-button:hover {
-    background: rgba(0, 136, 204, 0.1);
-    transform: translateX(-2px);
-  }
-  
-  .back-icon {
-    font-size: 20px;
-    font-weight: 700;
-  }
-  
-  .profile-title {
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--telegram-text-primary);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .title-icon {
-    font-size: 28px;
-    animation: profile-pulse 2s ease-in-out infinite;
-  }
-  
-  @keyframes profile-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-  }
-  
-  .header-right {
-    width: 64px; /* For alignment */
-  }
-  
-  /* Main Content */
+.profile-content {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* Profile Card */
+.profile-card {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  backdrop-filter: blur(10px);
+}
+
+.profile-header-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.avatar-container {
+  position: relative;
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: white;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.online-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  background: #10b981;
+  border-radius: 50%;
+  border: 2px solid #1e293b;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-name {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.profile-name-input {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 0.75rem;
+  color: white;
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.profile-name-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.profile-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.meta-divider {
+  color: #475569;
+}
+
+.edit-button {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Telegram Section */
+.telegram-section {
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.telegram-label {
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+.telegram-username {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+/* Bio Section */
+.bio-section {
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #e2e8f0;
+}
+
+.bio-text {
+  color: #cbd5e1;
+  line-height: 1.6;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.bio-input {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  color: white;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.bio-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Gender Section */
+.gender-section {
+  margin-bottom: 1.5rem;
+}
+
+.gender-options {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.gender-button {
+  flex: 1;
+  min-width: 100px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 0.75rem;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.gender-button.selected {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.gender-button.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.gender-button:not(.disabled):hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.stat-icon {
+  font-size: 1.5rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.rating-card .stat-icon {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.coins-card .stat-icon {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.winrate-card .stat-icon {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.superlikes-card .stat-icon {
+  background: rgba(236, 72, 153, 0.1);
+  color: #ec4899;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+/* Additional Stats */
+.additional-stats {
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label-small {
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+.stat-value-small {
+  color: white;
+  font-weight: 500;
+}
+
+/* Save Button */
+.save-button {
+  width: 100%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 1rem;
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 1rem;
+}
+
+.save-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+}
+
+/* Quests Section */
+.quests-section {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.quests-timer {
+  color: #94a3b8;
+  font-size: 0.875rem;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+}
+
+.quests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.quest-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 12px;
+}
+
+.quest-info {
+  flex: 1;
+}
+
+.quest-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #e2e8f0;
+}
+
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  min-width: 40px;
+}
+
+.reward-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reward-button.completed {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.reward-button.incomplete {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.reward-amount {
+  font-weight: 600;
+}
+
+/* Achievements Section */
+.achievements-section {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.achievements-count {
+  color: #94a3b8;
+  font-size: 0.875rem;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+}
+
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.achievement-item {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.achievement-item.unlocked {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.achievement-item.locked {
+  opacity: 0.6;
+}
+
+.achievement-item:hover {
+  transform: translateY(-2px);
+  border-color: #3b82f6;
+}
+
+.achievement-icon {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.achievement-item.unlocked .achievement-icon {
+  filter: drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3));
+}
+
+.achievement-title {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.achievement-item.unlocked .achievement-title {
+  color: #3b82f6;
+}
+
+.achievement-status {
+  font-size: 0.875rem;
+}
+
+.achievement-item.unlocked .achievement-status {
+  color: #10b981;
+}
+
+.achievement-item.locked .achievement-status {
+  color: #94a3b8;
+}
+
+/* Activity Section */
+.activity-section {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.view-all-button {
+  background: none;
+  border: 1px solid #3b82f6;
+  color: #3b82f6;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-all-button:hover {
+  background: #3b82f6;
+  color: white;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  transition: all 0.2s;
+}
+
+.activity-item:hover {
+  border-color: #3b82f6;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.activity-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #3b82f6;
+}
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-text {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  color: #e2e8f0;
+}
+
+.activity-time {
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+.activity-change {
+  font-weight: bold;
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+}
+
+.activity-change.positive {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.activity-change.neutral {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
   .profile-content {
-    padding: 16px;
-    max-width: 500px;
-    margin: 0 auto;
-    animation: content-fade 0.5s ease-out;
+    padding: 0.75rem;
   }
   
-  @keyframes content-fade {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .profile-card,
+  .quests-section,
+  .achievements-section,
+  .activity-section {
+    padding: 1rem;
   }
   
-  /* Profile Card */
-  .profile-card {
-    background: var(--telegram-bg-primary);
-    border-radius: var(--radius-2xl);
-    padding: 24px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--telegram-border);
-    animation: card-rise 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  
-  @keyframes card-rise {
-    from {
-      opacity: 0;
-      transform: translateY(50px) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-  
-  .profile-header-section {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-  
-  .avatar-container {
-    position: relative;
-  }
-  
-  .profile-avatar {
-    width: 100px;
-    height: 100px;
-    background: var(--gradient-avatar);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 40px;
-    font-weight: 800;
-    box-shadow: var(--shadow-lg);
-    border: 4px solid white;
-    animation: avatar-rotate 10s linear infinite;
-  }
-  
-  @keyframes avatar-rotate {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  
-  .online-badge {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    width: 16px;
-    height: 16px;
-    background: var(--telegram-accent-green);
-    border: 3px solid white;
-    border-radius: 50%;
-    box-shadow: var(--shadow-sm);
-  }
-  
-  .profile-info {
-    flex: 1;
-  }
-  
-  .profile-name {
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--telegram-text-primary);
-    margin: 0 0 8px 0;
-    line-height: 1.2;
-    animation: name-glow 2s ease-in-out infinite alternate;
-  }
-  
-  @keyframes name-glow {
-    from {
-      text-shadow: 0 0 10px rgba(0, 136, 204, 0.1);
-    }
-    to {
-      text-shadow: 0 0 20px rgba(0, 136, 204, 0.2);
-    }
-  }
-  
-  .profile-name-input {
-    width: 100%;
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--telegram-text-primary);
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid var(--telegram-brand);
-    outline: none;
-    padding: 4px 0;
-    transition: all var(--transition-fast);
-  }
-  
-  .profile-name-input:focus {
-    border-bottom-color: var(--telegram-accent-purple);
-  }
-  
-  .profile-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-  }
-  
-  .level-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--gradient-gold);
-    color: #8a6a00;
-    padding: 4px 12px;
-    border-radius: var(--radius-full);
-    font-weight: 700;
-    box-shadow: var(--shadow-sm);
-  }
-  
-  .level-icon {
-    font-size: 12px;
-  }
-  
-  .meta-divider {
-    color: var(--telegram-text-secondary);
-    opacity: 0.5;
-  }
-  
-  .status-text {
-    color: var(--telegram-text-secondary);
-    font-weight: 500;
-  }
-  
-  .edit-button {
-    background: var(--gradient-brand);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: var(--radius-lg);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: var(--shadow-md);
-    transition: all var(--transition-fast);
-    white-space: nowrap;
-  }
-  
-  .edit-button:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-  }
-  
-  .edit-button:active {
-    transform: translateY(0);
-  }
-  
-  /* Telegram Section */
-  .telegram-section {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(0, 136, 204, 0.05);
-    padding: 12px 16px;
-    border-radius: var(--radius-lg);
-    margin-bottom: 20px;
-    border-left: 4px solid var(--telegram-brand);
-  }
-  
-  .telegram-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--telegram-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  .telegram-username {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--telegram-brand);
-  }
-  
-  /* Bio Section */
-  .bio-section {
-    margin-bottom: 20px;
-  }
-  
-  .section-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--telegram-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin: 0 0 8px 0;
-  }
-  
-  .bio-input {
-    width: 100%;
-    padding: 16px;
-    border: 2px solid var(--telegram-border);
-    border-radius: var(--radius-lg);
-    font-size: 16px;
-    font-family: inherit;
-    color: var(--telegram-text-primary);
-    background: white;
-    resize: none;
-    transition: all var(--transition-fast);
-    line-height: 1.5;
-  }
-  
-  .bio-input:focus {
-    outline: none;
-    border-color: var(--telegram-brand);
-    box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
-  }
-  
-  .bio-text {
-    padding: 16px;
-    background: var(--telegram-bg-secondary);
-    border-radius: var(--radius-lg);
-    font-size: 16px;
-    color: var(--telegram-text-primary);
-    line-height: 1.5;
-    margin: 0;
-    border: 2px solid transparent;
-    transition: all var(--transition-fast);
-  }
-  
-  .bio-text:hover {
-    background: var(--telegram-bg-tertiary);
-  }
-  
-  /* Gender Section */
-  .gender-section {
-    margin-bottom: 20px;
-  }
-  
-  .gender-options {
-    display: flex;
-    gap: 8px;
-  }
-  
-  .gender-button {
-    flex: 1;
-    padding: 14px 16px;
-    border: 2px solid var(--telegram-border);
-    background: var(--telegram-bg-secondary);
-    border-radius: var(--radius-lg);
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--telegram-text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .gender-button:not(.disabled):hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-  
-  .gender-button.selected {
-    color: white;
-    border-color: transparent;
-    box-shadow: var(--shadow-md);
-  }
-  
-  .gender-button.selected[data-gender="male"] {
-    background: linear-gradient(135deg, var(--male-blue), #339af0);
-  }
-  
-  .gender-button.selected[data-gender="female"] {
-    background: linear-gradient(135deg, var(--female-pink), #f06595);
-  }
-  
-  .gender-button.selected[data-gender="other"] {
-    background: linear-gradient(135deg, var(--other-gray), #868e96);
-  }
-  
-  .gender-button.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
-  /* Stats Grid */
   .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-  
-  .stat-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px;
-    border-radius: var(--radius-lg);
-    transition: all var(--transition-fast);
-    cursor: pointer;
-  }
-  
-  .stat-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
-  }
-  
-  .rating-card {
-    background: linear-gradient(135deg, rgba(77, 171, 247, 0.1), rgba(77, 171, 247, 0.2));
-    border: 2px solid rgba(77, 171, 247, 0.3);
-  }
-  
-  .coins-card {
-    background: linear-gradient(135deg, rgba(255, 212, 59, 0.1), rgba(255, 212, 59, 0.2));
-    border: 2px solid rgba(255, 212, 59, 0.3);
-  }
-  
-  .winrate-card {
-    background: linear-gradient(135deg, rgba(81, 207, 102, 0.1), rgba(81, 207, 102, 0.2));
-    border: 2px solid rgba(81, 207, 102, 0.3);
-  }
-  
-  .superlikes-card {
-    background: linear-gradient(135deg, rgba(240, 101, 149, 0.1), rgba(240, 101, 149, 0.2));
-    border: 2px solid rgba(240, 101, 149, 0.3);
-  }
-  
-  .stat-icon {
-    font-size: 32px;
-    width: 50px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-md);
-  }
-  
-  .rating-icon {
-    background: rgba(77, 171, 247, 0.2);
-    color: var(--rating-blue);
-  }
-  
-  .coins-icon {
-    background: rgba(255, 212, 59, 0.2);
-    color: var(--coins-yellow);
-  }
-  
-  .winrate-icon {
-    background: rgba(81, 207, 102, 0.2);
-    color: var(--winrate-green);
-  }
-  
-  .superlikes-icon {
-    background: rgba(240, 101, 149, 0.2);
-    color: var(--superlikes-pink);
-  }
-  
-  .stat-content {
-    flex: 1;
-  }
-  
-  .stat-value {
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--telegram-text-primary);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
-  }
-  
-  .stat-label {
-    font-size: 12px;
-    color: var(--telegram-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 500;
-  }
-  
-  /* Save Button */
-  .save-button {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    background: linear-gradient(135deg, var(--success), #2f9e44);
-    color: white;
-    border: none;
-    padding: 18px;
-    border-radius: var(--radius-lg);
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: var(--shadow-lg);
-    transition: all var(--transition-fast);
-    animation: save-pulse 2s ease-in-out infinite;
-  }
-  
-  @keyframes save-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-  }
-  
-  .save-button:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-xl);
-  }
-  
-  .save-button:active {
-    transform: translateY(0);
-  }
-  
-  .save-icon {
-    font-size: 20px;
-  }
-  
-  /* Quests Section */
-  .quests-section {
-    background: white;
-    border-radius: var(--radius-2xl);
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--telegram-border);
-    animation: slide-up 0.5s ease-out 0.2s both;
-  }
-  
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-  
-  .section-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--telegram-text-primary);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .section-icon {
-    font-size: 24px;
-  }
-  
-  .quests-timer {
-    font-size: 12px;
-    color: var(--telegram-text-secondary);
-    background: var(--telegram-bg-secondary);
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-  }
-  
-  .quests-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .quest-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px;
-    background: var(--telegram-bg-secondary);
-    border-radius: var(--radius-lg);
-    transition: all var(--transition-fast);
-  }
-  
-  .quest-item:hover {
-    background: var(--telegram-bg-tertiary);
-    transform: translateX(4px);
-  }
-  
-  .quest-info {
-    flex: 1;
-  }
-  
-  .quest-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--telegram-text-primary);
-    margin: 0 0 8px 0;
-  }
-  
-  .progress-container {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  
-  .progress-bar {
-    flex: 1;
-    height: 6px;
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: var(--radius-full);
-    overflow: hidden;
-  }
-  
-  .progress-fill {
-    height: 100%;
-    background: var(--gradient-brand);
-    border-radius: var(--radius-full);
-    transition: width var(--transition-normal) cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  
-  .progress-text {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--telegram-text-secondary);
-    min-width: 40px;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-  
-  .reward-button {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 8px 16px;
-    border: none;
-    border-radius: var(--radius-lg);
-    font-weight: 700;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    margin-left: 12px;
-  }
-  
-  .reward-button.completed {
-    background: var(--gradient-brand);
-    color: white;
-    box-shadow: var(--shadow-sm);
-  }
-  
-  .reward-button.completed:hover {
-    transform: scale(1.05);
-    box-shadow: var(--shadow-md);
-  }
-  
-  .reward-button.incomplete {
-    background: var(--telegram-bg-tertiary);
-    color: var(--telegram-text-secondary);
-    cursor: not-allowed;
-  }
-  
-  .reward-amount {
-    font-weight: 800;
-  }
-  
-  .reward-icon {
-    font-size: 16px;
-  }
-  
-  /* Achievements Section */
-  .achievements-section {
-    background: white;
-    border-radius: var(--radius-2xl);
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--telegram-border);
-    animation: slide-up 0.5s ease-out 0.3s both;
-  }
-  
-  .achievements-count {
-    font-size: 14px;
-    color: var(--telegram-text-secondary);
-    background: var(--telegram-bg-secondary);
-    padding: 4px 12px;
-    border-radius: var(--radius-full);
-    font-weight: 600;
+    grid-template-columns: 1fr;
   }
   
   .achievements-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(2, 1fr);
   }
   
-  .achievement-item {
-    display: flex;
+  .profile-header-section {
     flex-direction: column;
-    align-items: center;
-    padding: 16px;
-    border-radius: var(--radius-lg);
-    transition: all var(--transition-fast);
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .achievement-item.unlocked {
-    background: linear-gradient(135deg, #fff9db, #ffec99);
-    border: 2px solid #ffd43b;
-  }
-  
-  .achievement-item.locked {
-    background: var(--telegram-bg-secondary);
-    border: 2px solid var(--telegram-border);
-    opacity: 0.6;
-  }
-  
-  .achievement-item.unlocked:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
-  }
-  
-  .achievement-item.locked:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
-  }
-  
-  .achievement-icon {
-    font-size: 32px;
-    margin-bottom: 8px;
-  }
-  
-  .achievement-item.unlocked .achievement-icon {
-    animation: achievement-bounce 2s ease-in-out infinite;
-  }
-  
-  @keyframes achievement-bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
-  }
-  
-  .achievement-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--telegram-text-primary);
     text-align: center;
-    line-height: 1.2;
   }
   
-  .achievement-item.locked .achievement-title {
-    color: var(--telegram-text-secondary);
+  .profile-info {
+    text-align: center;
   }
   
-  .achievement-status {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    font-size: 14px;
-  }
-  
-  .achievement-item.unlocked .achievement-status {
-    color: var(--success);
-  }
-  
-  .achievement-item.locked .achievement-status {
-    color: var(--telegram-text-secondary);
-  }
-  
-  /* Action Buttons */
-  .action-buttons {
-    display: flex;
+  .gender-options {
     flex-direction: column;
-    gap: 12px;
-    margin-top: 24px;
   }
   
-  .action-button {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 18px;
-    border: none;
-    border-radius: var(--radius-lg);
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    text-align: left;
-    position: relative;
-    overflow: hidden;
+  .gender-button {
+    min-width: auto;
   }
-  
-  .action-button:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  
-  .action-button:active {
+  to {
+    opacity: 1;
     transform: translateY(0);
   }
-  
-  .duel-button {
-    background: var(--gradient-brand);
-    color: white;
-  }
-  
-  .leaderboard-button {
-    background: var(--gradient-purple);
-    color: white;
-  }
-  
-  .settings-button {
-    background: var(--telegram-bg-secondary);
-    color: var(--telegram-text-primary);
-    border: 2px solid var(--telegram-border);
-  }
-  
-  .settings-button:hover {
-    background: var(--telegram-bg-tertiary);
-    border-color: var(--telegram-text-secondary);
-  }
-  
-  .action-icon {
-    font-size: 20px;
-  }
-  
-  /* Responsive Design */
-  @media (max-width: 480px) {
-    .profile-content {
-      padding: 12px;
-    }
-    
-    .profile-avatar {
-      width: 80px;
-      height: 80px;
-      font-size: 32px;
-    }
-    
-    .profile-name,
-    .profile-name-input {
-      font-size: 24px;
-    }
-    
-    .stats-grid {
-      grid-template-columns: 1fr;
-    }
-    
-    .achievements-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .gender-options {
-      flex-direction: column;
-    }
-  }
-  
-  /* Dark Mode Support */
-  @media (prefers-color-scheme: dark) {
-    .profile-screen {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    }
-    
-    .profile-header {
-      background: rgba(30, 30, 30, 0.95);
-      border-bottom-color: #4a5568;
-    }
-    
-    .profile-title,
-    .profile-name,
-    .section-title,
-    .quest-title,
-    .achievement-title,
-    .stat-value {
-      color: #ffffff;
-    }
-    
-    .profile-card,
-    .quests-section,
-    .achievements-section {
-      background: #2d3748;
-      border-color: #4a5568;
-    }
-    
-    .bio-text,
-    .quest-item,
-    .settings-button {
-      background: #4a5568;
-      border-color: #718096;
-    }
-    
-    .stats-grid .stat-card,
-    .achievement-item.locked {
-      background: #4a5568;
-      border-color: #718096;
-    }
-    
-    .progress-bar {
-      background: #4a5568;
-    }
-    
-    .quests-timer,
-    .achievements-count {
-      background: #4a5568;
-      color: #e2e8f0;
-    }
-    
-    .telegram-section {
-      background: rgba(0, 136, 204, 0.1);
-    }
-  }
+}
+
+.profile-card,
+.quests-section,
+.achievements-section,
+.activity-section {
+  animation: fadeIn 0.3s ease-out;
+}
