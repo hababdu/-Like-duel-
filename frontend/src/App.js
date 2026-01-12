@@ -1,111 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import OrderForm from './components/OrderForm';
+import React, { useEffect, useState, useCallback } from 'react';
 import './App.css';
 
 function App() {
   const [tg, setTg] = useState(null);
   const [user, setUser] = useState(null);
-  const [currentProduct, setCurrentProduct] = useState({
-    id: 1,
-    name: 'iPhone 15 Pro',
-    price: 12000000,
-    description: '128GB, Titanium'
-  });
 
-  useEffect(() => {
-    // Telegram WebApp mavjudligini tekshirish
-    if (window.Telegram && window.Telegram.WebApp) {
-      const telegramApp = window.Telegram.WebApp;
-      setTg(telegramApp);
-      
-      telegramApp.ready();
-      telegramApp.expand();
-      
-      // Foydalanuvchi ma'lumotlari
-      const userData = telegramApp.initDataUnsafe?.user;
-      setUser(userData);
-      
-      console.log('Telegram WebApp:', telegramApp);
-      console.log('Foydalanuvchi:', userData);
-      console.log('Tema:', telegramApp.themeParams);
-    } else {
-      console.warn('Telegram WebApp mavjud emas. Brauzerda ochilgan.');
-    }
-  }, []);
-
-  // Bu funksiya App.js ichida ham bo'lishi mumkin
-  const sendTestData = () => {
+  // sendDataToBot funksiyasini useCallback ichiga olish
+  const sendDataToBot = useCallback(() => {
     if (!tg) return;
     
-    const testData = {
-      type: 'test_order',
-      userName: user?.first_name || 'Test mijoz',
+    const orderData = {
+      type: 'order',
+      userName: user?.first_name || 'Mijoz',
       phone: '+998901234567',
-      productName: currentProduct.name,
+      productName: 'iPhone 15',
       quantity: 1,
-      totalPrice: currentProduct.price
+      totalPrice: 12000000
     };
     
-    tg.sendData(JSON.stringify(testData));
-    tg.showAlert('Test ma\'lumot yuborildi!');
-    
-    // App'ni yopish
-    setTimeout(() => {
-      tg.close();
-    }, 1500);
-  };
+    tg.sendData(JSON.stringify(orderData));
+    tg.close();
+  }, [tg, user]);
+
+  useEffect(() => {
+    if (window.Telegram?.WebApp) {
+      const telegram = window.Telegram.WebApp;
+      telegram.ready();
+      telegram.expand();
+      setTg(telegram);
+      setUser(telegram.initDataUnsafe?.user);
+      
+      // MainButton sozlash
+      telegram.MainButton.setText("Buyurtma berish");
+      telegram.MainButton.color = "#3390ec";
+      telegram.MainButton.show();
+      telegram.MainButton.onClick(sendDataToBot);
+      
+      return () => {
+        telegram.MainButton.offClick(sendDataToBot);
+      };
+    }
+  }, [sendDataToBot]); // ← sendDataToBot ni dependency qo'shing
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>🛍️ Mening Do'konim</h1>
+    <div className="App">
+      <header className="App-header">
+        <h1>Telegram Mini App</h1>
         {user && (
           <div className="user-info">
-            👤 {user.first_name} {user.last_name || ''}
-            {user.username && <span> (@{user.username})</span>}
+            <p>👤 {user.first_name}</p>
+            <p className="user-id">ID: {user.id}</p>
           </div>
         )}
       </header>
-
-      <main className="app-main">
-        {/* Mahsulot ko'rinishi */}
+      
+      <main className="App-main">
         <div className="product-card">
-          <div className="product-image">
-            {currentProduct.name.includes('iPhone') ? '📱' : '📦'}
-          </div>
-          <h2>{currentProduct.name}</h2>
-          <p className="product-description">{currentProduct.description}</p>
-          <p className="product-price">
-            {currentProduct.price.toLocaleString()} so'm
-          </p>
+          <h3>iPhone 15 Pro</h3>
+          <p>128GB, Titanium</p>
+          <p className="price">12,000,000 so'm</p>
           <button 
-            className="select-product-btn"
-            onClick={() => tg?.showAlert(`"${currentProduct.name}" tanlandi`)}
+            className="buy-btn"
+            onClick={sendDataToBot}
           >
-            Tanlash
+            🛒 Sotib olish
           </button>
-        </div>
-
-        {/* Buyurtma formasi */}
-        <OrderForm product={currentProduct} />
-
-        {/* Test tugmasi */}
-        <div className="test-section">
-          <button 
-            className="test-button"
-            onClick={sendTestData}
-          >
-            🔄 Test ma'lumot yuborish
-          </button>
-          <p className="test-notice">
-            Ushbu tugma faqat test uchun. Aslida formani to'ldiring.
-          </p>
         </div>
       </main>
-
-      <footer className="app-footer">
-        <p>© 2024 Mening Telegram Do'konim</p>
-        <p>Bot: @my_shop_bot</p>
+      
+      <footer className="App-footer">
+        <p>© 2024 Mening Do'konim</p>
       </footer>
     </div>
   );

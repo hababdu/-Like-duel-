@@ -1,7 +1,7 @@
 {
-  "name": "my-telegram-mini-app",
+  "name": "like-duel",
   "version": "0.1.0",
-  "private": true,
+  "private": true,  "homepage": ".", 
   "dependencies": {
     "@telegram-apps/sdk": "^3.11.8",
     "@testing-library/dom": "^10.4.1",
