@@ -1,5 +1,6 @@
-import { useState , useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './ProfileScreen.css';
 
 interface AppUser {
   id: string;
@@ -21,7 +22,7 @@ const ProfileScreen = ({ user: propUser, onUserUpdate }: ProfileScreenProps) => 
   const [user, setUser] = useState({
     name: propUser.name || 'Player',
     gender: 'other' as 'male' | 'female' | 'other',
-    bio: 'I love playing games!',
+    bio: 'I love playing games! Let\'s duel! 🎮',
     rating: propUser.rating || 1500,
     coins: propUser.coins || 100,
     level: 1,
@@ -54,6 +55,9 @@ const ProfileScreen = ({ user: propUser, onUserUpdate }: ProfileScreenProps) => 
     { id: 1, title: 'First Win', icon: '🏆', unlocked: true },
     { id: 2, title: '10 Matches', icon: '🎮', unlocked: false },
     { id: 3, title: 'Rating 1600', icon: '⭐', unlocked: false },
+    { id: 4, title: 'Super Liker', icon: '💖', unlocked: false },
+    { id: 5, title: 'Win Streak', icon: '🔥', unlocked: false },
+    { id: 6, title: 'Socializer', icon: '👥', unlocked: false },
   ];
 
   const handleSave = () => {
@@ -73,98 +77,102 @@ const ProfileScreen = ({ user: propUser, onUserUpdate }: ProfileScreenProps) => 
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 p-4">
-      <div className="max-w-md mx-auto py-6">
-        <header className="flex items-center justify-between mb-8">
-          <button
-            onClick={() => navigate('/')}
-            className="text-gray-700 hover:text-gray-900 font-semibold flex items-center gap-1 transition-colors"
-          >
-            <span>←</span>
-            <span>Back</span>
-          </button>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Profile
-          </h1>
-          <div className="w-16"></div>
-        </header>
+    <div className="profile-screen">
+      {/* Header */}
+      <div className="profile-header">
+        <button
+          onClick={() => navigate('/')}
+          className="back-button"
+        >
+          <span className="back-icon">←</span>
+          <span className="back-text">Back</span>
+        </button>
+        <h1 className="profile-title">
+          <span className="title-icon">👤</span>
+          Profile
+        </h1>
+        <div className="header-right"></div>
+      </div>
 
-        {/* Enhanced Profile Card */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border border-white/20">
-          <div className="flex items-center mb-6">
-            <div className="relative">
-              <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl ring-4 ring-white/50">
+      {/* Main Content */}
+      <div className="profile-content">
+        {/* Profile Card */}
+        <div className="profile-card">
+          <div className="profile-header-section">
+            <div className="avatar-container">
+              <div className="profile-avatar">
                 {user.name.charAt(0)}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-green-500 rounded-full border-4 border-white shadow-lg"></div>
+              <div className="online-badge"></div>
             </div>
-            <div className="flex-1 ml-4">
+            
+            <div className="profile-info">
               {isEditing ? (
                 <input
                   type="text"
                   value={user.name}
                   onChange={(e) => setUser({ ...user, name: e.target.value })}
-                  className="text-2xl font-bold border-b-2 border-purple-500 outline-none w-full bg-transparent"
+                  className="profile-name-input"
                   autoFocus
+                  placeholder="Enter your name"
                 />
               ) : (
-                <h2 className="text-2xl font-bold text-gray-800">{user.name}</h2>
+                <h2 className="profile-name">{user.name}</h2>
               )}
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm font-semibold text-purple-600">Level {user.level}</span>
-                <div className="h-1 w-1 bg-gray-400 rounded-full"></div>
-                <span className="text-xs text-gray-500">Active Player</span>
+              
+              <div className="profile-meta">
+                <span className="level-badge">
+                  <span className="level-icon">⭐</span>
+                  Level {user.level}
+                </span>
+                <span className="meta-divider">•</span>
+                <span className="status-text">Active Player</span>
               </div>
             </div>
+            
             <button
               onClick={() => setIsEditing(!isEditing)}
-              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-purple-600 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
+              className="edit-button"
             >
               {isEditing ? 'Cancel' : 'Edit'}
             </button>
           </div>
 
-          {/* Telegram username ko'rsatish */}
+          {/* Telegram Username */}
           {propUser.username && (
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">Telegram:</p>
-              <p className="font-medium text-indigo-600">@{propUser.username}</p>
+            <div className="telegram-section">
+              <span className="telegram-label">Telegram</span>
+              <span className="telegram-username">@{propUser.username}</span>
             </div>
           )}
 
-          {/* Enhanced Bio */}
-          <div className="mb-6">
-            <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Bio</h3>
+          {/* Bio Section */}
+          <div className="bio-section">
+            <h3 className="section-title">Bio</h3>
             {isEditing ? (
               <textarea
                 value={user.bio}
                 onChange={(e) => setUser({ ...user, bio: e.target.value })}
-                className="w-full p-4 border-2 border-purple-200 rounded-2xl outline-none focus:border-purple-400 transition-colors resize-none"
+                className="bio-input"
                 rows={3}
+                placeholder="Tell us about yourself..."
               />
             ) : (
-              <p className="text-gray-700 p-4 bg-gray-50 rounded-2xl border border-gray-200">{user.bio}</p>
+              <p className="bio-text">{user.bio}</p>
             )}
           </div>
 
-          {/* Enhanced Gender */}
-          <div className="mb-6">
-            <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Gender</h3>
-            <div className="flex gap-3">
+          {/* Gender Selection */}
+          <div className="gender-section">
+            <h3 className="section-title">Gender</h3>
+            <div className="gender-options">
               {(['male', 'female', 'other'] as const).map((gender) => (
                 <button
                   key={gender}
                   onClick={() => isEditing && setUser({ ...user, gender })}
-                  className={`flex-1 px-4 py-3 rounded-2xl font-semibold transition-all duration-200 transform ${
-                    user.gender === gender
-                      ? gender === 'male'
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg scale-105'
-                        : gender === 'female'
-                        ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-lg scale-105'
-                        : 'bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-lg scale-105'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  } ${!isEditing ? 'opacity-60 cursor-default' : 'hover:scale-105 active:scale-95'}`}
+                  className={`gender-button ${user.gender === gender ? 'selected' : ''} ${!isEditing ? 'disabled' : ''}`}
                   disabled={!isEditing}
+                  data-gender={gender}
                 >
                   {gender === 'male' && '👨 Male'}
                   {gender === 'female' && '👩 Female'}
@@ -174,102 +182,153 @@ const ProfileScreen = ({ user: propUser, onUserUpdate }: ProfileScreenProps) => 
             </div>
           </div>
 
-          {/* Enhanced Stats Grid */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 rounded-2xl border border-blue-200/50">
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Rating</p>
-              <div className="flex items-center gap-1">
-                <p className="text-2xl font-bold text-blue-600">{user.rating}</p>
-                <span className="text-lg">⭐</span>
+          {/* Stats Grid */}
+          <div className="stats-grid">
+            <div className="stat-card rating-card">
+              <div className="stat-icon rating-icon">⭐</div>
+              <div className="stat-content">
+                <div className="stat-value">{user.rating}</div>
+                <div className="stat-label">Rating</div>
               </div>
             </div>
-            <div className="bg-gradient-to-br from-amber-50 to-yellow-100/50 p-4 rounded-2xl border border-amber-200/50">
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Coins</p>
-              <div className="flex items-center gap-1">
-                <p className="text-2xl font-bold text-amber-600">{user.coins}</p>
-                <span className="text-lg">🪙</span>
+            
+            <div className="stat-card coins-card">
+              <div className="stat-icon coins-icon">🪙</div>
+              <div className="stat-content">
+                <div className="stat-value">{user.coins}</div>
+                <div className="stat-label">Coins</div>
               </div>
             </div>
-            <div className="bg-gradient-to-br from-emerald-50 to-green-100/50 p-4 rounded-2xl border border-emerald-200/50">
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Win Rate</p>
-              <p className="text-2xl font-bold text-emerald-600">
-                {user.wins + user.losses > 0 
-                  ? Math.round((user.wins / (user.wins + user.losses)) * 100) 
-                  : 0}%
-              </p>
+            
+            <div className="stat-card winrate-card">
+              <div className="stat-icon winrate-icon">📈</div>
+              <div className="stat-content">
+                <div className="stat-value">
+                  {user.wins + user.losses > 0 
+                    ? Math.round((user.wins / (user.wins + user.losses)) * 100) 
+                    : 0}%
+                </div>
+                <div className="stat-label">Win Rate</div>
+              </div>
             </div>
-            <div className="bg-gradient-to-br from-pink-50 to-rose-100/50 p-4 rounded-2xl border border-pink-200/50">
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Super Likes</p>
-              <div className="flex items-center gap-1">
-                <p className="text-2xl font-bold text-pink-600">{user.dailySuperLikes}</p>
-                <span className="text-lg">💖</span>
+            
+            <div className="stat-card superlikes-card">
+              <div className="stat-icon superlikes-icon">💖</div>
+              <div className="stat-content">
+                <div className="stat-value">{user.dailySuperLikes}</div>
+                <div className="stat-label">Super Likes</div>
               </div>
             </div>
           </div>
 
+          {/* Save Button */}
           {isEditing && (
             <button
               onClick={handleSave}
-              className="w-full bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 text-white py-4 rounded-2xl font-bold hover:from-green-600 hover:via-emerald-600 hover:to-green-700 transition-all duration-200 shadow-xl hover:shadow-2xl transform hover:scale-[1.02] active:scale-[0.98]"
+              className="save-button"
             >
-              Save Changes
+              <span className="save-icon">💾</span>
+              <span className="save-text">Save Changes</span>
             </button>
           )}
         </div>
 
-        {/* Enhanced Quests */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 mb-6 border border-white/20">
-          <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <span>📋</span>
-            <span>Daily Quests</span>
-          </h3>
-          <div className="space-y-4">
+        {/* Daily Quests */}
+        <div className="quests-section">
+          <div className="section-header">
+            <h3 className="section-title">
+              <span className="section-icon">🎯</span>
+              Daily Quests
+            </h3>
+            <span className="quests-timer">Reset in 4h</span>
+          </div>
+          
+          <div className="quests-list">
             {quests.map((quest) => (
-              <div key={quest.id} className="border-2 border-gray-200 rounded-2xl p-5 hover:border-purple-300 transition-all duration-200 bg-gradient-to-br from-white to-gray-50/50">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-bold text-gray-800">{quest.title}</h4>
-                  <span className="text-amber-600 font-bold flex items-center gap-1">
-                    <span>+{quest.reward}</span>
-                    <span>🪙</span>
-                  </span>
+              <div key={quest.id} className="quest-item">
+                <div className="quest-info">
+                  <h4 className="quest-title">{quest.title}</h4>
+                  <div className="progress-container">
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill"
+                        style={{ width: `${(quest.progress / quest.goal) * 100}%` }}
+                      />
+                    </div>
+                    <span className="progress-text">
+                      {quest.progress}/{quest.goal}
+                    </span>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 mb-2 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-green-400 to-emerald-500 h-3 rounded-full transition-all duration-500 shadow-sm"
-                    style={{ width: `${(quest.progress / quest.goal) * 100}%` }}
-                  ></div>
-                </div>
-                <p className="text-sm text-gray-600 font-semibold">
-                  {quest.progress}/{quest.goal} completed
-                </p>
+                <button
+                  className={`reward-button ${quest.progress >= quest.goal ? 'completed' : 'incomplete'}`}
+                  onClick={() => quest.progress >= quest.goal && console.log('Claim reward:', quest.reward)}
+                  disabled={quest.progress < quest.goal}
+                >
+                  <span className="reward-amount">+{quest.reward}</span>
+                  <span className="reward-icon">🪙</span>
+                </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Enhanced Achievements */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 border border-white/20">
-          <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <span>🏆</span>
-            <span>Achievements</span>
-          </h3>
-          <div className="grid grid-cols-3 gap-4">
+        {/* Achievements */}
+        <div className="achievements-section">
+          <div className="section-header">
+            <h3 className="section-title">
+              <span className="section-icon">🏆</span>
+              Achievements
+            </h3>
+            <span className="achievements-count">
+              {achievements.filter(a => a.unlocked).length}/{achievements.length}
+            </span>
+          </div>
+          
+          <div className="achievements-grid">
             {achievements.map((achievement) => (
               <div
                 key={achievement.id}
-                className={`p-5 rounded-2xl text-center border-2 transition-all duration-200 transform hover:scale-105 ${
-                  achievement.unlocked
-                    ? 'bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 border-amber-300 shadow-lg'
-                    : 'bg-gray-100 border-gray-300 opacity-60'
-                }`}
+                className={`achievement-item ${achievement.unlocked ? 'unlocked' : 'locked'}`}
+                title={achievement.unlocked ? achievement.title : 'Locked'}
               >
-                <div className="text-4xl mb-3">{achievement.icon}</div>
-                <p className="font-bold text-xs">
+                <div className="achievement-icon">{achievement.icon}</div>
+                <div className="achievement-title">
                   {achievement.unlocked ? achievement.title : '???'}
-                </p>
+                </div>
+                <div className="achievement-status">
+                  {achievement.unlocked ? '✓' : '🔒'}
+                </div>
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="action-buttons">
+          <button 
+            className="action-button duel-button"
+            onClick={() => navigate('/queue')}
+          >
+            <span className="action-icon">⚔️</span>
+            <span className="action-text">Start Duel</span>
+          </button>
+          
+          <button 
+            className="action-button leaderboard-button"
+            onClick={() => navigate('/leaderboard')}
+          >
+            <span className="action-icon">🏆</span>
+            <span className="action-text">View Leaderboard</span>
+          </button>
+          
+          <button 
+            className="action-button settings-button"
+            onClick={() => navigate('/settings')}
+          >
+            <span className="action-icon">⚙️</span>
+            <span className="action-text">Settings</span>
+          </button>
         </div>
       </div>
     </div>

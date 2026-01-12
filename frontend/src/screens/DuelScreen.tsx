@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { socketService } from '../utils/socket';
 import { TELEGRAM, GAME } from '../utils/constants';
+import './DuelScreen.css';
 
 const DuelScreen = () => {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ const DuelScreen = () => {
     message: string;
     reward?: number;
   } | null>(null);
+  const [animateTimer, setAnimateTimer] = useState(false);
 
   // Opponent data from navigation or socket
   const opponent = location.state?.opponent || {
@@ -29,7 +31,21 @@ const DuelScreen = () => {
     wins: 12,
     losses: 8,
     online: true,
+    winRate: Math.round((12 / (12 + 8)) * 100)
   };
+
+  useEffect(() => {
+    // Timer animation for last 5 seconds
+    if (timer <= 5 && timer > 0) {
+      setAnimateTimer(true);
+      const pulse = setInterval(() => {
+        setAnimateTimer(prev => !prev);
+      }, 500);
+      return () => clearInterval(pulse);
+    } else {
+      setAnimateTimer(false);
+    }
+  }, [timer]);
 
   useEffect(() => {
     // Timer countdown
@@ -155,65 +171,71 @@ const DuelScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-telegram-brand/10 via-white to-purple-50/50 p-4">
+    <div className="duel-screen">
       {/* Header */}
-      <div className="flex flex-col items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Duel ⚔️</h1>
-        <div className="flex flex-col items-center">
-          <div className={`w-20 h-20 rounded-full border-4 ${timer <= 5 ? 'border-red-500' : 'border-blue-500'} flex items-center justify-center mb-1`}>
-            <span className="text-2xl font-bold">{timer > 9 ? timer : `0${timer}`}</span>
+      <div className="duel-header">
+        <h1 className="duel-title">
+          <span className="title-icon">⚔️</span>
+          Duel
+        </h1>
+        <div className="timer-section">
+          <div className={`timer-circle ${animateTimer ? 'pulse' : ''} ${timer <= 5 ? 'warning' : ''}`}>
+            <span className="timer-number">{timer > 9 ? timer : `0${timer}`}</span>
           </div>
-          <p className="text-sm text-gray-600">seconds left</p>
+          <p className="timer-label">seconds left</p>
         </div>
       </div>
 
       {/* Opponent Profile */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">
-        <div className="flex items-center justify-center mb-4">
-          <div className="relative">
-            <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-3xl">
-              {opponent.avatar}
-            </div>
-            {opponent.online && (
-              <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-            )}
-          </div>
+      <div className="opponent-card">
+        <div className="opponent-avatar-container">
+          <div className="opponent-avatar">{opponent.avatar}</div>
+          {opponent.online && <div className="online-badge"></div>}
         </div>
         
-        <div className="text-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">{opponent.name}</h2>
-          <div className="inline-block px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-sm font-semibold rounded-full mt-1">
+        <div className="opponent-info">
+          <h2 className="opponent-name">{opponent.name}</h2>
+          <div className="level-badge">
+            <span className="level-icon">⭐</span>
             Level {opponent.level}
           </div>
         </div>
         
-        <div className="flex justify-around mb-4">
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Rating</div>
-            <div className="text-xl font-bold text-yellow-600">
-              {opponent.rating}
-            </div>
+        <div className="opponent-stats">
+          <div className="stat-item">
+            <div className="stat-label">Rating</div>
+            <div className="stat-value rating-value">{opponent.rating}</div>
           </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Win Rate</div>
-            <div className="text-xl font-bold text-green-600">
-              {Math.round((opponent.wins / (opponent.wins + opponent.losses)) * 100)}%
-            </div>
+          <div className="stat-divider"></div>
+          <div className="stat-item">
+            <div className="stat-label">Win Rate</div>
+            <div className="stat-value winrate-value">{opponent.winRate}%</div>
           </div>
         </div>
         
         {/* Opponent's Choice Display */}
         {opponentChoice && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-xl text-center">
-            <p className="text-gray-600 mb-2">Opponent chose:</p>
-            <div className={`inline-block px-4 py-2 rounded-lg font-semibold ${
-              opponentChoice === 'like' ? 'bg-blue-100 text-blue-700' :
-              opponentChoice === 'super_like' ? 'bg-pink-100 text-pink-700' :
-              'bg-gray-100 text-gray-700'
-            }`}>
-              {opponentChoice === 'like' && '👍 Like'}
-              {opponentChoice === 'super_like' && '💖 Super Like'}
-              {opponentChoice === 'skip' && '➡️ Skip'}
+          <div className="opponent-choice-display">
+            <p className="choice-label">Opponent chose:</p>
+            <div className={`choice-badge ${opponentChoice}`}>
+              {opponentChoice === 'like' && (
+                <>
+                  <span className="choice-icon">👍</span>
+                  <span className="choice-text">Like</span>
+                </>
+              )}
+              {opponentChoice === 'super_like' && (
+                <>
+                  <span className="choice-icon">💖</span>
+                  <span className="choice-text">Super Like</span>
+                </>
+              )}
+              {opponentChoice === 'skip' && (
+                <>
+                  <span className="choice-icon">➡️</span>
+                  <span className="choice-text">Skip</span>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -221,40 +243,40 @@ const DuelScreen = () => {
 
       {/* Voting Section */}
       {!selectedChoice && timer > 0 && (
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">
-          <h3 className="text-xl font-bold text-gray-800 mb-6 text-center">Choose your reaction:</h3>
+        <div className="voting-section">
+          <h3 className="voting-title">Choose your reaction:</h3>
           
-          <div className="space-y-4">
+          <div className="vote-options">
             <button
-              className="w-full flex items-center p-4 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="vote-option like-option"
               onClick={() => handleVote('like')}
             >
-              <div className="text-3xl mr-4">👍</div>
-              <div className="text-left flex-1">
-                <div className="font-bold text-blue-700">Like</div>
-                <div className="text-sm text-blue-600">+50 coins if match</div>
+              <div className="option-icon like-icon">👍</div>
+              <div className="option-content">
+                <div className="option-title">Like</div>
+                <div className="option-subtitle">+50 coins if match</div>
               </div>
             </button>
             
             <button
-              className="w-full flex items-center p-4 bg-pink-50 hover:bg-pink-100 border-2 border-pink-200 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="vote-option super-like-option"
               onClick={() => handleVote('super_like')}
             >
-              <div className="text-3xl mr-4">💖</div>
-              <div className="text-left flex-1">
-                <div className="font-bold text-pink-700">Super Like</div>
-                <div className="text-sm text-pink-600">+100 coins if mutual</div>
+              <div className="option-icon super-like-icon">💖</div>
+              <div className="option-content">
+                <div className="option-title">Super Like</div>
+                <div className="option-subtitle">+100 coins if mutual</div>
               </div>
             </button>
             
             <button
-              className="w-full flex items-center p-4 bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="vote-option skip-option"
               onClick={() => handleVote('skip')}
             >
-              <div className="text-3xl mr-4">➡️</div>
-              <div className="text-left flex-1">
-                <div className="font-bold text-gray-700">Skip</div>
-                <div className="text-sm text-gray-600">No match</div>
+              <div className="option-icon skip-icon">➡️</div>
+              <div className="option-content">
+                <div className="option-title">Skip</div>
+                <div className="option-subtitle">No match</div>
               </div>
             </button>
           </div>
@@ -263,53 +285,78 @@ const DuelScreen = () => {
 
       {/* Selected Choice Display */}
       {selectedChoice && !showResult && (
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-6 border border-gray-200 text-center">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Your Choice:</h3>
-          <div className={`inline-block px-6 py-3 rounded-xl text-lg font-bold mb-4 ${
-            selectedChoice === 'like' ? 'bg-blue-100 text-blue-700' :
-            selectedChoice === 'super_like' ? 'bg-pink-100 text-pink-700' :
-            'bg-gray-100 text-gray-700'
-          }`}>
-            {selectedChoice === 'like' && '👍 Like'}
-            {selectedChoice === 'super_like' && '💖 Super Like'}
-            {selectedChoice === 'skip' && '➡️ Skip'}
+        <div className="selected-choice-display">
+          <div className="selected-choice-content">
+            <h3 className="choice-heading">Your Choice:</h3>
+            <div className={`selected-choice-badge ${selectedChoice}`}>
+              {selectedChoice === 'like' && (
+                <>
+                  <span className="choice-icon">👍</span>
+                  <span className="choice-text">Like</span>
+                </>
+              )}
+              {selectedChoice === 'super_like' && (
+                <>
+                  <span className="choice-icon">💖</span>
+                  <span className="choice-text">Super Like</span>
+                </>
+              )}
+              {selectedChoice === 'skip' && (
+                <>
+                  <span className="choice-icon">➡️</span>
+                  <span className="choice-text">Skip</span>
+                </>
+              )}
+            </div>
+            <p className="waiting-text">
+              {opponentChoice ? 'Calculating result...' : 'Waiting for opponent...'}
+            </p>
+            <div className="loading-dots">
+              <span className="dot"></span>
+              <span className="dot"></span>
+              <span className="dot"></span>
+            </div>
           </div>
-          <p className="text-gray-600 animate-pulse">
-            {opponentChoice ? 'Calculating result...' : 'Waiting for opponent...'}
-          </p>
         </div>
       )}
 
       {/* Result Display */}
       {showResult && matchResult && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full border border-gray-200">
-            <h2 className="text-3xl font-bold text-center mb-4">
-              {matchResult.type === 'match' ? '🎉 Match!' : 
-               matchResult.type === 'timeout' ? '⏰ Time\'s Up!' : '😔 No Match'}
-            </h2>
+        <div className="result-overlay">
+          <div className="result-modal">
+            <div className="result-header">
+              <div className={`result-icon ${matchResult.type}`}>
+                {matchResult.type === 'match' ? '🎉' : 
+                 matchResult.type === 'timeout' ? '⏰' : '😔'}
+              </div>
+              <h2 className="result-title">
+                {matchResult.type === 'match' ? 'Match!' : 
+                 matchResult.type === 'timeout' ? 'Time\'s Up!' : 'No Match'}
+              </h2>
+            </div>
             
-            <p className="text-gray-700 text-center mb-6">{matchResult.message}</p>
+            <p className="result-message">{matchResult.message}</p>
             
             {matchResult.reward && matchResult.reward > 0 && (
-              <div className="flex items-center justify-center mb-6">
-                <div className="text-4xl mr-2">🪙</div>
-                <div className="text-3xl font-bold text-yellow-600">+{matchResult.reward}</div>
+              <div className="reward-display">
+                <div className="reward-icon">🪙</div>
+                <div className="reward-amount">+{matchResult.reward}</div>
               </div>
             )}
             
-            <div className="space-y-3">
+            <div className="result-actions">
               <button 
-                className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:opacity-90 transition"
+                className="result-button continue-button"
                 onClick={handleContinue}
               >
                 Continue
               </button>
               <button 
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-xl hover:opacity-90 transition"
+                className="result-button rematch-button"
                 onClick={handleRematch}
               >
-                Rematch ⚔️
+                <span className="rematch-icon">⚔️</span>
+                Rematch
               </button>
             </div>
           </div>
@@ -317,20 +364,22 @@ const DuelScreen = () => {
       )}
 
       {/* Bottom Navigation */}
-      <div className="flex flex-col space-y-3">
+      <div className="bottom-actions">
         <button 
-          className="w-full py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition"
+          className="action-button back-button"
           onClick={() => navigate('/')}
         >
-          ← Back to Home
+          <span className="back-icon">←</span>
+          Back to Home
         </button>
         
         {showResult && (
           <button 
-            className="w-full py-3 bg-gradient-to-r from-blue-500 to-telegram-brand text-white font-bold rounded-xl hover:opacity-90 transition"
+            className="action-button chat-button"
             onClick={() => navigate(`/chat/${opponent.name}`)}
           >
-            💬 Chat with {opponent.name}
+            <span className="chat-icon">💬</span>
+            Chat with {opponent.name}
           </button>
         )}
       </div>

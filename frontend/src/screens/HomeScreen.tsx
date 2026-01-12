@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socketService } from '../utils/socket';
+import './HomeScreen.css';
 
 interface User {
   id: string;
@@ -95,26 +96,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-telegram-brand/10 via-white to-purple-50/50">
+    <div className="home-screen">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-2xl text-white mr-3">
-              ⚡
+      <div className="home-header">
+        <div className="header-content">
+          <div className="app-info">
+            <div className="app-icon">
+              <span className="app-icon-emoji">⚡</span>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-800">Like Duel</h1>
-              <p className="text-sm text-gray-600">{onlineCount} players online</p>
+            <div className="app-title-section">
+              <h1 className="app-title">Like Duel</h1>
+              <p className="online-count">{onlineCount} players online</p>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center bg-yellow-50 px-3 py-2 rounded-lg">
-              <span className="text-xl mr-2">🪙</span>
-              <span className="font-bold text-yellow-600">{stats.coins}</span>
+          <div className="user-section">
+            <div className="coins-badge">
+              <span className="coin-icon">🪙</span>
+              <span className="coin-amount">{stats.coins}</span>
             </div>
             <div 
-              className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold cursor-pointer"
+              className="user-avatar"
               onClick={() => navigate('/profile')}
             >
               {user.name.charAt(0)}
@@ -124,109 +125,104 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
       </div>
 
       {/* Main Content */}
-      <div className="p-4 space-y-6">
+      <div className="home-content">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-5 border border-blue-100">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">Welcome back, {user.name}! 👋</h2>
-              <p className="text-gray-600 mt-1">
-                Rating: <span className="font-bold text-yellow-600">{stats.rating}</span>
-              </p>
-            </div>
-            <div className="flex items-center bg-orange-50 px-3 py-2 rounded-lg">
-              <span className="text-xl mr-2">🔥</span>
-              <span className="font-bold text-orange-600">Day {stats.streakDays}</span>
-            </div>
+        <div className="welcome-card">
+          <div className="welcome-content">
+            <h2 className="welcome-title">Welcome back, {user.name}! 👋</h2>
+            <p className="welcome-rating">
+              Rating: <span className="rating-value">{stats.rating}</span>
+            </p>
+          </div>
+          <div className="streak-badge">
+            <span className="streak-icon">🔥</span>
+            <span className="streak-text">Day {stats.streakDays}</span>
           </div>
         </div>
 
         {/* Quick Duel Button */}
         <button 
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 rounded-xl text-lg font-bold hover:opacity-90 transition shadow-lg flex items-center justify-center"
+          className="quick-duel-button"
           onClick={handleQuickDuel}
         >
-          <span className="text-2xl mr-3">🎮</span>
-          Start Quick Duel
+          <span className="button-icon">🎮</span>
+          <span className="button-text">Start Quick Duel</span>
         </button>
 
         {/* Quick Actions Grid */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="quick-actions-grid">
           {quickActions.map(action => (
             <button
               key={action.id}
-              className="bg-white p-4 rounded-xl border border-gray-200 hover:border-blue-300 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="quick-action-button"
               onClick={() => navigate(action.path)}
-              style={{ borderLeftColor: action.color, borderLeftWidth: '4px' }}
+              style={{ '--action-color': action.color } as React.CSSProperties}
             >
-              <div className="flex items-center">
-                <span className="text-2xl mr-3">{action.icon}</span>
-                <span className="font-semibold text-gray-800">{action.label}</span>
-              </div>
+              <span className="action-icon">{action.icon}</span>
+              <span className="action-label">{action.label}</span>
             </button>
           ))}
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <div className="flex items-center mb-2">
-              <span className="text-2xl mr-2">🏆</span>
-              <span className="text-sm text-gray-600">Rank</span>
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-header">
+              <span className="stat-icon">🏆</span>
+              <span className="stat-title">Rank</span>
             </div>
-            <div className="text-2xl font-bold text-gray-800">#{stats.rank}</div>
+            <div className="stat-value">#{stats.rank}</div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <div className="flex items-center mb-2">
-              <span className="text-2xl mr-2">📈</span>
-              <span className="text-sm text-gray-600">Level</span>
+          <div className="stat-card">
+            <div className="stat-header">
+              <span className="stat-icon">📈</span>
+              <span className="stat-title">Level</span>
             </div>
-            <div className="text-2xl font-bold text-gray-800">{stats.level}</div>
+            <div className="stat-value">{stats.level}</div>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <div className="flex items-center mb-2">
-              <span className="text-2xl mr-2">💖</span>
-              <span className="text-sm text-gray-600">Super Likes</span>
+          <div className="stat-card">
+            <div className="stat-header">
+              <span className="stat-icon">💖</span>
+              <span className="stat-title">Super Likes</span>
             </div>
-            <div className="text-2xl font-bold text-pink-600">{stats.dailySuperLikes}</div>
+            <div className="stat-value super-likes">{stats.dailySuperLikes}</div>
           </div>
         </div>
 
         {/* Daily Quests */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold text-gray-800 flex items-center">
-              <span className="text-2xl mr-2">🎯</span>
-              Daily Quests
-            </h3>
-            <span className="text-sm text-gray-500">Reset in 4h</span>
+        <div className="section-card">
+          <div className="section-header">
+            <div className="section-title">
+              <span className="title-icon">🎯</span>
+              <h3>Daily Quests</h3>
+            </div>
+            <span className="section-subtitle">Reset in 4h</span>
           </div>
           
-          <div className="space-y-4">
+          <div className="quests-list">
             {dailyQuests.map(quest => (
-              <div key={quest.id} className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-800 mb-2">{quest.title}</h4>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(quest.progress / quest.total) * 100}%` }}
-                    />
+              <div key={quest.id} className="quest-item">
+                <div className="quest-info">
+                  <h4 className="quest-title">{quest.title}</h4>
+                  <div className="progress-container">
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill"
+                        style={{ width: `${(quest.progress / quest.total) * 100}%` }}
+                      />
+                    </div>
+                    <span className="progress-text">
+                      {quest.progress}/{quest.total}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-600">
-                    {quest.progress}/{quest.total}
-                  </span>
                 </div>
                 <button
-                  className={`ml-4 px-4 py-2 rounded-lg font-semibold ${
-                    quest.progress >= quest.total 
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' 
-                      : 'bg-gray-100 text-gray-400'
-                  }`}
+                  className={`reward-button ${quest.progress >= quest.total ? 'completed' : 'incomplete'}`}
                   onClick={() => handleCompleteQuest(quest.id)}
                   disabled={quest.progress < quest.total}
                 >
-                  +{quest.reward}🪙
+                  <span className="reward-amount">+{quest.reward}</span>
+                  <span className="reward-icon">🪙</span>
                 </button>
               </div>
             ))}
@@ -234,46 +230,47 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
         </div>
 
         {/* Live Matches */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold text-gray-800 flex items-center">
-              <span className="text-2xl mr-2">🔥</span>
-              Live Matches
-            </h3>
+        <div className="section-card">
+          <div className="section-header">
+            <div className="section-title">
+              <span className="title-icon">🔥</span>
+              <h3>Live Matches</h3>
+            </div>
             <button 
-              className="text-blue-500 font-semibold text-sm"
+              className="view-all-button"
               onClick={() => navigate('/leaderboard')}
             >
               View All
             </button>
           </div>
           
-          <div className="space-y-3">
+          <div className="matches-list">
             {liveMatches.map(match => (
               <div 
                 key={match.id} 
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition cursor-pointer"
+                className="match-item"
                 onClick={() => handleViewMatch(match.id)}
               >
-                <div className="flex items-center">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                <div className="player-info">
+                  <div className="player-avatar player1">
                     {match.player1.charAt(0)}
                   </div>
-                  <span className="font-semibold text-gray-800">{match.player1}</span>
+                  <span className="player-name">{match.player1}</span>
                 </div>
                 
-                <div className="flex flex-col items-center">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold mb-1 ${
-                    match.status === 'dueling' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'
-                  }`}>
-                    {match.status === 'dueling' ? '⚔️ Dueling' : '⏳ Voting'}
+                <div className="match-status">
+                  <span className={`status-badge ${match.status}`}>
+                    {match.status === 'dueling' ? '⚔️' : '⏳'}
+                    <span className="status-text">
+                      {match.status === 'dueling' ? 'Dueling' : 'Voting'}
+                    </span>
                   </span>
-                  <span className="text-xs text-gray-500">VS</span>
+                  <span className="vs-text">VS</span>
                 </div>
                 
-                <div className="flex items-center">
-                  <span className="font-semibold text-gray-800 mr-3">{match.player2}</span>
-                  <div className="w-10 h-10 bg-gradient-to-r from-pink-400 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
+                <div className="player-info">
+                  <span className="player-name">{match.player2}</span>
+                  <div className="player-avatar player2">
                     {match.player2.charAt(0)}
                   </div>
                 </div>

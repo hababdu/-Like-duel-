@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socketService } from '../utils/socket';
+import './QueueScreen.css';
 
 const QueueScreen = () => {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ const QueueScreen = () => {
     averageWait: 12,
     matchesToday: 1542,
   });
+  const [searchingAnimation, setSearchingAnimation] = useState<number>(0);
 
   useEffect(() => {
     // Join queue when component mounts
@@ -23,6 +25,11 @@ const QueueScreen = () => {
     const timeInterval = setInterval(() => {
       setWaitTime(prev => prev + 1);
     }, 1000);
+
+    // Searching animation
+    const animationInterval = setInterval(() => {
+      setSearchingAnimation(prev => (prev + 1) % 4);
+    }, 300);
 
     // Socket listeners
     const socket = socketService.getSocket();
@@ -48,6 +55,7 @@ const QueueScreen = () => {
     // Cleanup on unmount
     return () => {
       clearInterval(timeInterval);
+      clearInterval(animationInterval);
       socketService.getSocket()?.emit('leave_queue');
     };
   }, [navigate]);
@@ -63,116 +71,196 @@ const QueueScreen = () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  const searchingTexts = [
+    'Searching for opponent...',
+    'Checking nearby players...',
+    'Analyzing skill level...',
+    'Finding perfect match...'
+  ];
+
+  const getQueueStatus = () => {
+    if (position === 1) return 'You\'re next!';
+    if (position <= 3) return `Moving up! ${position-1} player${position > 2 ? 's' : ''} ahead`;
+    if (position <= 10) return `Position ${position} in queue`;
+    return `In queue... Position ${position}`;
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-telegram-brand/10 via-white to-purple-50/50 p-4">
+    <div className="queue-screen">
       {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Finding Opponent ⏳</h1>
-        <p className="text-gray-600">Please wait while we match you...</p>
-      </div>
-
-      {/* Animation */}
-      <div className="relative flex items-center justify-center mb-10">
-        <div className="absolute w-48 h-48 border-4 border-blue-300 rounded-full animate-pulse-ring"></div>
-        <div className="absolute w-48 h-48 border-4 border-blue-300 rounded-full animate-pulse-ring animation-delay-1000"></div>
-        <div className="absolute w-48 h-48 border-4 border-blue-300 rounded-full animate-pulse-ring animation-delay-2000"></div>
-        <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-3xl">
-          🔍
-        </div>
-      </div>
-
-      {/* Queue Info */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">
-        <div className="text-center mb-6">
-          <div className="text-5xl font-bold text-blue-600 mb-2">#{position}</div>
-          <div className="text-gray-600">Position in queue</div>
-        </div>
-        
-        <div className="flex justify-between">
-          <div className="text-center">
-            <div className="text-sm text-gray-600 mb-1">Wait Time</div>
-            <div className="text-2xl font-bold text-gray-800">{formatTime(waitTime)}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600 mb-1">Estimated</div>
-            <div className="text-2xl font-bold text-gray-800">{estimatedTime}s</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-2xl mb-2">👥</div>
-          <div className="text-lg font-bold text-gray-800">{playersOnline}+</div>
-          <div className="text-xs text-gray-600">Players Online</div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-2xl mb-2">⚡</div>
-          <div className="text-lg font-bold text-gray-800">{queueStats.averageWait}s</div>
-          <div className="text-xs text-gray-600">Avg Wait Time</div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-2xl mb-2">🏆</div>
-          <div className="text-lg font-bold text-gray-800">{queueStats.matchesToday}</div>
-          <div className="text-xs text-gray-600">Matches Today</div>
-        </div>
-      </div>
-
-      {/* Queue Tips */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-5 mb-6 border border-blue-100">
-        <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
-          <span className="text-2xl mr-2">💡</span>
-          Quick Tips
-        </h3>
-        <ul className="space-y-2 text-gray-700">
-          <li className="flex items-center">
-            <span className="mr-2">•</span>
-            Match usually found in 10-30 seconds
-          </li>
-          <li className="flex items-center">
-            <span className="mr-2">•</span>
-            Higher rating = slightly longer waits
-          </li>
-          <li className="flex items-center">
-            <span className="mr-2">•</span>
-            Peak hours: 6PM - 11PM
-          </li>
-          <li className="flex items-center">
-            <span className="mr-2">•</span>
-            Stay online for faster matches
-          </li>
-        </ul>
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-col space-y-3">
+      <div className="queue-header">
         <button 
-          className="w-full py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition"
-          onClick={handleLeaveQueue}
+          className="back-button"
+          onClick={() => navigate('/')}
         >
-          ← Leave Queue
+          <span className="back-icon">←</span>
+          <span className="back-text">Back</span>
         </button>
-        
-        <button 
-          className="w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold rounded-xl hover:opacity-90 transition"
-          onClick={() => navigate('/practice')}
-        >
-          🎯 Practice Mode
-        </button>
+        <h1 className="queue-title">
+          <span className="title-icon">⚔️</span>
+          Find Match
+        </h1>
+        <div className="header-right"></div>
       </div>
 
-      {/* Live Queue Updates */}
-      <div className="mt-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
-        <div className="flex items-center">
-          <span className="text-2xl mr-3">🔔</span>
-          <span className="text-gray-700">
-            {position > 1 
-              ? `Moving up! ${position-1} players ahead of you` 
-              : 'You\'re next!'}
-          </span>
+      {/* Main Content */}
+      <div className="queue-content">
+        {/* Searching Animation */}
+        <div className="searching-section">
+          <div className="searching-animation">
+            <div className="pulse-ring ring-1"></div>
+            <div className="pulse-ring ring-2"></div>
+            <div className="pulse-ring ring-3"></div>
+            <div className="search-icon">
+              <span className="search-emoji">🔍</span>
+            </div>
+          </div>
+          <h2 className="searching-title">Finding Opponent</h2>
+          <p className="searching-subtitle">
+            <span className="searching-text">{searchingTexts[searchingAnimation]}</span>
+            <span className="searching-dots">...</span>
+          </p>
+        </div>
+
+        {/* Queue Position Card */}
+        <div className="position-card">
+          <div className="position-number">#{position}</div>
+          <div className="position-label">Position in Queue</div>
+          <div className="position-status">{getQueueStatus()}</div>
+        </div>
+
+        {/* Time Stats */}
+        <div className="time-stats">
+          <div className="time-stat">
+            <div className="time-icon">⏱️</div>
+            <div className="time-content">
+              <div className="time-value">{formatTime(waitTime)}</div>
+              <div className="time-label">Wait Time</div>
+            </div>
+          </div>
+          <div className="time-divider"></div>
+          <div className="time-stat">
+            <div className="time-icon">🎯</div>
+            <div className="time-content">
+              <div className="time-value">{estimatedTime}s</div>
+              <div className="time-label">Estimated</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Queue Stats Grid */}
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-icon">👥</div>
+            <div className="stat-content">
+              <div className="stat-value">{playersOnline}+</div>
+              <div className="stat-label">Online Players</div>
+            </div>
+            <div className="stat-trend up">↑</div>
+          </div>
+          
+          <div className="stat-card">
+            <div className="stat-icon">⚡</div>
+            <div className="stat-content">
+              <div className="stat-value">{queueStats.averageWait}s</div>
+              <div className="stat-label">Avg Wait Time</div>
+            </div>
+            <div className="stat-trend down">↓</div>
+          </div>
+          
+          <div className="stat-card">
+            <div className="stat-icon">🏆</div>
+            <div className="stat-content">
+              <div className="stat-value">{queueStats.matchesToday}</div>
+              <div className="stat-label">Matches Today</div>
+            </div>
+            <div className="stat-trend up">↑</div>
+          </div>
+        </div>
+
+        {/* Tips Card */}
+        <div className="tips-card">
+          <div className="tips-header">
+            <span className="tips-icon">💡</span>
+            <h3 className="tips-title">Quick Tips</h3>
+          </div>
+          <ul className="tips-list">
+            <li className="tip-item">
+              <span className="tip-bullet">✓</span>
+              <span className="tip-text">Match usually found in 10-30 seconds</span>
+            </li>
+            <li className="tip-item">
+              <span className="tip-bullet">✓</span>
+              <span className="tip-text">Higher rating = slightly longer waits</span>
+            </li>
+            <li className="tip-item">
+              <span className="tip-bullet">✓</span>
+              <span className="tip-text">Peak hours: 6PM - 11PM</span>
+            </li>
+            <li className="tip-item">
+              <span className="tip-bullet">✓</span>
+              <span className="tip-text">Stay online for faster matches</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Live Queue Updates */}
+        <div className="live-updates">
+          <div className="update-header">
+            <span className="update-icon">📡</span>
+            <span className="update-title">Live Updates</span>
+          </div>
+          <div className="update-message">
+            <span className="message-icon">🎯</span>
+            <span className="message-text">
+              {position > 1 
+                ? `Found ${Math.floor(Math.random() * 3) + 1} possible opponents`
+                : 'Perfect match found!'}
+            </span>
+          </div>
+          <div className="progress-bar">
+            <div 
+              className="progress-fill"
+              style={{ width: `${Math.min(100, (position / 10) * 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="action-buttons">
+          <button 
+            className="action-button leave-button"
+            onClick={handleLeaveQueue}
+          >
+            <span className="button-icon">←</span>
+            <span className="button-text">Leave Queue</span>
+          </button>
+          
+          <button 
+            className="action-button practice-button"
+            onClick={() => navigate('/practice')}
+          >
+            <span className="button-icon">🎯</span>
+            <span className="button-text">Practice Mode</span>
+          </button>
+        </div>
+
+        {/* Queue Stats Summary */}
+        <div className="queue-summary">
+          <div className="summary-item">
+            <span className="summary-icon">📊</span>
+            <span className="summary-text">
+              <span className="summary-value">{Math.floor(playersOnline / 2)}</span>
+              <span className="summary-label"> active duels</span>
+            </span>
+          </div>
+          <div className="summary-item">
+            <span className="summary-icon">⚡</span>
+            <span className="summary-text">
+              <span className="summary-value">96%</span>
+              <span className="summary-label"> match rate</span>
+            </span>
+          </div>
         </div>
       </div>
     </div>

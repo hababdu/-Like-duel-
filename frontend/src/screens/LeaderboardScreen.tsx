@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TELEGRAM } from '../utils/constants';
 import { socketService } from '../utils/socket';
-import { blob } from 'stream/consumers';
+import './LeaderboardScreen.css';
 
 const LeaderboardScreen = () => {
   const navigate = useNavigate();
@@ -42,182 +41,228 @@ const LeaderboardScreen = () => {
   };
 
   return (
-    <div className="telegram-screen">
+    <div className="leaderboard-screen">
       {/* Header */}
-      <div className="telegram-header">
+      <div className="leaderboard-header">
         <button 
           className="back-button"
           onClick={() => navigate('/')}
         >
-          ←
+          <span className="back-icon">←</span>
+          <span className="back-text">Back</span>
         </button>
-        <h1 className="screen-title">Leaderboard</h1>
-        <div className="header-placeholder"></div>
+        <h1 className="leaderboard-title">
+          <span className="title-icon">🏆</span>
+          Leaderboard
+        </h1>
+        <div className="header-right"></div>
       </div>
 
       {/* Time Filter Tabs */}
-      <div className="time-filter-tabs">
-        {(['daily', 'weekly', 'all'] as const).map(filter => (
-          <button
-            key={filter}
-            className={`time-filter-button ${timeFilter === filter ? 'active' : ''}`}
-            onClick={() => setTimeFilter(filter)}
-            style={{ 
-              background: timeFilter === filter ? TELEGRAM.BRAND_BLUE : 'transparent',
-              color: timeFilter === filter ? '#fff' : TELEGRAM.TEXT_SECONDARY
-            }}
-          >
-            {filter.charAt(0).toUpperCase() + filter.slice(1)}
-          </button>
-        ))}
+      <div className="time-filter-container">
+        <div className="time-filter-tabs">
+          {(['daily', 'weekly', 'all'] as const).map(filter => (
+            <button
+              key={filter}
+              className={`time-filter-button ${timeFilter === filter ? 'active' : ''}`}
+              onClick={() => setTimeFilter(filter)}
+            >
+              {filter.charAt(0).toUpperCase() + filter.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Main Tabs */}
-      <div className="main-tabs">
-        <div className="tab-buttons">
+      <div className="main-tabs-container">
+        <div className="main-tabs">
           <button
-            className={`tab-button ${activeTab === 'global' ? 'active' : ''}`}
+            className={`main-tab-button ${activeTab === 'global' ? 'active' : ''}`}
             onClick={() => setActiveTab('global')}
           >
             <span className="tab-icon">🌍</span>
             <span className="tab-label">Global</span>
+            {activeTab === 'global' && <span className="active-indicator"></span>}
           </button>
           <button
-            className={`tab-button ${activeTab === 'friends' ? 'active' : ''}`}
+            className={`main-tab-button ${activeTab === 'friends' ? 'active' : ''}`}
             onClick={() => setActiveTab('friends')}
           >
             <span className="tab-icon">👥</span>
             <span className="tab-label">Friends</span>
+            {activeTab === 'friends' && <span className="active-indicator"></span>}
           </button>
         </div>
       </div>
 
-      <div className="telegram-content">
+      <div className="leaderboard-content">
         {activeTab === 'global' ? (
           <>
             {/* Top 3 Podium */}
-            <div className="podium-container">
-              {globalPlayers.slice(0, 3).map(player => (
-                <div 
-                  key={player.rank} 
-                  className={`podium-card ${player.rank === 1 ? 'first' : player.rank === 2 ? 'second' : 'third'}`}
-                >
-                  <div className="podium-rank">
-                    {player.rank === 1 && '🥇'}
-                    {player.rank === 2 && '🥈'}
-                    {player.rank === 3 && '🥉'}
-                  </div>
+            <div className="podium-section">
+              <h2 className="podium-title">Top Players</h2>
+              <div className="podium-container">
+                {/* 2nd Place */}
+                <div className="podium-card second-place">
+                  <div className="podium-medal">🥈</div>
                   <div className="podium-avatar">
-                    {player.name.charAt(0)}
+                    {globalPlayers[1].name.charAt(0)}
                   </div>
-                  <h3 className="podium-name">{player.name}</h3>
+                  <h3 className="podium-name">{globalPlayers[1].name}</h3>
                   <div className="podium-rating">
-                    <span className="rating-value">{player.rating}</span>
+                    <span className="rating-value">{globalPlayers[1].rating}</span>
                     <span className="rating-icon">⭐</span>
                   </div>
-                  <div className="podium-level">Level {player.level}</div>
-                  {player.online && <div className="online-dot"></div>}
+                  <div className="podium-level">Level {globalPlayers[1].level}</div>
+                  {globalPlayers[1].online && <div className="online-dot"></div>}
                 </div>
-              ))}
+
+                {/* 1st Place */}
+                <div className="podium-card first-place">
+                  <div className="podium-medal">🥇</div>
+                  <div className="podium-avatar">
+                    {globalPlayers[0].name.charAt(0)}
+                  </div>
+                  <h3 className="podium-name">{globalPlayers[0].name}</h3>
+                  <div className="podium-rating">
+                    <span className="rating-value">{globalPlayers[0].rating}</span>
+                    <span className="rating-icon">⭐</span>
+                  </div>
+                  <div className="podium-level">Level {globalPlayers[0].level}</div>
+                  {globalPlayers[0].online && <div className="online-dot"></div>}
+                  <div className="crown-icon">👑</div>
+                </div>
+
+                {/* 3rd Place */}
+                <div className="podium-card third-place">
+                  <div className="podium-medal">🥉</div>
+                  <div className="podium-avatar">
+                    {globalPlayers[2].name.charAt(0)}
+                  </div>
+                  <h3 className="podium-name">{globalPlayers[2].name}</h3>
+                  <div className="podium-rating">
+                    <span className="rating-value">{globalPlayers[2].rating}</span>
+                    <span className="rating-icon">⭐</span>
+                  </div>
+                  <div className="podium-level">Level {globalPlayers[2].level}</div>
+                  {globalPlayers[2].online && <div className="online-dot"></div>}
+                </div>
+              </div>
             </div>
 
             {/* Leaderboard List */}
-            <div className="leaderboard-list">
-              {globalPlayers.slice(3).map(player => (
-                <div 
-                  key={player.rank} 
-                  className={`leaderboard-item ${player.name === 'You' ? 'current-user' : ''}`}
-                  onClick={() => handleViewProfile(player.name)}
-                >
-                  <div className="item-rank">{player.rank}</div>
-                  
-                  <div className="item-user">
-                    <div 
-                      className="user-avatar"
-                      style={{ 
-                        background: player.name === 'You' 
-                          ? TELEGRAM.GRADIENT_BLUE 
-                          : TELEGRAM.BG_TERTIARY 
-                      }}
-                    >
-                      {player.name.charAt(0)}
+            <div className="leaderboard-list-section">
+              <h2 className="list-title">Global Rankings</h2>
+              <div className="leaderboard-list">
+                {globalPlayers.slice(3).map(player => (
+                  <div 
+                    key={player.rank} 
+                    className={`leaderboard-item ${player.name === 'You' ? 'current-user' : ''}`}
+                    onClick={() => handleViewProfile(player.name)}
+                  >
+                    <div className="item-rank">
+                      <span className="rank-number">{player.rank}</span>
+                      <span className="rank-trend">
+                        {player.rank < 6 ? '↗' : player.rank > 8 ? '↘' : '➡'}
+                      </span>
                     </div>
-                    <div className="user-info">
-                      <div className="user-name">
-                        {player.name}
-                        {player.online && <span className="online-indicator"></span>}
+                    
+                    <div className="item-user">
+                      <div className="user-avatar">
+                        {player.name.charAt(0)}
+                        {player.online && <div className="user-online"></div>}
                       </div>
-                      <div className="user-stats">
-                        Level {player.level} • {player.wins} wins
+                      <div className="user-info">
+                        <div className="user-name">
+                          {player.name}
+                          {player.name === 'You' && <span className="you-badge">You</span>}
+                        </div>
+                        <div className="user-stats">
+                          <span className="user-level">Lvl {player.level}</span>
+                          <span className="user-wins">{player.wins} wins</span>
+                        </div>
                       </div>
+                    </div>
+                    
+                    <div className="item-rating">
+                      <div className="rating-value">{player.rating}</div>
+                      <div className="rating-label">rating</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="friends-section">
+            <h2 className="friends-title">Your Friends</h2>
+            <div className="friends-list">
+              {friends.map(friend => (
+                <div key={friend.id} className="friend-item">
+                  <div className="friend-avatar-container">
+                    <div className="friend-avatar">
+                      {friend.name.charAt(0)}
+                    </div>
+                    <div className={`status-indicator ${friend.online ? 'online' : 'offline'}`}></div>
+                  </div>
+                  
+                  <div className="friend-info">
+                    <div className="friend-name">{friend.name}</div>
+                    <div className="friend-status">
+                      {friend.online ? (
+                        <span className="online-status">
+                          <span className="status-dot"></span>
+                          Online
+                        </span>
+                      ) : (
+                        <span className="offline-status">
+                          Last seen {friend.lastSeen}
+                        </span>
+                      )}
+                    </div>
+                    <div className="friend-rating">
+                      <span className="rating-icon">⭐</span>
+                      <span className="rating-value">{friend.rating}</span>
                     </div>
                   </div>
                   
-                  <div className="item-rating">
-                    <div className="rating-value">{player.rating}</div>
-                    <div className="rating-label">rating</div>
+                  <div className="friend-actions">
+                    <button 
+                      className="chat-button"
+                      onClick={() => navigate(`/chat/${friend.name}`)}
+                      title="Chat"
+                    >
+                      <span className="chat-icon">💬</span>
+                    </button>
+                    <button 
+                      className={`duel-button ${friend.online ? 'enabled' : 'disabled'}`}
+                      onClick={() => friend.online && handleChallengeFriend(friend.name)}
+                      disabled={!friend.online}
+                      title={friend.online ? "Challenge to Duel" : "Offline"}
+                    >
+                      <span className="duel-icon">⚔️</span>
+                      <span className="duel-text">Duel</span>
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
-          </>
-        ) : (
-          <div className="friends-list">
-            {friends.map(friend => (
-              <div key={friend.id} className="friend-item">
-                <div className="friend-avatar-container">
-                  <div 
-                    className="friend-avatar"
-                    style={{ background: TELEGRAM.GRADIENT_BLUE }}
-                  >
-                    {friend.name.charAt(0)}
-                  </div>
-                  <div className={`status-dot ${friend.online ? 'online' : 'offline'}`}></div>
-                </div>
-                
-                <div className="friend-info">
-                  <div className="friend-name">{friend.name}</div>
-                  <div className="friend-status">
-                    {friend.online ? 'Online' : `Last seen ${friend.lastSeen}`}
-                  </div>
-                  <div className="friend-rating">
-                    Rating: <span style={{ color: TELEGRAM.ACCENT_YELLOW }}>{friend.rating}</span>
-                  </div>
-                </div>
-                
-                <div className="friend-actions">
-                  <button 
-                    className="chat-button"
-                    onClick={() => navigate(`/chat/${friend.name}`)}
-                  >
-                    💬
-                  </button>
-                  <button 
-                    className="duel-button"
-                    onClick={() => handleChallengeFriend(friend.name)}
-                    style={{ 
-                      background: friend.online ? TELEGRAM.BRAND_BLUE : TELEGRAM.BG_TERTIARY,
-                      color: friend.online ? '#fff' : TELEGRAM.TEXT_TERTIARY
-                    }}
-                    disabled={!friend.online}
-                  >
-                    ⚔️
-                  </button>
-                </div>
-              </div>
-            ))}
             
             {/* Add Friends Section */}
             <div className="add-friends-card">
               <div className="add-friends-content">
-                <h3>👋 Add Friends</h3>
-                <p>Invite friends to play together!</p>
+                <div className="add-friends-icon">👋</div>
+                <div className="add-friends-text">
+                  <h3>Add Friends</h3>
+                  <p>Invite friends to play together!</p>
+                </div>
               </div>
               <button 
                 className="invite-button"
-                style={{ background: TELEGRAM.BRAND_BLUE  }}
+                onClick={() => alert('Invite feature coming soon!')}
               >
-                Invite Friends
+                <span className="invite-icon">📨</span>
+                <span className="invite-text">Invite</span>
               </button>
             </div>
           </div>
@@ -226,34 +271,38 @@ const LeaderboardScreen = () => {
         {/* Your Stats Card */}
         <div className="your-stats-card">
           <div className="stats-header">
-            <h3>Your Position</h3>
+            <h3 className="stats-title">
+              <span className="stats-icon">📊</span>
+              Your Stats
+            </h3>
+            <div className="stats-update">Updated just now</div>
           </div>
           <div className="stats-content">
             <div className="stat-column">
               <div className="stat-value">#6</div>
               <div className="stat-label">Global Rank</div>
+              <div className="stat-change up">+2</div>
             </div>
             <div className="stat-divider"></div>
             <div className="stat-column">
-              <div className="stat-value" style={{ color: TELEGRAM.ACCENT_YELLOW }}>
-                1520
-              </div>
+              <div className="stat-value">1520</div>
               <div className="stat-label">Rating</div>
+              <div className="stat-change up">+45</div>
             </div>
             <div className="stat-divider"></div>
             <div className="stat-column">
-              <div className="stat-value" style={{ color: TELEGRAM.ACCENT_PINK }}>
-                60%
-              </div>
+              <div className="stat-value">60%</div>
               <div className="stat-label">Win Rate</div>
+              <div className="stat-change down">-5%</div>
             </div>
           </div>
           <button 
             className="play-more-button"
             onClick={() => navigate('/queue')}
-            style={{ background: TELEGRAM.GRADIENT_BLUE }}
           >
-            🎮 Play More to Rank Up!
+            <span className="play-icon">🎮</span>
+            <span className="play-text">Play More to Rank Up!</span>
+            <span className="arrow-icon">→</span>
           </button>
         </div>
       </div>

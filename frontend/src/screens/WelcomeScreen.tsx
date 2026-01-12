@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { initSocket } from '../utils/socket';
+import './WelcomeScreen.css';
 
 interface TelegramUser {
   id: string;
@@ -10,12 +10,14 @@ interface TelegramUser {
   coins: number;
   level: number;
   dailySuperLikes: number;
+  wins?: number;
 }
 
 const WelcomeScreen = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<TelegramUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [animationStep, setAnimationStep] = useState(0);
 
   useEffect(() => {
     const authenticateUser = async () => {
@@ -28,14 +30,24 @@ const WelcomeScreen = () => {
           rating: 1500,
           coins: 100,
           level: 1,
-          dailySuperLikes: 3
+          dailySuperLikes: 3,
+          wins: 0
         });
         setLoading(false);
-      }, 1000);
+      }, 1500);
     };
 
     authenticateUser();
   }, []);
+
+  useEffect(() => {
+    if (!loading && user) {
+      const interval = setInterval(() => {
+        setAnimationStep(prev => (prev + 1) % 4);
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [loading, user]);
 
   const handleStartGame = () => {
     if (user) {
@@ -45,100 +57,231 @@ const WelcomeScreen = () => {
     }
   };
 
+  const handlePracticeMode = () => {
+    navigate('/practice');
+  };
+
+  const animationTexts = [
+    'Find your perfect match!',
+    'Like or Super Like?',
+    'Earn coins with matches!',
+    'Challenge friends!'
+  ];
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-700">Telegram bilan autentifikatsiya qilinmoqda...</p>
+      <div className="welcome-loading">
+        <div className="loading-container">
+          <div className="loading-spinner">
+            <div className="spinner-ring"></div>
+            <div className="spinner-ring delay-1"></div>
+            <div className="spinner-ring delay-2"></div>
+            <div className="spinner-center">⚡</div>
+          </div>
+          <h2 className="loading-title">Connecting to Telegram</h2>
+          <p className="loading-text">Please wait while we authenticate...</p>
+          <div className="loading-dots">
+            <span className="dot"></span>
+            <span className="dot"></span>
+            <span className="dot"></span>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 p-4">
-      <div className="max-w-md mx-auto">
-        <header className="text-center mb-8 pt-8">
-          <h1 className="text-5xl font-bold text-gray-800 mb-3">Like Duel 🎮</h1>
-          <p className="text-gray-600 text-lg">Telegram orqali kirish</p>
-        </header>
+    <div className="welcome-screen">
+      {/* Animated Background */}
+      <div className="welcome-background">
+        <div className="bg-particle particle-1"></div>
+        <div className="bg-particle particle-2"></div>
+        <div className="bg-particle particle-3"></div>
+        <div className="bg-particle particle-4"></div>
+      </div>
+
+      {/* Main Content */}
+      <div className="welcome-content">
+        {/* Header */}
+        <div className="welcome-header">
+          <div className="app-icon">
+            <span className="app-icon-emoji">⚡</span>
+          </div>
+          <div className="app-title-section">
+            <h1 className="app-title">Like Duel</h1>
+            <p className="app-subtitle">The Ultimate Reaction Game</p>
+          </div>
+        </div>
+
+        {/* Animated Tagline */}
+        <div className="tagline-container">
+          <div className="tagline-text">{animationTexts[animationStep]}</div>
+          <div className="tagline-indicator">
+            <div className={`indicator-dot ${animationStep === 0 ? 'active' : ''}`}></div>
+            <div className={`indicator-dot ${animationStep === 1 ? 'active' : ''}`}></div>
+            <div className={`indicator-dot ${animationStep === 2 ? 'active' : ''}`}></div>
+            <div className={`indicator-dot ${animationStep === 3 ? 'active' : ''}`}></div>
+          </div>
+        </div>
 
         {user ? (
-          <div className="bg-white rounded-3xl shadow-2xl p-8 mb-8 border border-gray-100 animate-slide-up">
-            <div className="flex items-center mb-6">
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold mr-5 shadow-lg">
-                {user.firstName.charAt(0)}
+          <>
+            {/* User Profile Card */}
+            <div className="user-card">
+              <div className="user-header">
+                <div className="user-avatar-container">
+                  <div className="user-avatar">
+                    {user.firstName.charAt(0)}
+                  </div>
+                  <div className="user-badge">Lvl {user.level}</div>
+                </div>
+                <div className="user-info">
+                  <h2 className="user-name">{user.firstName}</h2>
+                  {user.username && (
+                    <p className="user-username">@{user.username}</p>
+                  )}
+                  <div className="user-status">
+                    <span className="status-dot"></span>
+                    <span className="status-text">Ready to Duel</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">{user.firstName}</h2>
-                {user.username && (
-                  <p className="text-gray-600 mt-1">@{user.username}</p>
-                )}
-                <div className="inline-block px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-sm font-semibold rounded-full mt-2">
-                  Level {user.level}
+
+              {/* Stats Grid */}
+              <div className="stats-grid">
+                <div className="stat-item">
+                  <div className="stat-icon">⭐</div>
+                  <div className="stat-content">
+                    <div className="stat-value">{user.rating}</div>
+                    <div className="stat-label">Rating</div>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-icon">🪙</div>
+                  <div className="stat-content">
+                    <div className="stat-value">{user.coins}</div>
+                    <div className="stat-label">Coins</div>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-icon">🏆</div>
+                  <div className="stat-content">
+                    <div className="stat-value">{user.wins || 0}</div>
+                    <div className="stat-label">Wins</div>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-icon">💖</div>
+                  <div className="stat-content">
+                    <div className="stat-value">{user.dailySuperLikes}</div>
+                    <div className="stat-label">Super Likes</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="action-buttons">
+                <button 
+                  className="primary-button start-duel-button"
+                  onClick={handleStartGame}
+                >
+                  <span className="button-icon">⚔️</span>
+                  <span className="button-text">Start Quick Duel</span>
+                  <span className="button-arrow">→</span>
+                </button>
+                
+                <button 
+                  className="secondary-button practice-button"
+                  onClick={handlePracticeMode}
+                >
+                  <span className="button-icon">🎯</span>
+                  <span className="button-text">Practice Mode</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="quick-stats">
+              <div className="quick-stat">
+                <span className="quick-stat-icon">👥</span>
+                <span className="quick-stat-value">245+</span>
+                <span className="quick-stat-label">Online Players</span>
+              </div>
+              <div className="quick-stat">
+                <span className="quick-stat-icon">⚡</span>
+                <span className="quick-stat-value">12s</span>
+                <span className="quick-stat-label">Avg. Match Time</span>
+              </div>
+              <div className="quick-stat">
+                <span className="quick-stat-icon">🎮</span>
+                <span className="quick-stat-value">1,542</span>
+                <span className="quick-stat-label">Duels Today</span>
+              </div>
+            </div>
+
+            {/* How to Play */}
+            <div className="how-to-play">
+              <h3 className="how-to-title">
+                <span className="how-to-icon">🎮</span>
+                How to Play
+              </h3>
+              <div className="steps-container">
+                <div className="step">
+                  <div className="step-number">1</div>
+                  <div className="step-content">
+                    <div className="step-title">Find Opponent</div>
+                    <div className="step-description">Quick match with similar skill level</div>
+                  </div>
+                </div>
+                <div className="step">
+                  <div className="step-number">2</div>
+                  <div className="step-content">
+                    <div className="step-title">Choose Reaction</div>
+                    <div className="step-description">Like, Super Like, or Skip</div>
+                  </div>
+                </div>
+                <div className="step">
+                  <div className="step-number">3</div>
+                  <div className="step-content">
+                    <div className="step-title">Earn Rewards</div>
+                    <div className="step-description">Get coins for matches</div>
+                  </div>
                 </div>
               </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-2xl border border-blue-200">
-                <p className="text-sm text-gray-600 mb-1">Rating</p>
-                <div className="flex items-center">
-                  <p className="text-2xl font-bold text-blue-600">{user.rating}</p>
-                  <span className="text-xl ml-2">⭐</span>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-yellow-50 to-amber-100 p-4 rounded-2xl border border-yellow-200">
-                <p className="text-sm text-gray-600 mb-1">Coins</p>
-                <div className="flex items-center">
-                  <p className="text-2xl font-bold text-yellow-600">{user.coins}</p>
-                  <span className="text-xl ml-2">🪙</span>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-green-50 to-emerald-100 p-4 rounded-2xl border border-green-200">
-                <p className="text-sm text-gray-600 mb-1">Wins</p>
-                <div className="flex items-center">
-                  <p className="text-2xl font-bold text-green-600">0</p>
-                  <span className="text-xl ml-2">🏆</span>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-pink-50 to-rose-100 p-4 rounded-2xl border border-pink-200">
-                <p className="text-sm text-gray-600 mb-1">Super Likes</p>
-                <div className="flex items-center">
-                  <p className="text-2xl font-bold text-pink-600">{user.dailySuperLikes}</p>
-                  <span className="text-xl ml-2">💖</span>
-                </div>
-              </div>
-            </div>
-            
-            <button 
-              onClick={handleStartGame}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-5 rounded-2xl text-xl font-bold hover:opacity-90 transition-all duration-200 shadow-2xl hover:shadow-3xl hover:scale-[1.02] active:scale-[0.98]"
-            >
-              🎮 Start Duel
-            </button>
-          </div>
+          </>
         ) : (
-          <div className="bg-white rounded-3xl shadow-2xl p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Authentication Required</h2>
-            <p className="text-gray-600 mb-6">
+          <div className="authentication-card">
+            <div className="auth-icon">🔐</div>
+            <h2 className="auth-title">Authentication Required</h2>
+            <p className="auth-message">
               Please open this app from Telegram to play Like Duel
             </p>
-            <div className="p-5 bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl border border-orange-200">
-              <p className="text-orange-700 font-medium">
-                ⚠️ This game requires Telegram Mini App environment
-              </p>
+            <div className="auth-warning">
+              <span className="warning-icon">⚠️</span>
+              <span className="warning-text">Requires Telegram Mini App</span>
             </div>
+            <button className="auth-button" onClick={() => window.location.reload()}>
+              Try Again
+            </button>
           </div>
         )}
 
-        <div className="text-center text-gray-500 text-sm mt-8">
-          <p className="mb-2">Built with ❤️ for Telegram Mini Apps</p>
-          <div className="flex justify-center space-x-6 mt-4">
-            <span className="text-xs bg-blue-50 px-3 py-1 rounded-full text-blue-600">⚡ Fast</span>
-            <span className="text-xs bg-green-50 px-3 py-1 rounded-full text-green-600">🆓 Free</span>
-            <span className="text-xs bg-purple-50 px-3 py-1 rounded-full text-purple-600">🎮 Fun</span>
+        {/* Footer */}
+        <div className="welcome-footer">
+          <div className="footer-tagline">Built with ❤️ for Telegram Mini Apps</div>
+          <div className="footer-features">
+            <span className="feature-tag">⚡ Fast</span>
+            <span className="feature-tag">🆓 Free</span>
+            <span className="feature-tag">🎮 Fun</span>
+            <span className="feature-tag">🔒 Secure</span>
+          </div>
+          <div className="footer-links">
+            <button className="footer-link" onClick={() => navigate('/about')}>About</button>
+            <span className="link-divider">•</span>
+            <button className="footer-link" onClick={() => navigate('/help')}>Help</button>
+            <span className="link-divider">•</span>
+            <button className="footer-link" onClick={() => navigate('/privacy')}>Privacy</button>
           </div>
         </div>
       </div>

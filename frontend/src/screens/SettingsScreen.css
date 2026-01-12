@@ -1,0 +1,592 @@
+/* ===== SettingsScreen.css ===== */
+
+/* Variables */
+:root {
+    /* Colors */
+    --telegram-brand: #0088cc;
+    --telegram-brand-dark: #0077b3;
+    --telegram-accent-blue: #34aadc;
+    --telegram-accent-green: #34a853;
+    --telegram-accent-yellow: #f9a825;
+    --telegram-accent-pink: #e91e63;
+    --telegram-accent-purple: #7048e8;
+    --telegram-text-primary: #000000;
+    --telegram-text-secondary: #707579;
+    --telegram-bg-primary: #ffffff;
+    --telegram-bg-secondary: #f0f0f0;
+    --telegram-bg-tertiary: #e0e0e0;
+    --telegram-border: #e5e5e5;
+    
+    /* Settings Specific Colors */
+    --settings-bg: #f8f9fa;
+    --settings-card-bg: #ffffff;
+    --settings-text: #333333;
+    --settings-text-secondary: #666666;
+    --settings-border: #e1e5e9;
+    --settings-hover: #f5f7fa;
+    --settings-active: #eef2f7;
+    
+    /* Dark Mode Colors */
+    --dark-bg: #0f0f0f;
+    --dark-card-bg: #1a1a1a;
+    --dark-text: #ffffff;
+    --dark-text-secondary: #a0a0a0;
+    --dark-border: #2d2d2d;
+    --dark-hover: #2a2a2a;
+    --dark-active: #3a3a3a;
+    
+    /* Gradients */
+    --gradient-brand: linear-gradient(135deg, var(--telegram-brand) 0%, var(--telegram-accent-blue) 100%);
+    --gradient-purple: linear-gradient(135deg, var(--telegram-accent-purple) 0%, #9775fa 100%);
+    --gradient-pink: linear-gradient(135deg, var(--telegram-accent-pink) 0%, #f783ac 100%);
+    --gradient-logout: linear-gradient(135deg, #e91e63 0%, #c2185b 100%);
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+    --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    
+    /* Border Radius */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-2xl: 24px;
+    --radius-full: 9999px;
+    
+    /* Transitions */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Base Styles */
+  .settings-screen {
+    min-height: 100vh;
+    background: var(--settings-bg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    color: var(--settings-text);
+  }
+  
+  /* Header */
+  .settings-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--settings-card-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--settings-border);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .back-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--telegram-brand);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+  }
+  
+  .back-button:hover {
+    background: rgba(0, 136, 204, 0.1);
+    transform: translateX(-2px);
+  }
+  
+  .back-icon {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  
+  .settings-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--settings-text);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .settings-icon {
+    font-size: 28px;
+    animation: settings-spin 4s linear infinite;
+  }
+  
+  @keyframes settings-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  .header-right {
+    width: 64px; /* For alignment */
+  }
+  
+  /* Main Content */
+  .settings-content {
+    padding: 16px;
+    max-width: 500px;
+    margin: 0 auto;
+    animation: content-fade 0.5s ease-out;
+  }
+  
+  @keyframes content-fade {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Profile Section */
+  .profile-section {
+    background: var(--settings-card-bg);
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--settings-border);
+    animation: slide-up 0.5s ease-out 0.1s both;
+  }
+  
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .profile-avatar {
+    width: 60px;
+    height: 60px;
+    background: var(--gradient-brand);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+  }
+  
+  .avatar-initial {
+    color: white;
+    font-size: 24px;
+    font-weight: 800;
+  }
+  
+  .profile-info {
+    flex: 1;
+  }
+  
+  .profile-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--settings-text);
+    margin: 0 0 4px 0;
+  }
+  
+  .profile-status {
+    font-size: 14px;
+    color: var(--telegram-accent-green);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+  }
+  
+  .profile-status::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--telegram-accent-green);
+    border-radius: 50%;
+    display: inline-block;
+    animation: status-pulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes status-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  .edit-profile-button {
+    background: var(--telegram-bg-secondary);
+    color: var(--telegram-text-primary);
+    border: 2px solid var(--telegram-border);
+    padding: 8px 20px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+  
+  .edit-profile-button:hover {
+    background: var(--telegram-bg-tertiary);
+    border-color: var(--telegram-text-secondary);
+  }
+  
+  /* Settings Sections */
+  .settings-section {
+    margin-bottom: 24px;
+    animation: slide-up 0.5s ease-out 0.2s both;
+  }
+  
+  .settings-section:nth-child(2) { animation-delay: 0.3s; }
+  .settings-section:nth-child(3) { animation-delay: 0.4s; }
+  .settings-section:nth-child(4) { animation-delay: 0.5s; }
+  .settings-section:nth-child(5) { animation-delay: 0.6s; }
+  
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--settings-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 12px;
+  }
+  
+  .section-items {
+    background: var(--settings-card-bg);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--settings-border);
+  }
+  
+  .settings-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid var(--settings-border);
+    transition: all var(--transition-fast);
+    cursor: pointer;
+  }
+  
+  .settings-item:last-child {
+    border-bottom: none;
+  }
+  
+  .settings-item.interactive:hover {
+    background: var(--settings-hover);
+  }
+  
+  .settings-item:active {
+    background: var(--settings-active);
+  }
+  
+  .item-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .item-icon-container {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--icon-color-rgb, 0, 136, 204), 0.1);
+  }
+  
+  .item-icon {
+    color: var(--icon-color, var(--telegram-brand));
+  }
+  
+  .item-label {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--settings-text);
+  }
+  
+  .item-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  /* Switch */
+  .switch-container {
+    position: relative;
+  }
+  
+  .switch-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .switch {
+    width: 50px;
+    height: 28px;
+    background: var(--telegram-bg-secondary);
+    border-radius: var(--radius-full);
+    position: relative;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-inner);
+  }
+  
+  .switch.active {
+    background: var(--telegram-brand);
+  }
+  
+  .switch-handle {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 24px;
+    height: 24px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .switch.active .switch-handle {
+    transform: translateX(22px);
+  }
+  
+  /* Value Container */
+  .item-value-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .item-value {
+    font-size: 14px;
+    color: var(--settings-text-secondary);
+    font-weight: 500;
+  }
+  
+  .chevron-icon {
+    color: var(--settings-text-secondary);
+    opacity: 0.5;
+    transition: transform var(--transition-fast);
+  }
+  
+  .settings-item:hover .chevron-icon {
+    transform: translateX(2px);
+  }
+  
+  /* Logout Button */
+  .logout-button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: var(--gradient-logout);
+    color: white;
+    border: none;
+    padding: 18px;
+    border-radius: var(--radius-lg);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin: 24px 0;
+    box-shadow: var(--shadow-lg);
+    transition: all var(--transition-fast);
+    animation: slide-up 0.5s ease-out 0.7s both;
+  }
+  
+  .logout-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg), 0 0 20px rgba(233, 30, 99, 0.3);
+  }
+  
+  .logout-button:active {
+    transform: translateY(0);
+  }
+  
+  .logout-icon {
+    stroke-width: 2.5;
+  }
+  
+  /* App Info */
+  .app-info {
+    text-align: center;
+    padding: 20px;
+    background: var(--settings-card-bg);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--settings-border);
+    animation: slide-up 0.5s ease-out 0.8s both;
+  }
+  
+  .app-version {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--settings-text-secondary);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  
+  .app-icon {
+    color: var(--telegram-accent-purple);
+  }
+  
+  .app-tagline {
+    font-size: 13px;
+    color: var(--settings-text-secondary);
+    opacity: 0.7;
+    margin: 0 0 16px 0;
+  }
+  
+  .app-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 12px;
+  }
+  
+  .app-link {
+    background: none;
+    border: none;
+    color: var(--telegram-brand);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px;
+    opacity: 0.7;
+    transition: all var(--transition-fast);
+  }
+  
+  .app-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+  
+  .link-divider {
+    color: var(--settings-text-secondary);
+    opacity: 0.3;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 480px) {
+    .settings-content {
+      padding: 12px;
+    }
+    
+    .settings-title {
+      font-size: 20px;
+    }
+    
+    .profile-avatar {
+      width: 50px;
+      height: 50px;
+    }
+    
+    .avatar-initial {
+      font-size: 20px;
+    }
+    
+    .profile-name {
+      font-size: 18px;
+    }
+    
+    .item-label {
+      font-size: 15px;
+    }
+  }
+  
+  /* Dark Mode Support */
+  @media (prefers-color-scheme: dark) {
+    .settings-screen {
+      background: var(--dark-bg);
+      color: var(--dark-text);
+    }
+    
+    .settings-header {
+      background: var(--dark-card-bg);
+      border-bottom-color: var(--dark-border);
+    }
+    
+    .settings-title,
+    .profile-name,
+    .item-label {
+      color: var(--dark-text);
+    }
+    
+    .section-title {
+      color: var(--dark-text-secondary);
+    }
+    
+    .profile-section,
+    .section-items,
+    .app-info {
+      background: var(--dark-card-bg);
+      border-color: var(--dark-border);
+    }
+    
+    .settings-item {
+      border-bottom-color: var(--dark-border);
+    }
+    
+    .settings-item.interactive:hover {
+      background: var(--dark-hover);
+    }
+    
+    .settings-item:active {
+      background: var(--dark-active);
+    }
+    
+    .switch {
+      background: #4a5568;
+    }
+    
+    .switch.active {
+      background: var(--telegram-brand);
+    }
+    
+    .item-value,
+    .app-version,
+    .app-tagline {
+      color: var(--dark-text-secondary);
+    }
+    
+    .edit-profile-button {
+      background: #4a5568;
+      border-color: #718096;
+      color: var(--dark-text);
+    }
+    
+    .profile-status {
+      color: var(--telegram-accent-green);
+    }
+    
+    .chevron-icon {
+      color: var(--dark-text-secondary);
+    }
+  }

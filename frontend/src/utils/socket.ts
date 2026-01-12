@@ -1,207 +1,257 @@
+// utils/socket.ts - TO'LIQ YANGI VERSIYA
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL =  'http://localhost:3000';
+// Mock socket events for development
+const MOCK_EVENTS = {
+  'connect': () => {
+    console.log('✅ Mock: Socket connected');
+    return { id: 'mock-socket-' + Date.now() };
+  },
+  'queue_position': () => {
+    return { position: Math.floor(Math.random() * 5) + 1 };
+  },
+  'duel_found': () => {
+    return {
+      opponent: {
+        id: 'opponent-' + Date.now(),
+        name: ['Alex', 'Sam', 'Jordan', 'Taylor', 'Casey'][Math.floor(Math.random() * 5)],
+        rating: 1500 + Math.floor(Math.random() * 500),
+        level: Math.floor(Math.random() * 10) + 1,
+        avatar: ['👨', '👩', '🧑', '👦', '👧'][Math.floor(Math.random() * 5)],
+        wins: Math.floor(Math.random() * 20),
+        losses: Math.floor(Math.random() * 10),
+        online: true
+      }
+    };
+  },
+  'online_count': () => {
+    return Math.floor(Math.random() * 100) + 150;
+  },
+  'queue_stats': () => {
+    return {
+      averageWait: 10 + Math.floor(Math.random() * 10),
+      matchesToday: 1000 + Math.floor(Math.random() * 500)
+    };
+  },
+  'opponent_vote': () => {
+    const choices = ['like', 'super_like', 'skip'];
+    return { choice: choices[Math.floor(Math.random() * 3)] };
+  }
+};
 
 class SocketService {
   private socket: Socket | null = null;
-  private static instance: SocketService;
-  private listeners = new Map<string, (...args: any[]) => void>();
+  private mockMode = false;
+  private mockListeners: Map<string, Function[]> = new Map();
+  private isConnected = false;
+  private mockInterval: NodeJS.Timeout | null = null;
 
-  static getInstance(): SocketService {
-    if (!SocketService.instance) {
-      SocketService.instance = new SocketService();
-    }
-    return SocketService.instance;
-  }
+  initSocket(token?: string) {
+    try {
+      // Check if we should use mock mode
+      const useMock = process.env.NODE_ENV === 'development' || 
+                     !process.env.REACT_APP_SOCKET_URL ||
+                     process.env.REACT_APP_USE_MOCK_SOCKET === 'true';
 
-  connect(token: string): Promise<Socket> {
-    return new Promise((resolve, reject) => {
-      // Agar allaqachon ulangan bo'lsa, disconnect qilish
-      if (this.socket?.connected) {
-        this.socket.disconnect();
+      if (useMock) {
+        console.log('🔧 Using mock socket mode');
+        this.mockMode = true;
+        this.initMockSocket();
+        return;
       }
 
-      this.socket = io(SOCKET_URL, {
-        auth: { token },
+      // Real socket connection
+      const serverUrl = process.env.REACT_APP_SOCKET_URL || 'http://localhost:3000';
+      
+      console.log(`🔗 Connecting to socket server: ${serverUrl}`);
+
+      this.socket = io(serverUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 3,
         reconnectionDelay: 1000,
-        timeout: 10000
+        timeout: 5000,
+        auth: token ? { token } : undefined,
       });
 
-      this.socket.on('connect', () => {
-        console.log('✅ Socket connected:', this.socket?.id);
-        resolve(this.socket!);
-      });
+      this.setupEventListeners();
 
-      this.socket.on('connect_error', (error) => {
-        console.error('❌ Socket connection error:', error);
-        reject(error);
-      });
+    } catch (error) {
+      console.error('❌ Socket init error, falling back to mock mode:', error);
+      this.mockMode = true;
+      this.initMockSocket();
+    }
+  }
 
-      this.socket.on('disconnect', (reason) => {
-        console.log('⚠️ Socket disconnected:', reason);
-      });
+  private initMockSocket() {
+    console.log('🎮 Initializing mock socket...');
+    
+    // Simulate connection after delay
+    setTimeout(() => {
+      this.isConnected = true;
+      this.triggerMockEvent('connect', { id: 'mock-socket-' + Date.now() });
+      console.log('✅ Mock socket connected');
+      
+      // Start sending periodic mock events
+      this.startMockEvents();
+      
+    }, 1000);
+  }
 
-      this.socket.on('error', (error) => {
-        console.error('🔥 Socket error:', error);
-      });
+  private startMockEvents() {
+    if (this.mockInterval) clearInterval(this.mockInterval);
+    
+    this.mockInterval = setInterval(() => {
+      if (!this.isConnected) return;
+      
+      // Random events
+      const random = Math.random();
+      if (random < 0.3) {
+        this.triggerMockEvent('online_count', Math.floor(Math.random() * 100) + 200);
+      }
+      
+    }, 5000);
+  }
+
+  private setupEventListeners() {
+    if (!this.socket || this.mockMode) return;
+
+    this.socket.on('connect', () => {
+      console.log('✅ Socket connected:', this.socket?.id);
+      this.isConnected = true;
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('❌ Socket connection error:', error.message);
+      
+      // Fallback to mock mode
+      if (!this.mockMode) {
+        console.log('🔄 Falling back to mock mode');
+        this.mockMode = true;
+        this.initMockSocket();
+      }
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('🔌 Socket disconnected:', reason);
+      this.isConnected = false;
     });
   }
 
-  // Old version compatibility
-  init(userId: string): Socket {
-    console.log('🔌 Initializing socket for user:', userId);
-    
-    // Eski version uchun - token o'rniga userId yuboriladi
-    this.connect(userId).catch(error => {
-      console.error('Socket connection failed:', error);
-    });
-    
-    return this.socket!;
+  // Mock event handling
+  private triggerMockEvent(event: string, data?: any) {
+    const listeners = this.mockListeners.get(event);
+    if (listeners) {
+      listeners.forEach(listener => {
+        try {
+          listener(data);
+        } catch (error) {
+          console.error(`Error in mock listener for ${event}:`, error);
+        }
+      });
+    }
   }
 
+  // Public methods
   getSocket(): Socket | null {
+    if (this.mockMode) {
+      // Return mock socket object
+      return {
+        connected: this.isConnected,
+        id: 'mock-socket',
+        emit: (event: string, data?: any) => {
+          console.log(`📤 Mock emit: ${event}`, data);
+          
+          // Handle specific emits with mock responses
+          if (event === 'join_queue') {
+            setTimeout(() => {
+              this.triggerMockEvent('queue_position', { position: Math.floor(Math.random() * 5) + 1 });
+              
+              // Simulate finding opponent after random delay
+              setTimeout(() => {
+                this.triggerMockEvent('duel_found', MOCK_EVENTS['duel_found']());
+              }, 2000 + Math.random() * 3000);
+            }, 500);
+          }
+          
+          if (event === 'player_vote') {
+            setTimeout(() => {
+              this.triggerMockEvent('opponent_vote', MOCK_EVENTS['opponent_vote']());
+              
+              // Simulate match result after delay
+              setTimeout(() => {
+                const results = ['match', 'no_match', 'timeout'];
+                const resultType = results[Math.floor(Math.random() * 3)];
+                let message = '';
+                let reward = 0;
+                
+                if (resultType === 'match') {
+                  message = 'Match! +50 coins';
+                  reward = 50;
+                } else if (resultType === 'no_match') {
+                  message = 'No match - Different choices';
+                  reward = 0;
+                } else {
+                  message = "Time's up! No choice made";
+                  reward = 0;
+                }
+                
+                this.triggerMockEvent('duel_result', {
+                  type: resultType,
+                  message,
+                  reward
+                });
+              }, 1500);
+            }, 1000);
+          }
+          
+          if (event === 'leave_queue') {
+            console.log('👋 Left queue (mock)');
+          }
+        },
+        on: (event: string, callback: Function) => {
+          if (!this.mockListeners.has(event)) {
+            this.mockListeners.set(event, []);
+          }
+          this.mockListeners.get(event)?.push(callback);
+        },
+        off: (event: string) => {
+          this.mockListeners.delete(event);
+        },
+        disconnect: () => {
+          this.isConnected = false;
+          if (this.mockInterval) clearInterval(this.mockInterval);
+          console.log('🔌 Mock socket disconnected');
+        },
+        // Add other socket.io methods as needed
+        close: () => {},
+        io: {
+          opts: {},
+          engine: {},
+          _callbacks: {}
+        } as any
+      } as any;
+    }
+    
     return this.socket;
   }
 
-  disconnect(): void {
-    if (this.socket) {
+  disconnect() {
+    if (this.mockMode) {
+      this.isConnected = false;
+      if (this.mockInterval) clearInterval(this.mockInterval);
+      this.mockListeners.clear();
+      console.log('🔌 Mock socket disconnected');
+    } else if (this.socket) {
       this.socket.disconnect();
-      this.socket = null;
-      this.listeners.clear();
-      console.log('🔌 Socket disconnected');
     }
   }
 
-  // Connection info olish
-  getSocketInfo(): {
-    connected: boolean;
-    id: string | undefined;
-    hasListeners: number;
-  } {
-    return {
-      connected: this.socket?.connected || false,
-      id: this.socket?.id,
-      hasListeners: this.listeners.size
-    };
-  }
-
-  // Event listeners qo'shish
-  on(event: string, callback: (data: any) => void): void {
-    this.socket?.on(event, callback);
-    this.listeners.set(event, callback);
-  }
-
-  off(event: string, callback?: (data: any) => void): void {
-    this.socket?.off(event, callback);
-    this.listeners.delete(event);
-  }
-
-  once(event: string, callback: (data: any) => void): void {
-    this.socket?.once(event, callback);
-  }
-
-  // Emit events
-  emit(event: string, data?: any): void {
-    this.socket?.emit(event, data);
-  }
-
-  // Navbatga qo'shilish
-  joinQueue(): void {
-    this.emit('join_queue');
-  }
-
-  // Navbatni tark etish
-  leaveQueue(): void {
-    this.emit('leave_queue');
-  }
-
-  // Ovoz berish
-  sendVote(choice: 'like' | 'super_like' | 'skip', duelId: string): void {
-    this.emit('player_vote', { choice, duelId });
-  }
-
-  // Rematch so'rash
-  requestRematch(opponentId: string): void {
-    this.emit('request_rematch', { opponentId });
-  }
-
-  // Online count so'rash
-  getOnlineCount(): void {
-    this.emit('get_online_count');
-  }
-
-  // Live matches so'rash
-  getLiveMatches(): void {
-    this.emit('get_live_matches');
-  }
-
-  // Debug information so'rash
-  getDebugInfo(): void {
-    this.emit('get_debug_info');
-  }
-
-  // Connection holati
-  isConnected(): boolean {
+  // Helper method to check connection
+  isConnectedToServer(): boolean {
+    if (this.mockMode) return this.isConnected;
     return this.socket?.connected || false;
-  }
-
-  // Socket ID
-  getSocketId(): string | undefined {
-    return this.socket?.id;
-  }
-
-  // Clean up all listeners
-  cleanup(): void {
-    if (this.socket) {
-      this.listeners.forEach((callback, event) => {
-        this.socket?.off(event, callback);
-      });
-      this.listeners.clear();
-    }
   }
 }
 
-// Singleton instance
-const socketService = SocketService.getInstance();
-
-// Export functions for App.tsx
-export const initSocket = (userId: string) => socketService.init(userId);
-export const getSocketInfo = () => socketService.getSocketInfo();
-export const disconnectSocket = () => socketService.disconnect();
-export const getSocket = () => socketService.getSocket();
-
-// Alias functions for backward compatibility
-export const connectSocket = (token: string) => socketService.connect(token);
-
-// Export service for other components
-export { socketService };
-
-// Socket events constants
-export const socketEvents = {
-  // Connection events
-  CONNECT: 'connect',
-  DISCONNECT: 'disconnect',
-  CONNECT_ERROR: 'connect_error',
-  ERROR: 'error',
-  
-  // Game events
-  WELCOME: 'welcome',
-  DUEL_FOUND: 'duel_found',
-  OPPONENT_VOTE: 'opponent_vote',
-  DUEL_RESULT: 'duel_result',
-  QUEUE_POSITION: 'queue_position',
-  ONLINE_COUNT: 'online_count',
-  LIVE_MATCHES: 'live_matches',
-  REMATCH_REQUEST: 'rematch_request',
-  DEBUG_INFO: 'debug_info',
-  
-  // User events
-  USER_CONNECTED: 'user_connected',
-  USER_DISCONNECTED: 'user_disconnected'
-};
-
-// Default export
-export default socketService;
+export const socketService = new SocketService();

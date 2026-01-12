@@ -1,497 +1,93 @@
-:root {
-  /* Telegram Colors */
-  --tg-bg-primary: #0f0f0f;
-  --tg-bg-secondary: #1e1e1e;
-  --tg-bg-tertiary: #2d2d2d;
-  
-  --tg-text-primary: #ffffff;
-  --tg-text-secondary: #a0a0a0;
-  --tg-text-tertiary: #6b6b6b;
-  
-  --tg-brand-blue: #0088cc;
-  --tg-brand-blue-dark: #006699;
-  
-  --tg-online: #34a853;
-  --tg-offline: #6b6b6b;
-  
-  --tg-accent-yellow: #ffc107;
-  --tg-accent-pink: #e91e63;
-  --tg-accent-green: #34a853;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  background: var(--tg-bg-primary);
-  color: var(--tg-text-primary);
-  overflow-x: hidden;
-}
-
-.telegram-app {
-  max-width: 480px;
-  margin: 0 auto;
+/* App.css */
+.app-container {
   min-height: 100vh;
   position: relative;
-  background: var(--tg-bg-primary);
 }
 
-/* Screens */
-.telegram-screen {
-  padding-bottom: 80px; /* Space for bottom nav */
-  min-height: 100vh;
-}
-
-/* Headers */
-.telegram-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--tg-bg-secondary);
-  border-bottom: 1px solid var(--tg-bg-tertiary);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.app-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  margin-right: 12px;
-}
-
-.app-title {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.online-count {
-  font-size: 12px;
-  color: var(--tg-text-tertiary);
-  margin-top: 2px;
-}
-
-/* Content */
-.telegram-content {
-  padding: 16px;
-}
-
-/* Cards */
-.section-card {
-  background: var(--tg-bg-secondary);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 16px;
-  border: 1px solid var(--tg-bg-tertiary);
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.title-icon {
-  font-size: 18px;
-}
-
-/* Buttons */
-.primary-button {
-  width: 100%;
-  padding: 16px;
-  background: var(--tg-brand-blue);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-  margin-bottom: 16px;
-}
-
-.primary-button:hover {
-  opacity: 0.9;
-}
-
-.primary-button:active {
-  transform: scale(0.98);
-}
-
-/* Quick Actions */
-.quick-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.quick-action-button {
-  background: var(--tg-bg-secondary);
-  border: 1px solid var(--tg-bg-tertiary);
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: var(--tg-text-primary);
-}
-
-.quick-action-button:hover {
-  background: var(--tg-bg-tertiary);
-  transform: translateY(-2px);
-}
-
-.quick-action-button:active {
-  transform: scale(0.98);
-}
-
-.action-icon {
-  font-size: 24px;
-  margin-bottom: 4px;
-}
-
-.action-label {
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  background: var(--tg-bg-secondary);
-  border: 1px solid var(--tg-bg-tertiary);
-  border-radius: 12px;
-  padding: 12px;
-  text-align: center;
-}
-
-.stat-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.stat-icon {
-  font-size: 14px;
-}
-
-.stat-title {
-  font-size: 12px;
-  color: var(--tg-text-tertiary);
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 700;
-}
-
-/* Quests */
-.quests-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.quest-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  background: var(--tg-bg-tertiary);
-  border-radius: 10px;
-}
-
-.quest-info {
-  flex: 1;
-}
-
-.quest-title {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 8px;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 4px;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 12px;
-  color: var(--tg-text-tertiary);
-}
-
-.reward-button {
-  padding: 6px 12px;
-  background: var(--tg-bg-secondary);
-  color: var(--tg-text-secondary);
-  border: 1px solid var(--tg-bg-tertiary);
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 70px;
-}
-
-.reward-button.completed {
-  background: var(--tg-accent-green);
-  color: white;
-  border-color: var(--tg-accent-green);
-}
-
-.reward-button.completed:hover {
-  opacity: 0.9;
-}
-
-/* Matches List */
-.matches-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.match-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  background: var(--tg-bg-tertiary);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.match-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.player-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.player-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
-}
-
-.player-name {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.match-status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.status-badge {
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.status-badge.dueling {
-  background: rgba(52, 168, 83, 0.2);
-  color: var(--tg-accent-green);
-}
-
-.status-badge.voting {
-  background: rgba(255, 193, 7, 0.2);
-  color: var(--tg-accent-yellow);
-}
-
-.vs-text {
-  font-size: 10px;
-  color: var(--tg-text-tertiary);
-}
-
-/* Bottom Navigation */
-.telegram-bottom-nav {
+/* Connection Status */
+.connection-status {
   position: fixed;
-  bottom: 0;
+  top: 0;
   left: 0;
   right: 0;
-  background: var(--tg-bg-secondary);
-  border-top: 1px solid var(--tg-bg-tertiary);
-  padding: 8px 0;
-  z-index: 1000;
-}
-
-.nav-container {
+  padding: 10px 16px;
   display: flex;
-  justify-content: space-around;
   align-items: center;
-  max-width: 480px;
-  margin: 0 auto;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-.nav-item {
+.connection-status.connecting {
+  background: rgba(255, 193, 7, 0.9);
+  color: #856404;
+  border-bottom: 1px solid rgba(255, 193, 7, 0.5);
+}
+
+.connection-status.connected {
+  background: rgba(40, 167, 69, 0.9);
+  color: #155724;
+  border-bottom: 1px solid rgba(40, 167, 69, 0.5);
+}
+
+.connection-status.disconnected {
+  background: rgba(220, 53, 69, 0.9);
+  color: #721c24;
+  border-bottom: 1px solid rgba(220, 53, 69, 0.5);
+}
+
+.status-indicator {
+  font-size: 16px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.connection-status.connected .status-indicator {
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Coming Soon Pages */
+.coming-soon {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  color: var(--tg-text-tertiary);
-  cursor: pointer;
-  padding: 8px 12px;
-  position: relative;
-  transition: color 0.2s;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-align: center;
+  padding: 20px;
 }
 
-.nav-item.active {
-  color: var(--tg-brand-blue);
+.coming-soon h1 {
+  font-size: 48px;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-.nav-icon {
-  font-size: 20px;
+.coming-soon p {
+  font-size: 24px;
+  opacity: 0.9;
 }
 
-.nav-label {
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.nav-indicator {
-  position: absolute;
-  top: -8px;
-  width: 24px;
-  height: 3px;
-  background: var(--tg-brand-blue);
-  border-radius: 0 0 2px 2px;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--tg-bg-tertiary);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--tg-text-tertiary);
-}
-
-/* Animations */
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-.animate-pulse {
-  animation: pulse 2s infinite;
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-.animate-slide-up {
-  animation: slideUp 0.3s ease-out;
-}
-
-/* Responsive */
-@media (max-width: 480px) {
-  .telegram-app {
-    max-width: 100%;
-  }
-  
-  .telegram-content {
-    padding: 12px;
-  }
-  
-  .section-card {
-    padding: 12px;
-  }
-}
-
-/* Dark/Light theme support */
-@media (prefers-color-scheme: light) {
-  :root {
-    --tg-bg-primary: #ffffff;
-    --tg-bg-secondary: #f5f5f5;
-    --tg-bg-tertiary: #e0e0e0;
-    
-    --tg-text-primary: #000000;
-    --tg-text-secondary: #666666;
-    --tg-text-tertiary: #999999;
-  }
+/* Development Info */
+.dev-info {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
 }
