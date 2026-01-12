@@ -155,40 +155,48 @@ const DuelScreen = () => {
   };
 
   return (
-    <div className="telegram-screen duel-screen">
+    <div className="min-h-screen bg-gradient-to-b from-telegram-brand/10 via-white to-purple-50/50 p-4">
       {/* Header */}
-      <div className="duel-header">
-        <h1 className="duel-title">Duel ⚔️</h1>
-        <div className="timer-display">
-          <div className={`timer-circle ${timer <= 5 ? 'warning' : ''}`}>
-            {timer > 9 ? timer : `0${timer}`}
+      <div className="flex flex-col items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Duel ⚔️</h1>
+        <div className="flex flex-col items-center">
+          <div className={`w-20 h-20 rounded-full border-4 ${timer <= 5 ? 'border-red-500' : 'border-blue-500'} flex items-center justify-center mb-1`}>
+            <span className="text-2xl font-bold">{timer > 9 ? timer : `0${timer}`}</span>
           </div>
-          <p className="timer-label">seconds left</p>
+          <p className="text-sm text-gray-600">seconds left</p>
         </div>
       </div>
 
       {/* Opponent Profile */}
-      <div className="opponent-card">
-        <div className="opponent-avatar-container">
-          <div className="opponent-avatar">{opponent.avatar}</div>
-          {opponent.online && <div className="online-badge"></div>}
+      <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">
+        <div className="flex items-center justify-center mb-4">
+          <div className="relative">
+            <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-3xl">
+              {opponent.avatar}
+            </div>
+            {opponent.online && (
+              <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+            )}
+          </div>
         </div>
         
-        <div className="opponent-info">
-          <h2 className="opponent-name">{opponent.name}</h2>
-          <div className="opponent-badge">Level {opponent.level}</div>
+        <div className="text-center mb-4">
+          <h2 className="text-2xl font-bold text-gray-800">{opponent.name}</h2>
+          <div className="inline-block px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-sm font-semibold rounded-full mt-1">
+            Level {opponent.level}
+          </div>
         </div>
         
-        <div className="opponent-stats">
-          <div className="stat-item">
-            <div className="stat-label">Rating</div>
-            <div className="stat-value" style={{ color: TELEGRAM.ACCENT_YELLOW }}>
+        <div className="flex justify-around mb-4">
+          <div className="text-center">
+            <div className="text-sm text-gray-600">Rating</div>
+            <div className="text-xl font-bold text-yellow-600">
               {opponent.rating}
             </div>
           </div>
-          <div className="stat-item">
-            <div className="stat-label">Win Rate</div>
-            <div className="stat-value" style={{ color: TELEGRAM.ACCENT_GREEN }}>
+          <div className="text-center">
+            <div className="text-sm text-gray-600">Win Rate</div>
+            <div className="text-xl font-bold text-green-600">
               {Math.round((opponent.wins / (opponent.wins + opponent.losses)) * 100)}%
             </div>
           </div>
@@ -196,9 +204,13 @@ const DuelScreen = () => {
         
         {/* Opponent's Choice Display */}
         {opponentChoice && (
-          <div className="opponent-choice-display">
-            <p>Opponent chose:</p>
-            <div className={`choice-badge ${opponentChoice}`}>
+          <div className="mt-4 p-4 bg-gray-50 rounded-xl text-center">
+            <p className="text-gray-600 mb-2">Opponent chose:</p>
+            <div className={`inline-block px-4 py-2 rounded-lg font-semibold ${
+              opponentChoice === 'like' ? 'bg-blue-100 text-blue-700' :
+              opponentChoice === 'super_like' ? 'bg-pink-100 text-pink-700' :
+              'bg-gray-100 text-gray-700'
+            }`}>
               {opponentChoice === 'like' && '👍 Like'}
               {opponentChoice === 'super_like' && '💖 Super Like'}
               {opponentChoice === 'skip' && '➡️ Skip'}
@@ -209,40 +221,40 @@ const DuelScreen = () => {
 
       {/* Voting Section */}
       {!selectedChoice && timer > 0 && (
-        <div className="voting-section">
-          <h3 className="voting-title">Choose your reaction:</h3>
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">
+          <h3 className="text-xl font-bold text-gray-800 mb-6 text-center">Choose your reaction:</h3>
           
-          <div className="vote-options">
+          <div className="space-y-4">
             <button
-              className="vote-option like"
+              className="w-full flex items-center p-4 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
               onClick={() => handleVote('like')}
             >
-              <div className="option-icon">👍</div>
-              <div className="option-content">
-                <div className="option-title">Like</div>
-                <div className="option-subtitle">+50 coins if match</div>
+              <div className="text-3xl mr-4">👍</div>
+              <div className="text-left flex-1">
+                <div className="font-bold text-blue-700">Like</div>
+                <div className="text-sm text-blue-600">+50 coins if match</div>
               </div>
             </button>
             
             <button
-              className="vote-option super-like"
+              className="w-full flex items-center p-4 bg-pink-50 hover:bg-pink-100 border-2 border-pink-200 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
               onClick={() => handleVote('super_like')}
             >
-              <div className="option-icon">💖</div>
-              <div className="option-content">
-                <div className="option-title">Super Like</div>
-                <div className="option-subtitle">+100 coins if mutual</div>
+              <div className="text-3xl mr-4">💖</div>
+              <div className="text-left flex-1">
+                <div className="font-bold text-pink-700">Super Like</div>
+                <div className="text-sm text-pink-600">+100 coins if mutual</div>
               </div>
             </button>
             
             <button
-              className="vote-option skip"
+              className="w-full flex items-center p-4 bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
               onClick={() => handleVote('skip')}
             >
-              <div className="option-icon">➡️</div>
-              <div className="option-content">
-                <div className="option-title">Skip</div>
-                <div className="option-subtitle">No match</div>
+              <div className="text-3xl mr-4">➡️</div>
+              <div className="text-left flex-1">
+                <div className="font-bold text-gray-700">Skip</div>
+                <div className="text-sm text-gray-600">No match</div>
               </div>
             </button>
           </div>
@@ -251,14 +263,18 @@ const DuelScreen = () => {
 
       {/* Selected Choice Display */}
       {selectedChoice && !showResult && (
-        <div className="selected-choice-display">
-          <h3>Your Choice:</h3>
-          <div className={`selected-choice ${selectedChoice}`}>
+        <div className="bg-white rounded-2xl shadow-lg p-8 mb-6 border border-gray-200 text-center">
+          <h3 className="text-xl font-bold text-gray-800 mb-4">Your Choice:</h3>
+          <div className={`inline-block px-6 py-3 rounded-xl text-lg font-bold mb-4 ${
+            selectedChoice === 'like' ? 'bg-blue-100 text-blue-700' :
+            selectedChoice === 'super_like' ? 'bg-pink-100 text-pink-700' :
+            'bg-gray-100 text-gray-700'
+          }`}>
             {selectedChoice === 'like' && '👍 Like'}
             {selectedChoice === 'super_like' && '💖 Super Like'}
             {selectedChoice === 'skip' && '➡️ Skip'}
           </div>
-          <p className="waiting-text">
+          <p className="text-gray-600 animate-pulse">
             {opponentChoice ? 'Calculating result...' : 'Waiting for opponent...'}
           </p>
         </div>
@@ -266,33 +282,32 @@ const DuelScreen = () => {
 
       {/* Result Display */}
       {showResult && matchResult && (
-        <div className="result-section">
-          <div className="result-card">
-            <h2 className="result-title">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full border border-gray-200">
+            <h2 className="text-3xl font-bold text-center mb-4">
               {matchResult.type === 'match' ? '🎉 Match!' : 
                matchResult.type === 'timeout' ? '⏰ Time\'s Up!' : '😔 No Match'}
             </h2>
             
-            <p className="result-message">{matchResult.message}</p>
+            <p className="text-gray-700 text-center mb-6">{matchResult.message}</p>
             
             {matchResult.reward && matchResult.reward > 0 && (
-              <div className="reward-display">
-                <div className="reward-icon">🪙</div>
-                <div className="reward-amount">+{matchResult.reward}</div>
+              <div className="flex items-center justify-center mb-6">
+                <div className="text-4xl mr-2">🪙</div>
+                <div className="text-3xl font-bold text-yellow-600">+{matchResult.reward}</div>
               </div>
             )}
             
-            <div className="result-actions">
+            <div className="space-y-3">
               <button 
-                className="result-button continue"
+                className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:opacity-90 transition"
                 onClick={handleContinue}
               >
                 Continue
               </button>
               <button 
-                className="result-button rematch"
+                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-xl hover:opacity-90 transition"
                 onClick={handleRematch}
-                style={{ background: TELEGRAM.GRADIENT_BLUE }}
               >
                 Rematch ⚔️
               </button>
@@ -302,9 +317,9 @@ const DuelScreen = () => {
       )}
 
       {/* Bottom Navigation */}
-      <div className="duel-actions">
+      <div className="flex flex-col space-y-3">
         <button 
-          className="action-button back"
+          className="w-full py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition"
           onClick={() => navigate('/')}
         >
           ← Back to Home
@@ -312,9 +327,8 @@ const DuelScreen = () => {
         
         {showResult && (
           <button 
-            className="action-button chat"
+            className="w-full py-3 bg-gradient-to-r from-blue-500 to-telegram-brand text-white font-bold rounded-xl hover:opacity-90 transition"
             onClick={() => navigate(`/chat/${opponent.name}`)}
-            style={{ background: TELEGRAM.BRAND_BLUE }}
           >
             💬 Chat with {opponent.name}
           </button>

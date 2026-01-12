@@ -1,8 +1,6 @@
-// frontend/src/screens/ProfileScreen.tsx
 import { useState , useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// User interfeysini import qilish yoki bu yerda aniqlash
 interface AppUser {
   id: string;
   name: string;
@@ -12,16 +10,14 @@ interface AppUser {
   coins?: number;
 }
 
-// Prop interfeysi
 interface ProfileScreenProps {
   user: AppUser;
-  onUserUpdate?: (updatedUser: AppUser) => void; // Agar user yangilansa
+  onUserUpdate?: (updatedUser: AppUser) => void;
 }
 
 const ProfileScreen = ({ user: propUser, onUserUpdate }: ProfileScreenProps) => {
   const navigate = useNavigate();
   
-  // Local state - prop user bilan boshlash
   const [user, setUser] = useState({
     name: propUser.name || 'Player',
     gender: 'other' as 'male' | 'female' | 'other',
@@ -37,7 +33,6 @@ const ProfileScreen = ({ user: propUser, onUserUpdate }: ProfileScreenProps) => 
   
   const [isEditing, setIsEditing] = useState(false);
 
-  // User prop o'zgarishini kuzatish
   useEffect(() => {
     if (propUser) {
       setUser(prev => ({
@@ -64,7 +59,6 @@ const ProfileScreen = ({ user: propUser, onUserUpdate }: ProfileScreenProps) => 
   const handleSave = () => {
     setIsEditing(false);
     
-    // Agar user yangilash funksiyasi mavjud bo'lsa
     if (onUserUpdate) {
       const updatedUser: AppUser = {
         ...propUser,
@@ -75,7 +69,6 @@ const ProfileScreen = ({ user: propUser, onUserUpdate }: ProfileScreenProps) => 
       onUserUpdate(updatedUser);
     }
     
-    // Bu yerda backendga yangilash yuboriladi
     console.log('Saving user changes:', user);
   };
 
