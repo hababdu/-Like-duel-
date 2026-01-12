@@ -196,7 +196,6 @@ const App = () => {
                 <Layout>
                   <ProfileScreen 
                     user={user || defaultUser} 
-                    onUserUpdate={handleUserUpdate} 
                   />
                 </Layout>
               </ProtectedRoute>
