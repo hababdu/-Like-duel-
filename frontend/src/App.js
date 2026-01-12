@@ -1,99 +1,111 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import OrderForm from './components/OrderForm';
 import './App.css';
 
 function App() {
+  const [tg, setTg] = useState(null);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentProduct, setCurrentProduct] = useState({
+    id: 1,
+    name: 'iPhone 15 Pro',
+    price: 12000000,
+    description: '128GB, Titanium'
+  });
 
   useEffect(() => {
-    // Telegram Web App ob'ektini tekshirish
+    // Telegram WebApp mavjudligini tekshirish
     if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp;
+      const telegramApp = window.Telegram.WebApp;
+      setTg(telegramApp);
       
-      // App tayyor ekanligini bildirish
-      tg.ready();
+      telegramApp.ready();
+      telegramApp.expand();
       
-      // Foydalanuvchi ma'lumotlarini olish
-      const userData = tg.initDataUnsafe?.user;
+      // Foydalanuvchi ma'lumotlari
+      const userData = telegramApp.initDataUnsafe?.user;
       setUser(userData);
       
-      // App'ni kengaytirish (to'liq ekran)
-      tg.expand();
-      
-      // Tema parametrlarini olish
-      console.log('Tema:', tg.themeParams);
-      console.log('Platforma:', tg.platform);
-      
-      setLoading(false);
+      console.log('Telegram WebApp:', telegramApp);
+      console.log('Foydalanuvchi:', userData);
+      console.log('Tema:', telegramApp.themeParams);
     } else {
-      console.error('Telegram SDK topilmadi!');
-      setLoading(false);
+      console.warn('Telegram WebApp mavjud emas. Brauzerda ochilgan.');
     }
   }, []);
 
-  // Telegram MainButton ni boshqarish
-  const setupMainButton = () => {
-    const tg = window.Telegram.WebApp;
+  // Bu funksiya App.js ichida ham bo'lishi mumkin
+  const sendTestData = () => {
+    if (!tg) return;
     
-    tg.MainButton.setText("Boshlash");
-    tg.MainButton.color = "#3390ec";
-    tg.MainButton.textColor = "#ffffff";
-    tg.MainButton.show();
+    const testData = {
+      type: 'test_order',
+      userName: user?.first_name || 'Test mijoz',
+      phone: '+998901234567',
+      productName: currentProduct.name,
+      quantity: 1,
+      totalPrice: currentProduct.price
+    };
     
-    tg.MainButton.onClick(() => {
-      tg.showAlert("Tugma bosildi!");
-      // Ma'lumot yuborish
-      tg.sendData(JSON.stringify({ action: 'start' }));
-    });
+    tg.sendData(JSON.stringify(testData));
+    tg.showAlert('Test ma\'lumot yuborildi!');
+    
+    // App'ni yopish
+    setTimeout(() => {
+      tg.close();
+    }, 1500);
   };
-
-  if (loading) {
-    return <div className="loading">Yuklanmoqda...</div>;
-  }
 
   return (
     <div className="app">
-      <header className="header">
-        <h1>Mening Telegram App'im</h1>
-      </header>
-      
-      <main className="main-content">
-        {user ? (
+      <header className="app-header">
+        <h1>🛍️ Mening Do'konim</h1>
+        {user && (
           <div className="user-info">
-            <div className="avatar-placeholder">
-              {user.first_name?.[0] || 'U'}
-            </div>
-            <h2>Assalomu alaykum, {user.first_name || 'Foydalanuvchi'}!</h2>
-            <p className="user-id">ID: {user.id}</p>
-            <p className="username">@{user.username || 'username yo\'q'}</p>
-          </div>
-        ) : (
-          <div className="guest-info">
-            <h2>Mehmon sifatida kiryapsiz</h2>
-            <p>Bot orqali kirish tavsiya etiladi</p>
+            👤 {user.first_name} {user.last_name || ''}
+            {user.username && <span> (@{user.username})</span>}
           </div>
         )}
-        
-        <div className="features">
-          <h3>Mavjud funksiyalar:</h3>
-          <ul>
-            <li>📱 Telegram Web App SDK</li>
-            <li>👤 Foydalanuvchi ma'lumotlari</li>
-            <li>🎨 Tema moslashuvi</li>
-            <li>📦 Ma'lumot yuborish</li>
-          </ul>
+      </header>
+
+      <main className="app-main">
+        {/* Mahsulot ko'rinishi */}
+        <div className="product-card">
+          <div className="product-image">
+            {currentProduct.name.includes('iPhone') ? '📱' : '📦'}
+          </div>
+          <h2>{currentProduct.name}</h2>
+          <p className="product-description">{currentProduct.description}</p>
+          <p className="product-price">
+            {currentProduct.price.toLocaleString()} so'm
+          </p>
+          <button 
+            className="select-product-btn"
+            onClick={() => tg?.showAlert(`"${currentProduct.name}" tanlandi`)}
+          >
+            Tanlash
+          </button>
         </div>
-        
-        <button 
-          className="test-button"
-          onClick={setupMainButton}
-        >
-          Tugmani Faollashtirish
-        </button>
+
+        {/* Buyurtma formasi */}
+        <OrderForm product={currentProduct} />
+
+        {/* Test tugmasi */}
+        <div className="test-section">
+          <button 
+            className="test-button"
+            onClick={sendTestData}
+          >
+            🔄 Test ma'lumot yuborish
+          </button>
+          <p className="test-notice">
+            Ushbu tugma faqat test uchun. Aslida formani to'ldiring.
+          </p>
+        </div>
       </main>
-      
-      <footer className="footer">
-        <p>Telegram Mini App - React</p>
+
+      <footer className="app-footer">
+        <p>© 2024 Mening Telegram Do'konim</p>
+        <p>Bot: @my_shop_bot</p>
       </footer>
     </div>
   );
