@@ -496,20 +496,7 @@ function App() {
           initializeGame(userData);
         }
 
-        // Setup main button
-        tg.MainButton.setText("🎮 O'ynash");
-        tg.MainButton.color = "#31b545";
-        tg.MainButton.textColor = "#ffffff";
-        tg.MainButton.onClick(startNewGame);
-        tg.MainButton.show();
-
-        // Setup back button
-        tg.BackButton.onClick(() => {
-          if (showShop) setShowShop(false);
-          else if (showProfile) setShowProfile(false);
-          else if (showLeaderboard) setShowLeaderboard(false);
-          else tg.BackButton.hide();
-        });
+    
 
         // Send ready message
         tg.sendData(JSON.stringify({ 
