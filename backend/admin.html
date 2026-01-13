@@ -3,48 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - Telegram Bot</title>
+    <title>Admin Panel - Telegram Bot O'yin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
+            color: #333;
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             overflow: hidden;
+            min-height: 90vh;
         }
         
+        /* HEADER */
         header {
             background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
             color: white;
             padding: 30px 40px;
             text-align: center;
+            position: relative;
         }
         
-        header h1 {
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .header-text h1 {
             font-size: 2.5rem;
             margin-bottom: 10px;
             font-weight: 700;
         }
         
-        header p {
+        .header-text p {
             font-size: 1.1rem;
             opacity: 0.9;
         }
         
+        .server-status {
+            background: rgba(255,255,255,0.2);
+            padding: 15px 25px;
+            border-radius: 15px;
+            text-align: center;
+            min-width: 200px;
+        }
+        
+        .server-status .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-online {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        
+        .status-offline {
+            background: #ef4444;
+            box-shadow: 0 0 10px #ef4444;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        /* STATS GRID */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -60,10 +106,13 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.08);
             border-left: 5px solid #4f46e5;
             transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
         
         .stat-card:hover {
             transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
         }
         
         .stat-card h3 {
@@ -80,21 +129,40 @@
             font-weight: 800;
             color: #1e293b;
             margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
         .stat-icon {
             font-size: 2rem;
             margin-bottom: 15px;
+            color: #4f46e5;
         }
         
+        .stat-change {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+        
+        .stat-change.positive {
+            color: #10b981;
+        }
+        
+        .stat-change.negative {
+            color: #ef4444;
+        }
+        
+        /* CONTROLS */
         .controls {
-            padding: 0 30px 20px;
+            padding: 20px 30px;
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
             align-items: center;
             background: #f8fafc;
             border-bottom: 1px solid #e2e8f0;
+            border-top: 1px solid #e2e8f0;
         }
         
         .btn {
@@ -148,6 +216,15 @@
             background: #dc2626;
         }
         
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #d97706;
+        }
+        
         .last-update {
             margin-left: auto;
             color: #64748b;
@@ -157,31 +234,55 @@
             border-radius: 8px;
         }
         
-        .error-container {
-            margin: 0 30px 20px;
-            padding: 20px;
-            background: #fee2e2;
-            border: 2px solid #ef4444;
-            border-radius: 10px;
-            color: #991b1b;
-            display: none;
-        }
-        
-        .error-container h3 {
-            margin-bottom: 10px;
+        /* TABS */
+        .tabs {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
         }
         
-        .content {
+        .tab {
+            padding: 18px 30px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #64748b;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab:hover {
+            background: #e2e8f0;
+            color: #4f46e5;
+        }
+        
+        .tab.active {
+            color: #4f46e5;
+            border-bottom: 3px solid #4f46e5;
+            background: white;
+        }
+        
+        /* TAB CONTENT */
+        .tab-content {
+            display: none;
             padding: 30px;
         }
         
-        .users-table-container {
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* TABLES */
+        .table-container {
             overflow-x: auto;
             border-radius: 10px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
         }
         
         table {
@@ -218,6 +319,7 @@
             color: #475569;
         }
         
+        /* USER AVATAR */
         .user-avatar {
             width: 40px;
             height: 40px;
@@ -244,6 +346,71 @@
             font-size: 0.9rem;
         }
         
+        /* STATUS BADGES */
+        .status-badge {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .status-connected {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status-waiting {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-playing {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-finished {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+        
+        /* PROGRESS BAR */
+        .progress-bar {
+            width: 100px;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        .progress-bar span {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            line-height: 20px;
+            color: #000;
+            font-weight: bold;
+        }
+        
+        /* LOADING & ERROR STATES */
         .loading {
             text-align: center;
             padding: 60px 20px;
@@ -277,29 +444,52 @@
             opacity: 0.5;
         }
         
-        .status-badge {
-            padding: 6px 15px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            display: inline-block;
-        }
-        
-        .status-connected {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        
-        .status-disconnected {
+        /* ERROR CONTAINER */
+        .error-container {
+            margin: 0 30px 20px;
+            padding: 20px;
             background: #fee2e2;
+            border: 2px solid #ef4444;
+            border-radius: 10px;
             color: #991b1b;
+            display: none;
         }
         
-        .status-error {
-            background: #fef3c7;
-            color: #92400e;
+        .error-container h3 {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
+        /* PAGINATION */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        .page-btn {
+            padding: 8px 15px;
+            border: 1px solid #cbd5e1;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .page-btn:hover {
+            background: #f1f5f9;
+        }
+        
+        .page-btn.active {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+        
+        /* FOOTER */
         .footer {
             padding: 20px 30px;
             text-align: center;
@@ -307,6 +497,10 @@
             font-size: 0.9rem;
             border-top: 1px solid #e2e8f0;
             background: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
         }
         
         .api-links {
@@ -331,9 +525,57 @@
             background: #c7d2fe;
         }
         
+        /* CHARTS */
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .chart-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+        
+        .chart-card h3 {
+            margin-bottom: 20px;
+            color: #1e293b;
+            font-size: 1.2rem;
+        }
+        
+        .chart-placeholder {
+            height: 250px;
+            background: #f8fafc;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-style: italic;
+        }
+        
+        /* RESPONSIVE */
+        @media (max-width: 1200px) {
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
         @media (max-width: 768px) {
             header h1 {
                 font-size: 2rem;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .server-status {
+                min-width: 100%;
             }
             
             .stats-grid {
@@ -350,61 +592,115 @@
                 margin-left: 0;
                 text-align: center;
             }
+            
+            .tabs {
+                flex-wrap: wrap;
+            }
+            
+            .tab {
+                flex: 1;
+                min-width: 120px;
+                text-align: center;
+                padding: 15px;
+            }
+            
+            .footer {
+                flex-direction: column;
+                gap: 15px;
+            }
         }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                border-radius: 15px;
+            }
+            
+            header {
+                padding: 20px;
+            }
+            
+            .tab-content {
+                padding: 20px 15px;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+        
+        /* GAME RESULT COLORS */
+        .win {
+            color: #10b981;
+            font-weight: bold;
+        }
+        
+        .lose {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        
+        .draw {
+            color: #f59e0b;
+            font-weight: bold;
+        }
+        
+        /* CHOICE EMOJIS */
+        .choice-emoji {
+            font-size: 1.5rem;
+        }
+        
+        .choice-rock { color: #666; }
+        .choice-paper { color: #4f46e5; }
+        .choice-scissors { color: #10b981; }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- HEADER -->
         <header>
-            <h1>👑 Telegram Bot Admin Paneli</h1>
-            <p>Foydalanuvchilar va statistika monitoringi</p>
+            <div class="header-content">
+                <div class="header-text">
+                    <h1>👑 Telegram Bot Admin Paneli</h1>
+                    <p>O'yin boti monitoringi va boshqaruvi</p>
+                </div>
+                <div class="server-status">
+                    <div id="serverStatusIndicator" class="status-indicator status-online"></div>
+                    <span id="serverStatusText">Server ishlayapti</span>
+                    <div id="uptime" style="font-size: 0.8rem; margin-top: 5px;"></div>
+                </div>
+            </div>
         </header>
         
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">👥</div>
-                <h3>Jami Foydalanuvchilar</h3>
-                <div class="stat-value" id="totalUsers">0</div>
-                <div class="status-badge" id="totalStatus">yuklanmoqda...</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">🆕</div>
-                <h3>Bugun Qo'shilgan</h3>
-                <div class="stat-value" id="newToday">0</div>
-                <div class="status-badge status-connected" id="newStatus">bugun</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">🔵</div>
-                <h3>Faol (24 soat)</h3>
-                <div class="stat-value" id="activeToday">0</div>
-                <div class="status-badge status-connected" id="activeStatus">faol</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">📊</div>
-                <h3>Database Holati</h3>
-                <div class="stat-value" id="dbStatus">—</div>
-                <div class="status-badge" id="dbStatusBadge">tekshirilmoqda</div>
-            </div>
+        <!-- STATISTIKA -->
+        <div class="stats-grid" id="statsGrid">
+            <!-- Statslar JavaScript orqali to'ldiriladi -->
         </div>
         
+        <!-- CONTROLS -->
         <div class="controls">
-            <button class="btn btn-primary" onclick="loadStats()">
-                <span>🔄</span> Statistika Yangilash
+            <button class="btn btn-primary" onclick="refreshAllData()">
+                <i class="fas fa-sync-alt"></i> Hammasini Yangilash
             </button>
             
-            <button class="btn btn-secondary" onclick="loadUsers()">
-                <span>👥</span> Foydalanuvchilar
+            <button class="btn btn-secondary" onclick="showTab('users')">
+                <i class="fas fa-users"></i> Foydalanuvchilar
             </button>
             
-            <button class="btn btn-success" onclick="testAPI()">
-                <span>🔍</span> API Test
+            <button class="btn btn-secondary" onclick="showTab('games')">
+                <i class="fas fa-gamepad"></i> O'yinlar
             </button>
             
-            <button class="btn btn-danger" onclick="clearErrors()">
-                <span>🗑️</span> Xatolarni Tozalash
+            <button class="btn btn-success" onclick="showTab('analytics')">
+                <i class="fas fa-chart-line"></i> Analitika
+            </button>
+            
+            <button class="btn btn-warning" onclick="testAllEndpoints()">
+                <i class="fas fa-vial"></i> API Test
             </button>
             
             <div class="last-update" id="lastUpdate">
@@ -412,347 +708,1341 @@
             </div>
         </div>
         
+        <!-- ERROR CONTAINER -->
         <div class="error-container" id="errorContainer">
-            <h3><span>❌</span> Xatolik</h3>
+            <h3><i class="fas fa-exclamation-triangle"></i> Xatolik</h3>
             <div id="errorMessage"></div>
             <div id="errorDetails" style="margin-top: 10px; font-size: 0.9rem;"></div>
         </div>
         
-        <div class="content">
-            <div id="usersTable">
-                <div class="loading">
-                    <div class="loading-spinner"></div>
-                    <p>Foydalanuvchilar ma'lumotlari yuklanmoqda...</p>
+        <!-- TABS -->
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('dashboard')">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </div>
+            <div class="tab" onclick="showTab('users')">
+                <i class="fas fa-users"></i> Foydalanuvchilar
+            </div>
+            <div class="tab" onclick="showTab('games')">
+                <i class="fas fa-gamepad"></i> O'yinlar
+            </div>
+            <div class="tab" onclick="showTab('analytics')">
+                <i class="fas fa-chart-line"></i> Analitika
+            </div>
+            <div class="tab" onclick="showTab('system')">
+                <i class="fas fa-server"></i> Tizim
+            </div>
+        </div>
+        
+        <!-- DASHBOARD TAB -->
+        <div id="dashboardTab" class="tab-content active">
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-bar"></i> Faollik statistikasi</h3>
+                    <div class="chart-placeholder" id="activityChart">
+                        Chart.js bilan ishlash uchun
+                    </div>
+                </div>
+                
+                <div class="chart-card">
+                    <h3><i class="fas fa-trophy"></i> Top o'yinchilar</h3>
+                    <div id="topPlayersList" class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Top o'yinchilar yuklanmoqda...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <h3 style="margin: 30px 0 20px;"><i class="fas fa-history"></i> So'nggi faolliklar</h3>
+            <div class="table-container">
+                <div id="recentActivityTable">
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Faolliklar yuklanmoqda...</p>
+                    </div>
                 </div>
             </div>
         </div>
         
+        <!-- USERS TAB -->
+        <div id="usersTab" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3><i class="fas fa-users"></i> Barcha foydalanuvchilar</h3>
+                <div>
+                    <input type="text" id="userSearch" placeholder="ID, ism yoki username bo'yicha qidirish..." 
+                           style="padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; width: 300px;"
+                           onkeyup="searchUsers()">
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <div id="usersTable">
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Foydalanuvchilar yuklanmoqda...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pagination" id="usersPagination">
+                <!-- Pagination JavaScript orqali yaratiladi -->
+            </div>
+        </div>
+        
+        <!-- GAMES TAB -->
+        <div id="gamesTab" class="tab-content">
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="loadGames('all')">
+                    <i class="fas fa-list"></i> Barchasi
+                </button>
+                <button class="btn btn-secondary" onclick="loadGames('active')">
+                    <i class="fas fa-play"></i> Faol o'yinlar
+                </button>
+                <button class="btn btn-success" onclick="loadGames('finished')">
+                    <i class="fas fa-flag-checkered"></i> Tugagan o'yinlar
+                </button>
+                <button class="btn btn-warning" onclick="loadGames('today')">
+                    <i class="fas fa-calendar-day"></i> Bugungi
+                </button>
+            </div>
+            
+            <div class="table-container">
+                <div id="gamesTable">
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>O'yinlar yuklanmoqda...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pagination" id="gamesPagination">
+                <!-- Pagination JavaScript orqali yaratiladi -->
+            </div>
+        </div>
+        
+        <!-- ANALYTICS TAB -->
+        <div id="analyticsTab" class="tab-content">
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3><i class="fas fa-calendar-alt"></i> Kunlik o'yinlar</h3>
+                    <div class="chart-placeholder" id="dailyGamesChart">
+                        Kunlik statistikalar
+                    </div>
+                </div>
+                
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-pie"></i> G'alaba foizlari</h3>
+                    <div class="chart-placeholder" id="winRateChart">
+                        G'alaba statistikasi
+                    </div>
+                </div>
+            </div>
+            
+            <h3 style="margin: 30px 0 20px;"><i class="fas fa-calculator"></i> Statistik ma'lumotlar</h3>
+            <div id="analyticsStats" class="stats-grid" style="padding: 0; background: transparent;">
+                <!-- Analytics stats JavaScript orqali to'ldiriladi -->
+            </div>
+        </div>
+        
+        <!-- SYSTEM TAB -->
+        <div id="systemTab" class="tab-content">
+            <h3><i class="fas fa-cogs"></i> Tizim ma'lumotlari</h3>
+            
+            <div class="stats-grid" style="padding: 0; background: transparent; margin-bottom: 30px;">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-database"></i></div>
+                    <h3>Database Holati</h3>
+                    <div class="stat-value" id="dbStatusValue">—</div>
+                    <div class="status-badge" id="dbStatusBadge">tekshirilmoqda</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-robot"></i></div>
+                    <h3>Bot Holati</h3>
+                    <div class="stat-value" id="botStatusValue">—</div>
+                    <div class="status-badge" id="botStatusBadge">tekshirilmoqda</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-memory"></i></div>
+                    <h3>Xotira</h3>
+                    <div class="stat-value" id="memoryUsage">—</div>
+                    <div class="stat-change" id="memoryPercent">0%</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                    <h3>Ish vaqti</h3>
+                    <div class="stat-value" id="uptimeValue">—</div>
+                    <div class="stat-change">server</div>
+                </div>
+            </div>
+            
+            <h3 style="margin: 30px 0 20px;"><i class="fas fa-plug"></i> API Endpoint'lar</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Endpoint</th>
+                            <th>Metod</th>
+                            <th>Tavsif</th>
+                            <th>Status</th>
+                            <th>Test</th>
+                        </tr>
+                    </thead>
+                    <tbody id="endpointsTable">
+                        <tr>
+                            <td colspan="5" style="text-align: center;">
+                                <div class="loading-spinner" style="width: 30px; height: 30px; margin: 20px auto;"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin: 30px 0 20px;"><i class="fas fa-terminal"></i> Server loglari</h3>
+            <div style="background: #1e293b; color: #e2e8f0; padding: 20px; border-radius: 10px; font-family: monospace; max-height: 300px; overflow-y: auto;">
+                <div id="serverLogs">
+                    <div style="color: #94a3b8; font-style: italic;">
+                        Loglar yuklanmoqda...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- FOOTER -->
         <div class="footer">
-            <p>Telegram Bot Backend Admin Panel • Node.js + MongoDB</p>
-            <div class="api-links">
-                <a href="/" class="api-link" target="_blank">📊 Server Holati</a>
-                <a href="/api/stats" class="api-link" target="_blank">📈 API Stats</a>
-                <a href="/api/users" class="api-link" target="_blank">👥 API Users</a>
-                <a href="/api/debug" class="api-link" target="_blank">🔧 API Debug</a>
-                <a href="/health" class="api-link" target="_blank">❤️ Health Check</a>
+            <div>
+                <p>Telegram Bot Game Admin Panel • Node.js + MongoDB</p>
+                <div class="api-links" id="apiLinks">
+                    <!-- API links JavaScript orqali yaratiladi -->
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 0.8rem; color: #94a3b8;">
+                    <div>Server: <span id="serverUrl">—</span></div>
+                    <div>Versiya: 2.0.0</div>
+                    <div id="currentTime">—:—:—</div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Asosiy konfiguratsiya
+        // ==================== KONFIGURATSIYA ====================
         const API_BASE = window.location.origin;
+        let currentTab = 'dashboard';
+        let currentUserPage = 1;
+        let currentGamePage = 1;
+        let usersData = [];
+        let gamesData = [];
         let autoRefreshInterval = null;
         
-        // DOM elementlari
-        const elements = {
-            totalUsers: document.getElementById('totalUsers'),
-            newToday: document.getElementById('newToday'),
-            activeToday: document.getElementById('activeToday'),
-            dbStatus: document.getElementById('dbStatus'),
-            dbStatusBadge: document.getElementById('dbStatusBadge'),
-            lastUpdate: document.getElementById('lastUpdate'),
-            errorContainer: document.getElementById('errorContainer'),
-            errorMessage: document.getElementById('errorMessage'),
-            errorDetails: document.getElementById('errorDetails'),
-            usersTable: document.getElementById('usersTable')
-        };
+        // ==================== STATS TEMPLATE ====================
+        const statsTemplate = [
+            {
+                id: 'totalUsers',
+                icon: '👥',
+                title: 'Jami Foydalanuvchilar',
+                value: '0',
+                change: '+0 bugun',
+                changeClass: 'positive'
+            },
+            {
+                id: 'activeToday',
+                icon: '🔵',
+                title: 'Faol (24 soat)',
+                value: '0',
+                change: 'faol',
+                changeClass: 'positive'
+            },
+            {
+                id: 'totalGames',
+                icon: '🎮',
+                title: 'Jami O\'yinlar',
+                value: '0',
+                change: '+0 bugun',
+                changeClass: 'positive'
+            },
+            {
+                id: 'activeGames',
+                icon: '⚡',
+                title: 'Faol O\'yinlar',
+                value: '0',
+                change: 'davom etmoqda',
+                changeClass: 'positive'
+            },
+            {
+                id: 'waitingPlayers',
+                icon: '⏳',
+                title: 'Kutayotganlar',
+                value: '0',
+                change: 'raqib kutmoqda',
+                changeClass: 'waiting'
+            },
+            {
+                id: 'winRate',
+                icon: '🏆',
+                title: 'O\'rtacha G\'alaba %',
+                value: '0%',
+                change: 'foiz',
+                changeClass: 'positive'
+            },
+            {
+                id: 'botStatus',
+                icon: '🤖',
+                title: 'Bot Holati',
+                value: '—',
+                change: 'tekshirilmoqda',
+                changeClass: 'waiting'
+            },
+            {
+                id: 'dbStatus',
+                icon: '💾',
+                title: 'Database',
+                value: '—',
+                change: 'tekshirilmoqda',
+                changeClass: 'waiting'
+            }
+        ];
         
-        // Xatolikni ko'rsatish
+        // ==================== UTILITY FUNCTIONS ====================
         function showError(message, details = '') {
-            elements.errorMessage.textContent = message;
-            elements.errorDetails.textContent = details;
-            elements.errorContainer.style.display = 'block';
+            const errorContainer = document.getElementById('errorContainer');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorDetails = document.getElementById('errorDetails');
             
-            // 10 soniyadan so'ng avtomatik yashirish
+            errorMessage.textContent = message;
+            errorDetails.textContent = details;
+            errorContainer.style.display = 'block';
+            
             setTimeout(() => {
-                elements.errorContainer.style.display = 'none';
+                errorContainer.style.display = 'none';
             }, 10000);
             
             console.error('Admin Panel Xatosi:', message, details);
         }
         
-        // Xatoliklarni tozalash
         function clearErrors() {
-            elements.errorContainer.style.display = 'none';
-            elements.errorMessage.textContent = '';
-            elements.errorDetails.textContent = '';
+            document.getElementById('errorContainer').style.display = 'none';
         }
         
-        // Statistika yuklash (XATOSIZ versiya)
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return '—';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('uz-UZ', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        function formatTimeAgo(dateString) {
+            if (!dateString) return '—';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'hozirgina';
+            if (diffMins < 60) return `${diffMins} daqiqa oldin`;
+            if (diffHours < 24) return `${diffHours} soat oldin`;
+            if (diffDays < 7) return `${diffDays} kun oldin`;
+            return formatDate(dateString);
+        }
+        
+        function getChoiceEmoji(choice) {
+            switch(choice) {
+                case 'rock': return '✊';
+                case 'paper': return '✋';
+                case 'scissors': return '✌️';
+                default: return '❓';
+            }
+        }
+        
+        function getChoiceName(choice) {
+            switch(choice) {
+                case 'rock': return 'Tosh';
+                case 'paper': return 'Qog\'oz';
+                case 'scissors': return 'Qaychi';
+                default: return 'Noma\'lum';
+            }
+        }
+        
+        // ==================== STATS FUNCTIONS ====================
         async function loadStats() {
             try {
                 console.log('📊 Statistika yuklanmoqda...');
                 
                 const response = await fetch(API_BASE + '/api/stats');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 
                 const data = await response.json();
-                console.log('API Stats javobi:', data);
+                console.log('📈 Stats API javobi:', data);
                 
-                // TEKSHIRISH: data va data.stats mavjudligi
-                if (data && data.success !== false && data.stats) {
-                    // 1. totalUsers
-                    if (data.stats.totalUsers !== undefined) {
-                        elements.totalUsers.textContent = data.stats.totalUsers;
-                        document.getElementById('totalStatus').textContent = 'saqlandi';
-                        document.getElementById('totalStatus').className = 'status-badge status-connected';
-                    } else {
-                        elements.totalUsers.textContent = '0';
-                        document.getElementById('totalStatus').textContent = 'xato';
-                        document.getElementById('totalStatus').className = 'status-badge status-error';
-                    }
-                    
-                    // 2. newToday
-                    if (data.stats.newToday !== undefined) {
-                        elements.newToday.textContent = data.stats.newToday;
-                        document.getElementById('newStatus').textContent = 'bugun';
-                        document.getElementById('newStatus').className = 'status-badge status-connected';
-                    }
-                    
-                    // 3. activeToday
-                    if (data.stats.activeToday !== undefined) {
-                        elements.activeToday.textContent = data.stats.activeToday;
-                        document.getElementById('activeStatus').textContent = 'faol';
-                        document.getElementById('activeStatus').className = 'status-badge status-connected';
-                    }
-                    
-                    // 4. Database status
-                    if (data.stats.databaseStatus) {
-                        const isConnected = data.stats.databaseStatus === 'connected';
-                        elements.dbStatus.textContent = isConnected ? '✅' : '❌';
-                        elements.dbStatusBadge.textContent = isConnected ? 'ulangan' : 'ulanmagan';
-                        elements.dbStatusBadge.className = isConnected ? 
-                            'status-badge status-connected' : 'status-badge status-disconnected';
-                    }
-                    
-                    // Yangilangan vaqt
-                    const now = new Date();
-                    elements.lastUpdate.textContent = `Yangilandi: ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-                    
+                if (data && data.success && data.stats) {
+                    renderStats(data.stats);
+                    updateLastUpdate();
                     clearErrors();
-                    console.log('✅ Statistika muvaffaqiyatli yuklandi');
-                    
+                    return data.stats;
                 } else {
-                    // Agar data.stats bo'lmasa
-                    const errorMsg = data ? (data.error || 'stats obyekti mavjud emas') : 'API javob bermadi';
-                    throw new Error(`API format xatosi: ${errorMsg}`);
+                    throw new Error('Stats ma\'lumotlari topilmadi');
                 }
-                
             } catch (error) {
                 console.error('❌ Statistika yuklash xatosi:', error);
-                
-                // Default qiymatlar
-                elements.totalUsers.textContent = '0';
-                elements.newToday.textContent = '0';
-                elements.activeToday.textContent = '0';
-                elements.dbStatus.textContent = '❌';
-                elements.dbStatusBadge.textContent = 'xato';
-                elements.dbStatusBadge.className = 'status-badge status-error';
-                
-                showError(
-                    `Statistika yuklashda xato: ${error.message}`,
-                    `URL: ${API_BASE}/api/stats`
-                );
+                showError(`Statistika yuklashda xato: ${error.message}`);
+                return null;
             }
         }
         
-        // Foydalanuvchilar yuklash
-        async function loadUsers() {
+        function renderStats(stats) {
+            // Stats gridni yaratish
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = '';
+            
+            const statsToShow = [...statsTemplate];
+            
+            // Values ni yangilash
+            statsToShow[0].value = formatNumber(stats.totalUsers || 0);
+            statsToShow[0].change = `+${stats.newToday || 0} bugun`;
+            
+            statsToShow[1].value = formatNumber(stats.activeToday || 0);
+            statsToShow[1].change = 'faol';
+            
+            statsToShow[2].value = formatNumber(stats.totalGames || 0);
+            statsToShow[2].change = `${stats.activeGames || 0} faol`;
+            
+            statsToShow[3].value = formatNumber(stats.activeGames || 0);
+            statsToShow[3].change = 'davom etmoqda';
+            
+            statsToShow[4].value = formatNumber(stats.waitingPlayers || 0);
+            statsToShow[4].change = 'raqib kutmoqda';
+            
+            // O'rtacha win rate hisoblash (bu backenddan kelishi kerak)
+            statsToShow[5].value = '45%'; // Demo
+            statsToShow[5].change = 'o\'rtacha';
+            
+            statsToShow[6].value = stats.botStatus === 'running' ? '✅' : '❌';
+            statsToShow[6].change = stats.botStatus === 'running' ? 'ishlayapti' : 'to\'xtatilgan';
+            statsToShow[6].changeClass = stats.botStatus === 'running' ? 'positive' : 'negative';
+            
+            statsToShow[7].value = stats.databaseStatus === 'connected' ? '✅' : '❌';
+            statsToShow[7].change = stats.databaseStatus === 'connected' ? 'ulangan' : 'ulanmagan';
+            statsToShow[7].changeClass = stats.databaseStatus === 'connected' ? 'positive' : 'negative';
+            
+            // Stats kartalarni yaratish
+            statsToShow.forEach(stat => {
+                const statCard = document.createElement('div');
+                statCard.className = 'stat-card';
+                statCard.innerHTML = `
+                    <div class="stat-icon">${stat.icon}</div>
+                    <h3>${stat.title}</h3>
+                    <div class="stat-value">${stat.value}</div>
+                    <div class="stat-change ${stat.changeClass}">${stat.change}</div>
+                `;
+                statsGrid.appendChild(statCard);
+            });
+            
+            // System status yangilash
+            document.getElementById('dbStatusValue').textContent = stats.databaseStatus === 'connected' ? '✅' : '❌';
+            document.getElementById('dbStatusBadge').textContent = stats.databaseStatus === 'connected' ? 'ulangan' : 'ulanmagan';
+            document.getElementById('dbStatusBadge').className = stats.databaseStatus === 'connected' ? 
+                'status-badge status-connected' : 'status-badge status-disconnected';
+            
+            document.getElementById('botStatusValue').textContent = stats.botStatus === 'running' ? '✅' : '❌';
+            document.getElementById('botStatusBadge').textContent = stats.botStatus === 'running' ? 'ishlayapti' : 'to\'xtatilgan';
+            document.getElementById('botStatusBadge').className = stats.botStatus === 'running' ? 
+                'status-badge status-connected' : 'status-badge status-disconnected';
+            
+            // Server status yangilash
+            const serverStatusIndicator = document.getElementById('serverStatusIndicator');
+            const serverStatusText = document.getElementById('serverStatusText');
+            
+            if (stats.databaseStatus === 'connected') {
+                serverStatusIndicator.className = 'status-indicator status-online';
+                serverStatusText.textContent = 'Server ishlayapti';
+            } else {
+                serverStatusIndicator.className = 'status-indicator status-offline';
+                serverStatusText.textContent = 'Serverda muammo';
+            }
+        }
+        
+        // ==================== USERS FUNCTIONS ====================
+        async function loadUsers(page = 1) {
             try {
-                elements.usersTable.innerHTML = `
+                currentUserPage = page;
+                const usersTable = document.getElementById('usersTable');
+                usersTable.innerHTML = `
                     <div class="loading">
                         <div class="loading-spinner"></div>
-                        <p>Foydalanuvchilar ma'lumotlari yuklanmoqda...</p>
+                        <p>Foydalanuvchilar yuklanmoqda...</p>
                     </div>
                 `;
                 
-                const response = await fetch(API_BASE + '/api/users');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
+                const response = await fetch(`${API_BASE}/api/users?page=${page}&limit=20`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 
                 const data = await response.json();
-                console.log('API Users javobi:', data);
+                console.log('👥 Users API javobi:', data);
                 
-                // TEKSHIRISH: data va data.users mavjudligi
-                if (data && data.success !== false && data.users && Array.isArray(data.users)) {
-                    
-                    if (data.users.length > 0) {
-                        renderUsersTable(data.users);
-                    } else {
-                        elements.usersTable.innerHTML = `
-                            <div class="empty-state">
-                                <div class="empty-state-icon">📭</div>
-                                <h3>Hozircha foydalanuvchilar yoʻq</h3>
-                                <p>Bot'ga /start yuboring va qayta yuklang</p>
-                                <button class="btn btn-primary" onclick="loadUsers()" style="margin-top: 20px;">
-                                    <span>🔄</span> Qayta Yuklash
-                                </button>
-                            </div>
-                        `;
-                    }
-                    
+                if (data && data.success && data.users) {
+                    usersData = data.users;
+                    renderUsersTable(usersData);
+                    renderUsersPagination(data.page, data.totalPages);
                     clearErrors();
-                    console.log(`✅ ${data.users.length} ta foydalanuvchi yuklandi`);
-                    
                 } else {
-                    const errorMsg = data ? (data.error || 'users massivi mavjud emas') : 'API javob bermadi';
-                    throw new Error(`API format xatosi: ${errorMsg}`);
+                    throw new Error('Users ma\'lumotlari topilmadi');
                 }
-                
             } catch (error) {
                 console.error('❌ Foydalanuvchilar yuklash xatosi:', error);
-                
-                elements.usersTable.innerHTML = `
+                usersTable.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">❌</div>
                         <h3>Foydalanuvchilarni yuklashda xato</h3>
                         <p>${error.message}</p>
-                        <button class="btn btn-primary" onclick="loadUsers()" style="margin-top: 20px;">
-                            <span>🔄</span> Qayta Urinish
+                        <button class="btn btn-primary" onclick="loadUsers(1)" style="margin-top: 20px;">
+                            <i class="fas fa-redo"></i> Qayta Urinish
                         </button>
                     </div>
                 `;
-                
-                showError(
-                    `Foydalanuvchilarni yuklashda xato: ${error.message}`,
-                    `URL: ${API_BASE}/api/users`
-                );
+                showError(`Foydalanuvchilarni yuklashda xato: ${error.message}`);
             }
         }
         
-        // Foydalanuvchilar jadvalini chizish
         function renderUsersTable(users) {
+            if (!users || users.length === 0) {
+                document.getElementById('usersTable').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <h3>Hozircha foydalanuvchilar yoʻq</h3>
+                        <p>Bot'ga /start yuboring va qayta yuklang</p>
+                    </div>
+                `;
+                return;
+            }
+            
             let html = `
-                <div class="users-table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Foydalanuvchi</th>
-                                <th>Telegram ID</th>
-                                <th>Username</th>
-                                <th>Kirishlar</th>
-                                <th>Qo'shilgan sana</th>
-                                <th>So'nggi faollik</th>
-                                <th>Holat</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Foydalanuvchi</th>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>O'yin Statistikasi</th>
+                            <th>Kirishlar</th>
+                            <th>Qo'shilgan</th>
+                            <th>So'nggi faollik</th>
+                        </tr>
+                    </thead>
+                    <tbody>
             `;
             
             users.forEach((user, index) => {
-                const firstLetter = user.name ? user.name.charAt(0).toUpperCase() : 'U';
-                const joinDate = user.joinDate ? new Date(user.joinDate).toLocaleDateString() : 'N/A';
-                const lastActivity = user.lastActivity ? new Date(user.lastActivity).toLocaleString() : 'N/A';
-                const visits = user.visits || 0;
+                const stats = user.gameStats || { wins: 0, losses: 0, draws: 0, totalGames: 0, winRate: 0 };
+                const winRate = stats.winRate || 0;
+                const totalGames = stats.totalGames || 0;
+                const startIndex = (currentUserPage - 1) * 20;
                 
                 html += `
                     <tr>
-                        <td>${index + 1}</td>
+                        <td>${startIndex + index + 1}</td>
                         <td>
                             <div style="display: flex; align-items: center; gap: 12px;">
-                                <div class="user-avatar">${firstLetter}</div>
+                                <div class="user-avatar">${user.name?.[0]?.toUpperCase() || 'U'}</div>
                                 <div>
                                     <div style="font-weight: 600; color: #1e293b;">${user.name || 'Noma\'lum'}</div>
-                                    <div style="font-size: 0.85rem; color: #64748b;">${user.isBot ? '🤖 Bot' : '👤 User'}</div>
+                                    <div style="font-size: 0.85rem; color: #64748b;">${user.isBot ? '🤖 Bot' : '👤 Foydalanuvchi'}</div>
                                 </div>
                             </div>
                         </td>
                         <td><span class="user-id">${user.id || '—'}</span></td>
                         <td><span class="username">${user.username ? '@' + user.username : '—'}</span></td>
-                        <td><strong>${visits}</strong> marta</td>
-                        <td>${joinDate}</td>
-                        <td>${lastActivity}</td>
                         <td>
-                            <span class="status-badge ${visits > 0 ? 'status-connected' : 'status-disconnected'}">
-                                ${visits > 0 ? 'faol' : 'yangi'}
-                            </span>
+                            ${totalGames > 0 ? `
+                                <div style="min-width: 120px;">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: ${winRate}%"></div>
+                                        <span>${winRate}%</span>
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">
+                                        ${stats.wins}✅ ${stats.losses}❌ ${stats.draws}🤝
+                                    </div>
+                                </div>
+                            ` : '<span style="color: #94a3b8; font-style: italic;">O\'ynamagan</span>'}
                         </td>
+                        <td><strong>${user.visits || 0}</strong></td>
+                        <td>${formatDate(user.joinDate)}</td>
+                        <td>${formatTimeAgo(user.lastActivity)}</td>
                     </tr>
                 `;
             });
             
             html += `
-                        </tbody>
-                    </table>
-                </div>
-                <div style="margin-top: 20px; text-align: center; color: #64748b; font-size: 0.9rem;">
-                    Jami ${users.length} ta foydalanuvchi ko'rsatilmoqda
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('usersTable').innerHTML = html;
+        }
+        
+        function renderUsersPagination(currentPage, totalPages) {
+            const pagination = document.getElementById('usersPagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            // Oldingi tugma
+            html += `
+                <button class="page-btn ${currentPage === 1 ? 'disabled' : ''}" 
+                        onclick="loadUsers(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            `;
+            
+            // Sahifalar
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, startPage + 4);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `
+                    <button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="loadUsers(${i})">
+                        ${i}
+                    </button>
+                `;
+            }
+            
+            // Keyingi tugma
+            html += `
+                <button class="page-btn ${currentPage === totalPages ? 'disabled' : ''}" 
+                        onclick="loadUsers(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            `;
+            
+            // Sahifa ma'lumotlari
+            html += `
+                <div style="margin-left: 15px; color: #64748b; font-size: 0.9rem; display: flex; align-items: center;">
+                    Sahifa ${currentPage} / ${totalPages}
                 </div>
             `;
             
-            elements.usersTable.innerHTML = html;
+            pagination.innerHTML = html;
         }
         
-        // API test funksiyasi
-        async function testAPI() {
+        function searchUsers() {
+            const searchTerm = document.getElementById('userSearch').value.toLowerCase();
+            
+            if (!searchTerm.trim()) {
+                renderUsersTable(usersData);
+                return;
+            }
+            
+            const filteredUsers = usersData.filter(user => 
+                (user.id && user.id.toString().includes(searchTerm)) ||
+                (user.name && user.name.toLowerCase().includes(searchTerm)) ||
+                (user.username && user.username.toLowerCase().includes(searchTerm))
+            );
+            
+            renderUsersTable(filteredUsers);
+        }
+        
+        // ==================== GAMES FUNCTIONS ====================
+        async function loadGames(filter = 'all', page = 1) {
             try {
-                const endpoints = ['/api/stats', '/api/users', '/health'];
+                currentGamePage = page;
+                const gamesTable = document.getElementById('gamesTable');
+                gamesTable.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>O'yinlar yuklanmoqda...</p>
+                    </div>
+                `;
+                
+                let url = `${API_BASE}/api/games?page=${page}&limit=15`;
+                if (filter === 'today') {
+                    const today = new Date().toISOString().split('T')[0];
+                    url += `&date=${today}`;
+                }
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                
+                const data = await response.json();
+                console.log('🎮 Games API javobi:', data);
+                
+                if (data && data.success) {
+                    let gamesToShow = [...(data.games || [])];
+                    
+                    // Filter qo'llash
+                    if (filter === 'active') {
+                        gamesToShow = data.activeGames || [];
+                    } else if (filter === 'finished') {
+                        gamesToShow = (data.games || []).filter(g => g.status === 'finished');
+                    } else if (filter === 'today') {
+                        const today = new Date().toISOString().split('T')[0];
+                        gamesToShow = (data.games || []).filter(g => 
+                            g.createdAt && g.createdAt.includes(today)
+                        );
+                    }
+                    
+                    gamesData = gamesToShow;
+                    renderGamesTable(gamesToShow);
+                    renderGamesPagination(page, Math.ceil((data.total || 0) / 15));
+                    clearErrors();
+                } else {
+                    throw new Error('O\'yin ma\'lumotlari topilmadi');
+                }
+            } catch (error) {
+                console.error('❌ O\'yinlar yuklash xatosi:', error);
+                gamesTable.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <h3>O'yinlarni yuklashda xato</h3>
+                        <p>${error.message}</p>
+                        <button class="btn btn-primary" onclick="loadGames('all', 1)" style="margin-top: 20px;">
+                            <i class="fas fa-redo"></i> Qayta Urinish
+                        </button>
+                    </div>
+                `;
+                showError(`O'yinlarni yuklashda xato: ${error.message}`);
+            }
+        }
+        
+        function renderGamesTable(games) {
+            if (!games || games.length === 0) {
+                document.getElementById('gamesTable').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🎮</div>
+                        <h3>Hozircha o'yinlar yoʻq</h3>
+                        <p>Bot'ga /game yuboring va o'yin boshlang</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>O'yin ID</th>
+                            <th>O'yinchilar</th>
+                            <th>Tanlovlar</th>
+                            <th>Natija</th>
+                            <th>Holat</th>
+                            <th>Boshlangan</th>
+                            <th>Tugagan</th>
+                            <th>Davomiylik</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            games.forEach((game, index) => {
+                const player1Name = game.player1?.firstName || `User ${game.player1?.id || 'N/A'}`;
+                const player2Name = game.player2?.firstName || `User ${game.player2?.id || 'N/A'}`;
+                
+                const choice1 = game.player1?.choice || '—';
+                const choice2 = game.player2?.choice || '—';
+                
+                let resultText = '—';
+                let resultClass = '';
+                
+                if (game.result === 'player1_win') {
+                    resultText = `${player1Name} g'olib`;
+                    resultClass = 'win';
+                } else if (game.result === 'player2_win') {
+                    resultText = `${player2Name} g'olib`;
+                    resultClass = 'win';
+                } else if (game.result === 'draw') {
+                    resultText = 'Durrang';
+                    resultClass = 'draw';
+                } else if (game.result === 'timeout') {
+                    resultText = 'Vaqt tugadi';
+                    resultClass = 'lose';
+                }
+                
+                let statusBadge = '';
+                if (game.status === 'waiting') {
+                    statusBadge = '<span class="status-badge status-waiting">Kutmoqda</span>';
+                } else if (game.status === 'playing') {
+                    statusBadge = '<span class="status-badge status-playing">Davom etmoqda</span>';
+                } else if (game.status === 'finished') {
+                    statusBadge = '<span class="status-badge status-finished">Tugagan</span>';
+                }
+                
+                const startTime = new Date(game.createdAt);
+                const endTime = game.finishedAt ? new Date(game.finishedAt) : new Date();
+                const duration = Math.round((endTime - startTime) / 1000); // soniyalarda
+                
+                html += `
+                    <tr>
+                        <td><code style="font-size: 0.8rem;">${game.gameId?.substring(0, 12)}...</code></td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <div>
+                                    <div class="user-avatar" style="width: 25px; height: 25px; font-size: 0.9rem; display: inline-block; margin-right: 8px;">
+                                        ${player1Name[0]?.toUpperCase() || 'A'}
+                                    </div>
+                                    ${player1Name}
+                                </div>
+                                <div>
+                                    <div class="user-avatar" style="width: 25px; height: 25px; font-size: 0.9rem; display: inline-block; margin-right: 8px;">
+                                        ${player2Name[0]?.toUpperCase() || 'B'}
+                                    </div>
+                                    ${player2Name}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 5px; align-items: center;">
+                                <div>
+                                    <span class="choice-emoji choice-${choice1}">${getChoiceEmoji(choice1)}</span>
+                                    <span style="font-size: 0.8rem; margin-left: 5px;">${getChoiceName(choice1)}</span>
+                                </div>
+                                <div style="font-size: 0.8rem; color: #94a3b8;">VS</div>
+                                <div>
+                                    <span class="choice-emoji choice-${choice2}">${getChoiceEmoji(choice2)}</span>
+                                    <span style="font-size: 0.8rem; margin-left: 5px;">${getChoiceName(choice2)}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="${resultClass}">${resultText}</span></td>
+                        <td>${statusBadge}</td>
+                        <td>${formatDate(game.createdAt)}</td>
+                        <td>${game.finishedAt ? formatDate(game.finishedAt) : '—'}</td>
+                        <td>${duration}s</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('gamesTable').innerHTML = html;
+        }
+        
+        function renderGamesPagination(currentPage, totalPages) {
+            const pagination = document.getElementById('gamesPagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            // Oldingi tugma
+            html += `
+                <button class="page-btn ${currentPage === 1 ? 'disabled' : ''}" 
+                        onclick="loadGames('all', ${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            `;
+            
+            // Sahifalar
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, startPage + 4);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `
+                    <button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="loadGames('all', ${i})">
+                        ${i}
+                    </button>
+                `;
+            }
+            
+            // Keyingi tugma
+            html += `
+                <button class="page-btn ${currentPage === totalPages ? 'disabled' : ''}" 
+                        onclick="loadGames('all', ${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            `;
+            
+            // Sahifa ma'lumotlari
+            html += `
+                <div style="margin-left: 15px; color: #64748b; font-size: 0.9rem; display: flex; align-items: center;">
+                    Sahifa ${currentPage} / ${totalPages}
+                </div>
+            `;
+            
+            pagination.innerHTML = html;
+        }
+        
+        // ==================== SYSTEM FUNCTIONS ====================
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/api/debug`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                
+                const data = await response.json();
+                console.log('🔧 Debug API javobi:', data);
+                
+                // Uptime
+                if (data.environment?.uptime) {
+                    const uptime = data.environment.uptime;
+                    const hours = Math.floor(uptime / 3600);
+                    const minutes = Math.floor((uptime % 3600) / 60);
+                    const seconds = Math.floor(uptime % 60);
+                    document.getElementById('uptimeValue').textContent = `${hours}s ${minutes}m ${seconds}s`;
+                    document.getElementById('uptime').textContent = `${hours}s ${minutes}m ${seconds}s`;
+                }
+                
+                // Memory
+                if (data.environment?.memory) {
+                    const memory = data.environment.memory;
+                    const usedMB = Math.round(memory.heapUsed / 1024 / 1024);
+                    const totalMB = Math.round(memory.heapTotal / 1024 / 1024);
+                    const percent = Math.round((usedMB / totalMB) * 100);
+                    
+                    document.getElementById('memoryUsage').textContent = `${usedMB}MB / ${totalMB}MB`;
+                    document.getElementById('memoryPercent').textContent = `${percent}%`;
+                    
+                    // Progress bar style
+                    const memoryPercentElement = document.getElementById('memoryPercent');
+                    if (percent > 80) {
+                        memoryPercentElement.className = 'stat-change negative';
+                    } else if (percent > 60) {
+                        memoryPercentElement.className = 'stat-change waiting';
+                    } else {
+                        memoryPercentElement.className = 'stat-change positive';
+                    }
+                }
+                
+                // Endpoints
+                renderEndpointsTable(data.endpoints || []);
+                
+                // API links
+                renderApiLinks(data.endpoints || []);
+                
+                clearErrors();
+            } catch (error) {
+                console.error('❌ System info yuklash xatosi:', error);
+            }
+        }
+        
+        function renderEndpointsTable(endpoints) {
+            const tableBody = document.getElementById('endpointsTable');
+            
+            if (!endpoints || endpoints.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #94a3b8; font-style: italic;">
+                            Endpoint'lar topilmadi
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            endpoints.forEach(endpoint => {
+                const method = endpoint.method || 'GET';
+                const path = endpoint.path || endpoint;
+                const description = endpoint.description || '—';
+                
+                let methodColor = '#64748b';
+                if (method === 'GET') methodColor = '#10b981';
+                if (method === 'POST') methodColor = '#f59e0b';
+                if (method === 'PUT') methodColor = '#3b82f6';
+                if (method === 'DELETE') methodColor = '#ef4444';
+                
+                html += `
+                    <tr>
+                        <td><code>${path}</code></td>
+                        <td>
+                            <span style="background: ${methodColor}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">
+                                ${method}
+                            </span>
+                        </td>
+                        <td>${description}</td>
+                        <td>
+                            <span class="status-badge status-connected" style="font-size: 0.7rem;">
+                                <i class="fas fa-check"></i> Mavjud
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn" style="padding: 5px 10px; font-size: 0.8rem;" 
+                                    onclick="testEndpoint('${path}', '${method}')">
+                                <i class="fas fa-vial"></i> Test
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = html;
+        }
+        
+        function renderApiLinks(endpoints) {
+            const apiLinksContainer = document.getElementById('apiLinks');
+            
+            // Asosiy endpoint'lar
+            const mainEndpoints = [
+                { path: '/api/users', label: '👥 Users' },
+                { path: '/api/stats', label: '📈 Stats' },
+                { path: '/api/games', label: '🎮 Games' },
+                { path: '/api/debug', label: '🔧 Debug' },
+                { path: '/health', label: '❤️ Health' }
+            ];
+            
+            let html = '';
+            
+            mainEndpoints.forEach(endpoint => {
+                html += `
+                    <a href="${API_BASE}${endpoint.path}" class="api-link" target="_blank">
+                        ${endpoint.label}
+                    </a>
+                `;
+            });
+            
+            apiLinksContainer.innerHTML = html;
+            document.getElementById('serverUrl').textContent = API_BASE;
+        }
+        
+        async function testEndpoint(path, method) {
+            try {
+                const response = await fetch(API_BASE + path, {
+                    method: method
+                });
+                
+                const data = await response.json();
+                
+                alert(`✅ Endpoint test muvaffaqiyatli!\n\nPath: ${path}\nMethod: ${method}\nStatus: ${response.status}\n\nResponse: ${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                alert(`❌ Endpoint test xatosi!\n\nPath: ${path}\nError: ${error.message}`);
+            }
+        }
+        
+        async function testAllEndpoints() {
+            try {
+                const endpoints = [
+                    { path: '/api/users', method: 'GET' },
+                    { path: '/api/stats', method: 'GET' },
+                    { path: '/api/games', method: 'GET' },
+                    { path: '/api/debug', method: 'GET' },
+                    { path: '/health', method: 'GET' }
+                ];
+                
                 let results = [];
                 
                 for (const endpoint of endpoints) {
-                    const response = await fetch(API_BASE + endpoint);
-                    const data = await response.json();
+                    const response = await fetch(API_BASE + endpoint.path);
                     results.push({
-                        endpoint,
+                        endpoint: endpoint.path,
                         status: response.status,
-                        ok: response.ok,
-                        data: data
+                        ok: response.ok
                     });
                 }
                 
+                const successCount = results.filter(r => r.ok).length;
                 const message = results.map(r => 
                     `${r.endpoint}: ${r.status} ${r.ok ? '✅' : '❌'}`
                 ).join('\n');
                 
-                alert('API Test Natijalari:\n\n' + message);
-                
+                alert(`API Test Natijalari (${successCount}/${endpoints.length}):\n\n${message}`);
             } catch (error) {
                 alert('API Test Xatosi: ' + error.message);
             }
         }
         
-        // Avtomatik yangilashni yoqish/o'chirish
-        function toggleAutoRefresh() {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-                autoRefreshInterval = null;
-                alert('🛑 Avtomatik yangilash o\'chirildi');
-            } else {
-                autoRefreshInterval = setInterval(() => {
-                    loadStats();
-                    loadUsers();
-                }, 30000); // 30 soniya
-                alert('🔄 Avtomatik yangilash yoqildi (30 soniya)');
+        // ==================== DASHBOARD FUNCTIONS ====================
+        async function loadDashboardData() {
+            // Top players
+            try {
+                const response = await fetch(`${API_BASE}/api/leaderboard`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.leaderboard) {
+                        renderTopPlayers(data.leaderboard.slice(0, 5));
+                    }
+                }
+            } catch (error) {
+                console.error('Top players yuklash xatosi:', error);
+            }
+            
+            // Recent activity
+            try {
+                const response = await fetch(`${API_BASE}/api/games?limit=5`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.games) {
+                        renderRecentActivity(data.games.slice(0, 10));
+                    }
+                }
+            } catch (error) {
+                console.error('Recent activity yuklash xatosi:', error);
             }
         }
         
-        // Sahifa yuklanganda
+        function renderTopPlayers(players) {
+            const container = document.getElementById('topPlayersList');
+            
+            if (!players || players.length === 0) {
+                container.innerHTML = `
+                    <div style="color: #94a3b8; font-style: italic; text-align: center; padding: 20px;">
+                        Top o'yinchilar yo'q
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            players.forEach((player, index) => {
+                const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+                
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; 
+                                 padding: 12px 15px; border-bottom: 1px solid #e2e8f0; background: ${index % 2 === 0 ? '#f8fafc' : 'white'};">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 1.2rem; width: 30px; text-align: center;">
+                                ${medals[index] || `${index + 1}.`}
+                            </div>
+                            <div class="user-avatar" style="width: 35px; height: 35px; font-size: 1rem;">
+                                ${player.name?.[0]?.toUpperCase() || 'U'}
+                            </div>
+                            <div>
+                                <div style="font-weight: 600;">${player.name}</div>
+                                <div style="font-size: 0.8rem; color: #64748b;">${player.username ? '@' + player.username : ''}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 600; font-size: 1.1rem;">${player.stats?.winRate || 0}%</div>
+                            <div style="font-size: 0.8rem; color: #64748b;">
+                                ${player.stats?.wins || 0}✅ ${player.stats?.losses || 0}❌
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function renderRecentActivity(games) {
+            const container = document.getElementById('recentActivityTable');
+            
+            if (!games || games.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #94a3b8; font-style: italic;">
+                        Hozircha faollik yo'q
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Vaqt</th>
+                            <th>O'yin</th>
+                            <th>Natija</th>
+                            <th>Holat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            games.slice(0, 10).forEach(game => {
+                const player1Name = game.player1?.firstName || `User ${game.player1?.id || 'N/A'}`;
+                const player2Name = game.player2?.firstName || `User ${game.player2?.id || 'N/A'}`;
+                
+                let resultText = '—';
+                if (game.result === 'player1_win') resultText = `${player1Name} g'olib`;
+                if (game.result === 'player2_win') resultText = `${player2Name} g'olib`;
+                if (game.result === 'draw') resultText = 'Durrang';
+                if (game.result === 'timeout') resultText = 'Vaqt tugadi';
+                
+                let statusBadge = '';
+                if (game.status === 'waiting') {
+                    statusBadge = '<span class="status-badge status-waiting">Kutmoqda</span>';
+                } else if (game.status === 'playing') {
+                    statusBadge = '<span class="status-badge status-playing">Davom etmoqda</span>';
+                } else if (game.status === 'finished') {
+                    statusBadge = '<span class="status-badge status-finished">Tugagan</span>';
+                }
+                
+                html += `
+                    <tr>
+                        <td>${formatTimeAgo(game.createdAt)}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="user-avatar" style="width: 30px; height: 30px; font-size: 0.9rem;">
+                                    ${player1Name[0]?.toUpperCase() || 'A'}
+                                </div>
+                                <span>${player1Name}</span>
+                                <span style="color: #94a3b8;">vs</span>
+                                <div class="user-avatar" style="width: 30px; height: 30px; font-size: 0.9rem;">
+                                    ${player2Name[0]?.toUpperCase() || 'B'}
+                                </div>
+                                <span>${player2Name}</span>
+                            </div>
+                        </td>
+                        <td>${resultText}</td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+        }
+        
+        // ==================== ANALYTICS FUNCTIONS ====================
+        function loadAnalytics() {
+            // Demo analytics stats
+            const analyticsStats = document.getElementById('analyticsStats');
+            analyticsStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-user-clock"></i></div>
+                    <h3>O'rtacha o'yin vaqti</h3>
+                    <div class="stat-value">45s</div>
+                    <div class="stat-change positive">tezkor</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                    <h3>Kunlik o'rtacha</h3>
+                    <div class="stat-value">128</div>
+                    <div class="stat-change positive">o'yin/kun</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    <h3>Faol o'yinchilar</h3>
+                    <div class="stat-value">42%</div>
+                    <div class="stat-change positive">faollik</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-retweet"></i></div>
+                    <h3>Qayta o'ynash</h3>
+                    <div class="stat-value">68%</div>
+                    <div class="stat-change positive">yuqori</div>
+                </div>
+            `;
+        }
+        
+        // ==================== TAB FUNCTIONS ====================
+        function showTab(tabName) {
+            // Eskit tablarni yashirish
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Yangi tabni ko'rsatish
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            document.querySelector(`.tab[onclick="showTab('${tabName}')"]`).classList.add('active');
+            
+            currentTab = tabName;
+            
+            // Tabga oid ma'lumotlarni yuklash
+            switch(tabName) {
+                case 'dashboard':
+                    loadDashboardData();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'games':
+                    loadGames();
+                    break;
+                case 'analytics':
+                    loadAnalytics();
+                    break;
+                case 'system':
+                    loadSystemInfo();
+                    break;
+            }
+        }
+        
+        // ==================== UTILITY FUNCTIONS ====================
+        function updateLastUpdate() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = 
+                `Yangilandi: ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+        }
+        
+        function updateCurrentTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = 
+                `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+        }
+        
+        async function refreshAllData() {
+            await loadStats();
+            
+            switch(currentTab) {
+                case 'dashboard':
+                    await loadDashboardData();
+                    break;
+                case 'users':
+                    await loadUsers(currentUserPage);
+                    break;
+                case 'games':
+                    await loadGames('all', currentGamePage);
+                    break;
+                case 'analytics':
+                    loadAnalytics();
+                    break;
+                case 'system':
+                    await loadSystemInfo();
+                    break;
+            }
+        }
+        
+        // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Admin Panel yuklandi');
-            console.log('API Base URL:', API_BASE);
+            console.log('🌐 API Base URL:', API_BASE);
             
             // Dastlabki yuklash
             loadStats();
-            loadUsers();
+            loadDashboardData();
+            loadSystemInfo();
             
-            // 30 soniyada bir avtomatik yangilash
+            // Vaqtni yangilash
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+            
+            // Avtomatik yangilash (har 30 soniyada)
             autoRefreshInterval = setInterval(() => {
-                loadStats();
+                if (document.visibilityState === 'visible') {
+                    refreshAllData();
+                }
             }, 30000);
             
             // F5 tugmasi bosilganda
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'F5') {
                     e.preventDefault();
-                    loadStats();
-                    loadUsers();
+                    refreshAllData();
                 }
             });
         });

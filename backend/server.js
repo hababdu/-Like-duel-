@@ -1036,7 +1036,285 @@ app.use((req, res) => {
     available: ['/', '/admin', '/api/stats', '/api/games', '/api/leaderboard', '/health']
   });
 });
+// ==================== API ENDPOINTS ====================
 
+// 1. Foydalanuvchilar ro'yxati
+app.get('/api/users', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+    
+    let users = [];
+    let totalUsers = 0;
+    
+    if (mongoose.connection.readyState === 1) {
+      users = await User.find()
+        .sort({ lastActivity: -1 })
+        .skip(skip)
+        .limit(limit);
+      
+      totalUsers = await User.countDocuments();
+    }
+    
+    res.json({
+      success: true,
+      page,
+      limit,
+      total: totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      databaseConnected: mongoose.connection.readyState === 1,
+      users: users.map(user => ({
+        id: user.telegramId,
+        name: `${user.firstName} ${user.lastName || ''}`.trim() || 'Noma\'lum',
+        username: user.username,
+        joinDate: user.joinDate,
+        lastActivity: user.lastActivity,
+        visits: user.visitCount,
+        isBot: user.isBot,
+        gameStats: user.gameStats || {
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          totalGames: 0,
+          winRate: 0
+        }
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      databaseConnected: mongoose.connection.readyState === 1
+    });
+  }
+});
+
+// 2. Statistika
+app.get('/api/stats', async (req, res) => {
+  try {
+    let totalUsers = 0;
+    let newToday = 0;
+    let activeToday = 0;
+    let totalGames = 0;
+    let activeGamesCount = 0;
+    
+    if (mongoose.connection.readyState === 1) {
+      totalUsers = await User.countDocuments();
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      newToday = await User.countDocuments({ joinDate: { $gte: today } });
+      activeToday = await User.countDocuments({ 
+        lastActivity: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } 
+      });
+      
+      totalGames = await Game.countDocuments();
+      activeGamesCount = (await Game.countDocuments({ status: 'playing' })) || 0;
+    }
+    
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        newToday,
+        activeToday,
+        totalGames,
+        activeGames: activeGamesCount,
+        waitingPlayers: waitingPlayers.size,
+        databaseStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        botStatus: botPollingActive ? 'running' : 'stopped'
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stats: {
+        totalUsers: 0,
+        newToday: 0,
+        activeToday: 0,
+        totalGames: 0,
+        activeGames: 0,
+        waitingPlayers: 0,
+        databaseStatus: 'error',
+        botStatus: 'unknown'
+      }
+    });
+  }
+});
+
+// 3. O'yinlar ro'yxati
+app.get('/api/games', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    let games = [];
+    let totalGames = 0;
+    
+    if (mongoose.connection.readyState === 1) {
+      games = await Game.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+      
+      totalGames = await Game.countDocuments();
+    }
+    
+    // Faol o'yinlarni qo'shish
+    const activeGamesList = Array.from(activeGames.values()).map(game => ({
+      gameId: game.gameId,
+      player1: game.player1,
+      player2: game.player2,
+      status: game.status,
+      createdAt: game.createdAt,
+      type: 'active'
+    }));
+    
+    res.json({
+      success: true,
+      page,
+      limit,
+      total: totalGames,
+      activeCount: activeGames.size,
+      databaseConnected: mongoose.connection.readyState === 1,
+      games: games.map(game => ({
+        gameId: game.gameId,
+        player1: game.player1,
+        player2: game.player2,
+        status: game.status,
+        result: game.result,
+        winnerId: game.winnerId,
+        createdAt: game.createdAt,
+        finishedAt: game.finishedAt,
+        type: 'completed'
+      })),
+      activeGames: activeGamesList
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      databaseConnected: mongoose.connection.readyState === 1
+    });
+  }
+});
+
+// 4. Debug ma'lumotlari
+app.get('/api/debug', async (req, res) => {
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  
+  // Database ma'lumotlari
+  let dbInfo = {};
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      dbInfo = {
+        collections: collections.map(c => c.name),
+        usersCount: await User.countDocuments(),
+        gamesCount: await Game.countDocuments()
+      };
+    } catch (err) {
+      dbInfo = { error: err.message };
+    }
+  }
+  
+  // Bot ma'lumotlari
+  let botInfo = {};
+  try {
+    botInfo = await bot.getMe();
+  } catch (err) {
+    botInfo = { error: err.message };
+  }
+  
+  res.json({
+    mongodb: {
+      state: mongoose.connection.readyState,
+      status: states[mongoose.connection.readyState] || 'unknown',
+      host: mongoose.connection.host || 'N/A',
+      database: mongoose.connection.db?.databaseName || 'N/A',
+      collections: dbInfo.collections || []
+    },
+    bot: {
+      polling: botPollingActive,
+      token: BOT_TOKEN ? 'set' : 'not set',
+      adminId: ADMIN_ID || 'not set',
+      botInfo: botInfo
+    },
+    game: {
+      activeGames: activeGames.size,
+      waitingPlayers: waitingPlayers.size,
+      memoryGames: Array.from(activeGames.keys())
+    },
+    environment: {
+      node: process.version,
+      platform: process.platform,
+      memory: process.memoryUsage(),
+      uptime: process.uptime(),
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'development',
+        PORT: process.env.PORT || 'not set'
+      }
+    },
+    counts: {
+      users: dbInfo.usersCount || 0,
+      games: dbInfo.gamesCount || 0
+    },
+    endpoints: {
+      home: '/',
+      admin: '/admin',
+      api_users: '/api/users',
+      api_stats: '/api/stats',
+      api_games: '/api/games',
+      api_debug: '/api/debug',
+      health: '/health',
+      create_game: 'POST /api/create-game',
+      game_status: 'GET /api/game-status/:gameId',
+      make_choice: 'POST /api/make-choice'
+    }
+  });
+});
+
+// 5. Barcha endpoint'larni ko'rsatish
+app.get('/api/endpoints', (req, res) => {
+  res.json({
+    endpoints: [
+      { method: 'GET', path: '/', description: 'Bosh sahifa' },
+      { method: 'GET', path: '/admin', description: 'Admin panel sahifasi' },
+      { method: 'GET', path: '/health', description: 'Server holati' },
+      { method: 'GET', path: '/api/users', description: 'Foydalanuvchilar ro\'yxati' },
+      { method: 'GET', path: '/api/stats', description: 'Statistika' },
+      { method: 'GET', path: '/api/games', description: 'O\'yinlar ro\'yxati' },
+      { method: 'GET', path: '/api/debug', description: 'Debug ma\'lumotlari' },
+      { method: 'GET', path: '/api/endpoints', description: 'Barcha endpoint\'lar' },
+      { method: 'GET', path: '/api/leaderboard', description: 'Reyting jadvali' },
+      { method: 'POST', path: '/api/create-game', description: 'Yangi o\'yin yaratish' },
+      { method: 'GET', path: '/api/game-status/:gameId', description: 'O\'yin holati' },
+      { method: 'POST', path: '/api/make-choice', description: 'Tanlov qilish' }
+    ],
+    description: 'Telegram Bot Game API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 6. Server holati
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    bot: botPollingActive,
+    database: mongoose.connection.readyState === 1,
+    active_games: activeGames.size,
+    waiting_players: waitingPlayers.size,
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    timestamp: new Date().toISOString()
+  });
+});
 // ==================== SERVER ISHGA TUSHIRISH ====================
 const PORT = process.env.PORT || 10000;
 
