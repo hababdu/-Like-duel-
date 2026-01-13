@@ -582,3 +582,179 @@ footer {
 .theme-green {
   --primary-gradient: linear-gradient(135deg, #10b981 0%, #84cc16 100%);
 }
+/* O'YIN EKRANLARI */
+.instructions {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 10px;
+  margin: 20px 0;
+  border-left: 4px solid #4f46e5;
+}
+
+.instructions p {
+  margin: 8px 0;
+  color: #475569;
+}
+
+.instructions strong {
+  color: #4f46e5;
+}
+
+.user-stats {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  margin-top: 25px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.user-stats h3 {
+  color: #1e293b;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.stats-grid .stat-item {
+  background: #f8fafc;
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.stats-grid .stat-label {
+  display: block;
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 5px;
+}
+
+.stats-grid .stat-value {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #1e293b;
+}
+
+.win-rate {
+  text-align: center;
+  font-weight: bold;
+  color: #10b981;
+  background: #d1fae5;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.waiting-info {
+  margin-top: 25px;
+  padding: 15px;
+  background: #fef3c7;
+  border-radius: 10px;
+  border: 1px solid #f59e0b;
+}
+
+.waiting-info p {
+  margin: 5px 0;
+  color: #92400e;
+}
+
+.hint {
+  font-size: 0.9rem;
+  color: #64748b !important;
+  font-style: italic;
+}
+
+.choice-status {
+  font-size: 0.8rem;
+  margin-top: 8px;
+  color: #64748b;
+}
+
+.game-rules {
+  background: #e0f2fe;
+  padding: 12px 15px;
+  border-radius: 10px;
+  margin-top: 20px;
+  border-left: 4px solid #0ea5e9;
+}
+
+.game-rules p {
+  margin: 0;
+  color: #0369a1;
+  font-size: 0.9rem;
+}
+
+.timeout-message {
+  text-align: center;
+  padding: 20px;
+  background: #fef3c7;
+  border-radius: 10px;
+  margin: 20px 0;
+}
+
+.timeout-message p {
+  margin: 10px 0;
+  color: #92400e;
+}
+
+.next-steps {
+  margin-top: 25px;
+  padding: 15px;
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.next-steps p {
+  margin: 8px 0;
+  color: #475569;
+}
+
+.footer-hint {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* Tugmalar */
+.choice-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.choice-btn.selected:disabled {
+  opacity: 1;
+  background: #4f46e5;
+  color: white;
+}
+
+/* Animatsiyalar */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .instructions,
+  .waiting-info,
+  .next-steps {
+    padding: 12px;
+  }
+}
