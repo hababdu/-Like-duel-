@@ -14,7 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ==================== MONGODB ULANISHI ====================
 // Foydalanuvchi nomini KICHIK HARFLARDA yozing
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://habibullox:6RVgQY%23N27CJY%405@cluster0.mku75qs.mongodb.net/telegram_users?retryWrites=true&w=majority&appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Habibullox:6RVgQY%23N27CJY%405@cluster0.mku75qs.mongodb.net/?appName=Cluster0';
 
 console.log('📡 MongoDB URI:', MONGODB_URI.replace(/:[^:]*@/, ':****@'));
 
