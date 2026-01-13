@@ -8,15 +8,20 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["telegram", "bot", "mini-app"],
+  "keywords": [
+    "telegram",
+    "bot",
+    "mini-app"
+  ],
   "author": "Your Name",
   "license": "ISC",
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "mongoose": "^7.5.0",
     "node-telegram-bot-api": "^0.64.0",
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
