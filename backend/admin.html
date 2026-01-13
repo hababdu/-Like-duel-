@@ -2,74 +2,175 @@
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Panel - Foydalanuvchilar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Telegram Bot</title>
     <style>
-        body { font-family: Arial; padding: 20px; }
-        .user { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
-        .stats { background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; }
+        h1 { margin-bottom: 10px; }
+        .stats-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .card h3 { color: #333; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; }
+        .card .value { font-size: 32px; font-weight: bold; color: #667eea; }
+        table { width: 100%; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; color: #333; }
+        .btn { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .btn:hover { background: #5a67d8; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .error { color: #e53e3e; background: #fed7d7; padding: 10px; border-radius: 5px; margin: 10px 0; }
     </style>
 </head>
 <body>
-    <h1>📊 Foydalanuvchilar Admin Paneli</h1>
-    
-    <div class="stats" id="stats">
-        <h3>Statistika yuklanmoqda...</h3>
+    <div class="container">
+        <header>
+            <h1>👑 Telegram Bot Admin Paneli</h1>
+            <p>Foydalanuvchilar va statistika monitoringi</p>
+        </header>
+        
+        <div class="stats-cards">
+            <div class="card">
+                <h3>👥 Jami Foydalanuvchilar</h3>
+                <div class="value" id="totalUsers">0</div>
+            </div>
+            <div class="card">
+                <h3>🆕 Bugun Qo'shilgan</h3>
+                <div class="value" id="newToday">0</div>
+            </div>
+            <div class="card">
+                <h3>🔵 Faol (24 soat)</h3>
+                <div class="value" id="activeToday">0</div>
+            </div>
+            <div class="card">
+                <h3>📊 Database Holati</h3>
+                <div class="value" id="dbStatus">Yuklanmoqda...</div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <button class="btn" onclick="loadUsers()">🔄 Yangilash</button>
+            <button class="btn" onclick="loadStats()">📊 Statistika</button>
+            <span style="margin-left: 20px; color: #666; font-size: 14px;" id="lastUpdate"></span>
+        </div>
+        
+        <div id="errorContainer" style="display: none;"></div>
+        
+        <div id="usersTable">
+            <div class="loading">
+                <p>Foydalanuvchilar ma'lumotlari yuklanmoqda...</p>
+            </div>
+        </div>
     </div>
-    
-    <div id="users-list">
-        <h3>Foydalanuvchilar ro'yxati</h3>
-        <div id="users">Yuklanmoqda...</div>
-    </div>
-    
+
     <script>
-        const API_URL = 'https://your-backend.onrender.com/api';
+        const API_BASE = window.location.origin; // http://your-backend.onrender.com
         
         async function loadStats() {
-            const response = await fetch(`${API_URL}/stats`);
-            const data = await response.json();
-            
-            document.getElementById('stats').innerHTML = `
-                <h3>📈 Statistika</h3>
-                <p><strong>Jami foydalanuvchilar:</strong> ${data.stats.totalUsers}</p>
-                <p><strong>Bugun qo'shilgan:</strong> ${data.stats.newToday}</p>
-                <p><strong>So'ngi yangilanish:</strong> ${new Date(data.stats.timestamp).toLocaleString()}</p>
-            `;
+            try {
+                const response = await fetch(`${API_BASE}/api/stats`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('totalUsers').textContent = data.stats.totalUsers || 0;
+                    document.getElementById('newToday').textContent = data.stats.newToday || 0;
+                    document.getElementById('activeToday').textContent = data.stats.activeToday || 0;
+                    document.getElementById('dbStatus').textContent = data.stats.databaseStatus === 'connected' ? '✅ Ulangan' : '❌ Ulanmagan';
+                    document.getElementById('lastUpdate').textContent = `Yangilandi: ${new Date().toLocaleTimeString()}`;
+                    
+                    hideError();
+                } else {
+                    showError('Statistikani olishda xato: ' + (data.error || 'Noma\'lum xato'));
+                }
+            } catch (error) {
+                showError(`Statistikani yuklashda xato: ${error.message}`);
+                console.error('Stats error:', error);
+            }
         }
         
         async function loadUsers() {
-            const response = await fetch(`${API_URL}/users`);
-            const data = await response.json();
+            try {
+                const response = await fetch(`${API_BASE}/api/users`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderUsersTable(data.users);
+                    hideError();
+                } else {
+                    showError('Foydalanuvchilarni olishda xato: ' + (data.error || 'Noma\'lum xato'));
+                }
+            } catch (error) {
+                showError(`Foydalanuvchilarni yuklashda xato: ${error.message}`);
+                console.error('Users error:', error);
+            }
+        }
+        
+        function renderUsersTable(users) {
+            if (!users || users.length === 0) {
+                document.getElementById('usersTable').innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">Hozircha foydalanuvchilar yoʻq</p>';
+                return;
+            }
             
-            let html = '<table>';
-            html += '<tr><th>ID</th><th>Ism</th><th>Username</th><th>Qoshilgan sana</th><th>Songi faollik</th><th>Kirishlar</th></tr>';
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Ism</th>
+                            <th>Telegram ID</th>
+                            <th>Username</th>
+                            <th>Qo'shilgan sana</th>
+                            <th>So'nggi faollik</th>
+                            <th>Kirishlar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
             
-            data.users.forEach(user => {
+            users.forEach((user, index) => {
                 html += `
                     <tr>
-                        <td>${user.telegramId}</td>
-                        <td>${user.firstName || ''} ${user.lastName || ''}</td>
-                        <td>@${user.username || 'yo\'q'}</td>
+                        <td>${index + 1}</td>
+                        <td>${user.name || 'Noma\'lum'}</td>
+                        <td>${user.id || ''}</td>
+                        <td>${user.username ? '@' + user.username : '—'}</td>
                         <td>${new Date(user.joinDate).toLocaleDateString()}</td>
-                        <td>${user.lastActivity ? new Date(user.lastActivity).toLocaleString() : 'Noma\'lum'}</td>
-                        <td>${user.visitCount}</td>
+                        <td>${new Date(user.lastActivity).toLocaleString()}</td>
+                        <td>${user.visits || 0}</td>
                     </tr>
                 `;
             });
             
-            html += '</table>';
-            document.getElementById('users').innerHTML = html;
+            html += '</tbody></table>';
+            document.getElementById('usersTable').innerHTML = html;
         }
         
-        // Har 30 soniyada yangilash
-        loadStats();
-        loadUsers();
-        setInterval(() => {
+        function showError(message) {
+            const errorDiv = document.getElementById('errorContainer');
+            errorDiv.innerHTML = `<div class="error">❌ ${message}</div>`;
+            errorDiv.style.display = 'block';
+        }
+        
+        function hideError() {
+            document.getElementById('errorContainer').style.display = 'none';
+        }
+        
+        // Sahifa yuklanganda avtomatik yuklash
+        document.addEventListener('DOMContentLoaded', function() {
             loadStats();
             loadUsers();
-        }, 30000);
+            
+            // Har 60 soniyada yangilash
+            setInterval(() => {
+                loadStats();
+                loadUsers();
+            }, 60000);
+        });
     </script>
 </body>
 </html>
