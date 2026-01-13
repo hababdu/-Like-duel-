@@ -4,7 +4,7 @@ import './App.css';
 function App() {
   const [user, setUser] = useState(null);
   const [gameState, setGameState] = useState({
-    status: 'idle',
+    status: 'idle', // idle, waiting, playing, finished
     opponent: null,
     myChoice: null,
     opponentChoice: null,
@@ -22,17 +22,227 @@ function App() {
   const [showShop, setShowShop] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [userStats, setUserStats] = useState(null);
   const [websocket, setWebsocket] = useState(null);
   
-  // Function definitions moved before useEffect
+  // Telegram WebApp ni sozlash
+  useEffect(() => {
+    if (window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      
+      const userData = tg.initDataUnsafe?.user;
+      setUser(userData);
+      
+      if (userData) {
+        initializeGame(userData);
+        loadUserData(userData.id);
+      }
+      
+      // Telegram tugmalarini sozlash
+      tg.MainButton.setText("🎮 O'ynash");
+      tg.MainButton.color = "#31b545";
+      tg.MainButton.onClick(startNewGame);
+      tg.MainButton.show();
+      
+      tg.BackButton.onClick(() => {
+        if (showShop) setShowShop(false);
+        else if (showProfile) setShowProfile(false);
+        else if (showLeaderboard) setShowLeaderboard(false);
+        else tg.BackButton.hide();
+      });
+      
+      tg.sendData(JSON.stringify({ 
+        type: 'web_app_ready',
+        userId: userData?.id 
+      }));
+    }
+    
+    return () => {
+      if (websocket) websocket.close();
+    };
+  }, []);
+  
+  // Foydalanuvchi ma'lumotlarini yuklash
+  const loadUserData = async (userId) => {
+    try {
+      await Promise.all([
+        fetchUserCoins(userId),
+        fetchInventory(userId),
+        fetchShopItems(),
+        fetchLeaderboard()
+      ]);
+    } catch (error) {
+      console.error('Ma\'lumot yuklash xatosi:', error);
+    }
+  };
+  
+  // Koinlarni olish
+  const fetchUserCoins = async (userId) => {
+    try {
+      const response = await fetch(`https://your-backend.onrender.com/api/coins/${userId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserCoins(data.balance);
+        setDailyStatus(data.dailyBonus || { available: false });
+      }
+    } catch (error) {
+      console.error('Koinlarni olish xatosi:', error);
+    }
+  };
+  
+  // Inventarni olish
+  const fetchInventory = async (userId) => {
+    try {
+      const response = await fetch(`https://your-backend.onrender.com/api/items/${userId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setInventory(data.items);
+        setEquippedItems(data.equipped);
+      }
+    } catch (error) {
+      console.error('Inventar yuklash xatosi:', error);
+    }
+  };
+  
+  // Do'kon mahsulotlarini olish
+  const fetchShopItems = async () => {
+    try {
+      const response = await fetch('https://your-backend.onrender.com/api/shop/items');
+      const data = await response.json();
+      
+      if (data.success) {
+        setShopItems(data.items);
+      }
+    } catch (error) {
+      console.error('Do\'kon yuklash xatosi:', error);
+    }
+  };
+  
+  // Reyting jadvalini olish
+  const fetchLeaderboard = async () => {
+    try {
+      const response = await fetch('https://your-backend.onrender.com/api/leaderboard/top');
+      const data = await response.json();
+      
+      if (data.success) {
+        setLeaderboard(data.leaderboard);
+      }
+    } catch (error) {
+      console.error('Reyting yuklash xatosi:', error);
+    }
+  };
+  
+  // Kunlik bonus olish
+  const claimDailyBonus = async () => {
+    try {
+      const response = await fetch('https://your-backend.onrender.com/api/daily-bonus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserCoins(prev => prev + data.amount);
+        setDailyStatus(prev => ({ ...prev, available: false }));
+        
+        // Telegram haqida xabar
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.showAlert(`+${data.amount} koin olindi! (${data.streak} kun ketma-ket)`);
+        }
+        
+        // Daily status ni yangilash
+        setTimeout(() => {
+          fetchUserCoins(user.id);
+        }, 1000);
+      } else {
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.showAlert(data.message);
+        }
+      }
+    } catch (error) {
+      console.error('Daily bonus xatosi:', error);
+    }
+  };
+  
+  // Sovg'a sotib olish
+  const purchaseItem = async (item) => {
+    if (userCoins < item.price) {
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.showAlert('Koinlar yetarli emas!');
+      }
+      return;
+    }
+    
+    try {
+      const response = await fetch('https://your-backend.onrender.com/api/shop/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: user.id, 
+          itemId: item.id 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserCoins(data.newBalance);
+        // Inventarni yangilash
+        await fetchInventory(user.id);
+        
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.showAlert(`"${item.name}" sovg'asi sotib olindi!`);
+        }
+      } else {
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.showAlert(data.error);
+        }
+      }
+    } catch (error) {
+      console.error('Sotib olish xatosi:', error);
+    }
+  };
+  
+  // Sovg'ani kiyish
+  const equipItem = async (itemId) => {
+    try {
+      const response = await fetch('https://your-backend.onrender.com/api/items/equip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: user.id, 
+          itemId 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Inventarni yangilash
+        await fetchInventory(user.id);
+      }
+    } catch (error) {
+      console.error('Kiyish xatosi:', error);
+    }
+  };
+  
+  // O'yinni boshlash
   const initializeGame = async (userData) => {
     try {
+      // WebSocket ulanishi
       const ws = new WebSocket('wss://your-backend.onrender.com/ws');
       
       setWebsocket(ws);
       
       ws.onopen = () => {
         console.log('WebSocket ulandi');
+        // Foydalanuvchini ro'yxatdan o'tkazish
         ws.send(JSON.stringify({
           type: 'register',
           userId: userData.id,
@@ -59,6 +269,76 @@ function App() {
     }
   };
   
+  // Yangi o'yin boshlash
+  const startNewGame = () => {
+    if (!user) return;
+    
+    setGameState({
+      ...gameState,
+      status: 'waiting',
+      timer: 60,
+      myChoice: null,
+      opponentChoice: null,
+      result: null
+    });
+    
+    // Backend'ga so'rov
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify({
+        type: 'create_game',
+        userId: user.id,
+        username: user.username,
+        firstName: user.first_name
+      }));
+    }
+    
+    // Taymer boshlash
+    startTimer();
+  };
+  
+  // Taymer
+  const startTimer = () => {
+    let timeLeft = 60;
+    const timer = setInterval(() => {
+      timeLeft--;
+      setGameState(prev => ({ ...prev, timer: timeLeft }));
+      
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        if (gameState.status === 'waiting') {
+          setGameState(prev => ({ 
+            ...prev, 
+            status: 'finished',
+            result: 'timeout' 
+          }));
+        }
+      }
+    }, 1000);
+    
+    return timer;
+  };
+  
+  // Tanlov qilish
+  const makeChoice = (choice) => {
+    if (gameState.status !== 'playing') return;
+    
+    setGameState(prev => ({
+      ...prev,
+      myChoice: choice
+    }));
+    
+    // Backend'ga tanlovni yuborish
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify({
+        type: 'make_choice',
+        userId: user.id,
+        gameId: gameState.gameId,
+        choice: choice
+      }));
+    }
+  };
+  
+  // O'yin yangilanishini qabul qilish
   const handleGameUpdate = (data) => {
     switch (data.type) {
       case 'game_created':
@@ -78,6 +358,7 @@ function App() {
         break;
         
       case 'opponent_choice_made':
+        // Raqib tanlov qilganligi haqida bildirish
         if (window.Telegram?.WebApp) {
           window.Telegram.WebApp.showAlert('Raqib tanlov qildi!');
         }
@@ -96,7 +377,9 @@ function App() {
           status: 'finished'
         }));
         
+        // Koinlarni yangilash
         if (data.result === 'player1_win') {
+          // G'alaba uchun koinlar
           const winCoins = 50 + (data.winStreak || 0) * 10;
           setUserCoins(prev => prev + winCoins);
         } else if (data.result === 'draw') {
@@ -116,222 +399,8 @@ function App() {
     }
   };
   
-  const loadUserData = async (userId) => {
-    try {
-      await Promise.all([
-        fetchUserCoins(userId),
-        fetchInventory(userId),
-        fetchShopItems(),
-        fetchLeaderboard()
-      ]);
-    } catch (error) {
-      console.error('Ma\'lumot yuklash xatosi:', error);
-    }
-  };
-  
-  const fetchUserCoins = async (userId) => {
-    try {
-      const response = await fetch(`https://your-backend.onrender.com/api/coins/${userId}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setUserCoins(data.balance);
-        setDailyStatus(data.dailyBonus || { available: false });
-      }
-    } catch (error) {
-      console.error('Koinlarni olish xatosi:', error);
-    }
-  };
-  
-  const fetchInventory = async (userId) => {
-    try {
-      const response = await fetch(`https://your-backend.onrender.com/api/items/${userId}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setInventory(data.items);
-        setEquippedItems(data.equipped);
-      }
-    } catch (error) {
-      console.error('Inventar yuklash xatosi:', error);
-    }
-  };
-  
-  const fetchShopItems = async () => {
-    try {
-      const response = await fetch('https://your-backend.onrender.com/api/shop/items');
-      const data = await response.json();
-      
-      if (data.success) {
-        setShopItems(data.items);
-      }
-    } catch (error) {
-      console.error('Do\'kon yuklash xatosi:', error);
-    }
-  };
-  
-  const fetchLeaderboard = async () => {
-    try {
-      const response = await fetch('https://your-backend.onrender.com/api/leaderboard/top');
-      const data = await response.json();
-      
-      if (data.success) {
-        setLeaderboard(data.leaderboard);
-      }
-    } catch (error) {
-      console.error('Reyting yuklash xatosi:', error);
-    }
-  };
-  
-  const claimDailyBonus = async () => {
-    try {
-      const response = await fetch('https://your-backend.onrender.com/api/daily-bonus', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setUserCoins(prev => prev + data.amount);
-        setDailyStatus(prev => ({ ...prev, available: false }));
-        
-        if (window.Telegram?.WebApp) {
-          window.Telegram.WebApp.showAlert(`+${data.amount} koin olindi! (${data.streak} kun ketma-ket)`);
-        }
-        
-        setTimeout(() => {
-          fetchUserCoins(user.id);
-        }, 1000);
-      } else {
-        if (window.Telegram?.WebApp) {
-          window.Telegram.WebApp.showAlert(data.message);
-        }
-      }
-    } catch (error) {
-      console.error('Daily bonus xatosi:', error);
-    }
-  };
-  
-  const purchaseItem = async (item) => {
-    if (userCoins < item.price) {
-      if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.showAlert('Koinlar yetarli emas!');
-      }
-      return;
-    }
-    
-    try {
-      const response = await fetch('https://your-backend.onrender.com/api/shop/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: user.id, 
-          itemId: item.id 
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setUserCoins(data.newBalance);
-        await fetchInventory(user.id);
-        
-        if (window.Telegram?.WebApp) {
-          window.Telegram.WebApp.showAlert(`"${item.name}" sovg'asi sotib olindi!`);
-        }
-      } else {
-        if (window.Telegram?.WebApp) {
-          window.Telegram.WebApp.showAlert(data.error);
-        }
-      }
-    } catch (error) {
-      console.error('Sotib olish xatosi:', error);
-    }
-  };
-  
-  const equipItem = async (itemId) => {
-    try {
-      const response = await fetch('https://your-backend.onrender.com/api/items/equip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: user.id, 
-          itemId 
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        await fetchInventory(user.id);
-      }
-    } catch (error) {
-      console.error('Kiyish xatosi:', error);
-    }
-  };
-  
-  const startNewGame = useCallback(() => {
-    if (!user) return;
-    
-    setGameState({
-      ...gameState,
-      status: 'waiting',
-      timer: 60,
-      myChoice: null,
-      opponentChoice: null,
-      result: null
-    });
-    
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'create_game',
-        userId: user.id,
-        username: user.username,
-        firstName: user.first_name
-      }));
-    }
-    
-    let timeLeft = 60;
-    const timer = setInterval(() => {
-      timeLeft--;
-      setGameState(prev => ({ ...prev, timer: timeLeft }));
-      
-      if (timeLeft <= 0) {
-        clearInterval(timer);
-        if (gameState.status === 'waiting') {
-          setGameState(prev => ({ 
-            ...prev, 
-            status: 'finished',
-            result: 'timeout' 
-          }));
-        }
-      }
-    }, 1000);
-    
-    return timer;
-  }, [user, websocket, gameState]);
-  
-  const makeChoice = useCallback((choice) => {
-    if (gameState.status !== 'playing') return;
-    
-    setGameState(prev => ({
-      ...prev,
-      myChoice: choice
-    }));
-    
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'make_choice',
-        userId: user.id,
-        gameId: gameState.gameId,
-        choice: choice
-      }));
-    }
-  }, [gameState, user, websocket]);
-  
-  const restartGame = useCallback(() => {
+  // O'yinni qayta boshlash
+  const restartGame = () => {
     setGameState({
       status: 'idle',
       opponent: null,
@@ -341,18 +410,20 @@ function App() {
       timer: 60,
       gameId: null
     });
-  }, []);
+  };
   
-  const getChoiceEmoji = useCallback((choice) => {
+  // Emoji tanlash
+  const getChoiceEmoji = (choice) => {
     switch (choice) {
       case 'rock': return '✊';
       case 'paper': return '✋';
       case 'scissors': return '✌️';
       default: return '❓';
     }
-  }, []);
+  };
   
-  const getRarityColor = useCallback((rarity) => {
+  // Rarity ranglari
+  const getRarityColor = (rarity) => {
     switch (rarity) {
       case 'common': return '#808080';
       case 'rare': return '#1E90FF';
@@ -360,48 +431,29 @@ function App() {
       case 'legendary': return '#FFD700';
       default: return '#808080';
     }
-  }, []);
+  };
   
-  // Telegram WebApp ni sozlash
-  useEffect(() => {
-    if (window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-      
-      const userData = tg.initDataUnsafe?.user;
-      setUser(userData);
-      
-      if (userData) {
-        initializeGame(userData); // ✅ Hozir funksiya aniqlangan
-        loadUserData(userData.id);
-      }
-      
-      tg.MainButton.setText("🎮 O'ynash");
-      tg.MainButton.color = "#31b545";
-      tg.MainButton.onClick(startNewGame);
-      tg.MainButton.show();
-      
-      tg.BackButton.onClick(() => {
-        if (showShop) setShowShop(false);
-        else if (showProfile) setShowProfile(false);
-        else if (showLeaderboard) setShowLeaderboard(false);
-        else tg.BackButton.hide();
-      });
-      
-      tg.sendData(JSON.stringify({ 
-        type: 'web_app_ready',
-        userId: userData?.id 
-      }));
+  // Profil ma'lumotlarini yuklash
+  const loadUserStats = async () => {
+    try {
+      const response = await fetch(`https://your-backend.onrender.com/api/stats/${user.id}`);
+      const data = await response.json();
+      if (data.success) setUserStats(data.stats?.user);
+    } catch (error) {
+      console.error('Statistika yuklash xatosi:', error);
     }
-    
-    return () => {
-      if (websocket) websocket.close();
-    };
-  }, [startNewGame, showShop, showProfile, showLeaderboard, websocket]);
+  };
+  
+  // Profil ochilganda statistikani yuklash
+  useEffect(() => {
+    if (showProfile && user) {
+      loadUserStats();
+    }
+  }, [showProfile, user]);
   
   return (
     <div className="app">
+      {/* Sarlavha qismi */}
       <header>
         <div className="header-left">
           <h1>🎮 Tosh • Qaychi • Qog'oz</h1>
@@ -410,6 +462,7 @@ function App() {
         <div className="header-right">
           {user && (
             <>
+              {/* Koin paneli */}
               <div className="coins-panel">
                 <div className="coins-display">
                   <span className="coin-icon">🪙</span>
@@ -425,6 +478,7 @@ function App() {
                 </button>
               </div>
               
+              {/* Profil tugmasi */}
               <button 
                 className="profile-header-btn"
                 onClick={() => setShowProfile(true)}
@@ -441,7 +495,9 @@ function App() {
         </div>
       </header>
       
+      {/* Asosiy kontent */}
       <main>
+        {/* DO'KON MODALI */}
         {showShop && (
           <div className="modal-overlay">
             <div className="modal-content shop-modal">
@@ -509,6 +565,7 @@ function App() {
           </div>
         )}
         
+        {/* PROFIL MODALI */}
         {showProfile && (
           <div className="modal-overlay">
             <div className="modal-content profile-modal">
@@ -551,7 +608,7 @@ function App() {
                   <div className="stat-icon">🏆</div>
                   <div className="stat-info">
                     <div className="stat-label">G'alaba</div>
-                    <div className="stat-value">0</div>
+                    <div className="stat-value">{userStats?.wins || 0}</div>
                   </div>
                 </div>
                 
@@ -559,7 +616,7 @@ function App() {
                   <div className="stat-icon">📊</div>
                   <div className="stat-info">
                     <div className="stat-label">Reyting</div>
-                    <div className="stat-value">#-</div>
+                    <div className="stat-value">#{userStats?.rank || '-'}</div>
                   </div>
                 </div>
                 
@@ -587,6 +644,7 @@ function App() {
           </div>
         )}
         
+        {/* REYTING MODALI */}
         {showLeaderboard && (
           <div className="modal-overlay">
             <div className="modal-content leaderboard-modal">
@@ -637,6 +695,9 @@ function App() {
           </div>
         )}
         
+        {/* O'YIN HOLATI */}
+        
+        {/* IDLE - O'yin boshlanmagan */}
         {gameState.status === 'idle' && !showShop && !showProfile && !showLeaderboard && (
           <div className="game-screen idle">
             <div className="welcome">
@@ -689,6 +750,7 @@ function App() {
           </div>
         )}
         
+        {/* WAITING - Raqib kutilmoqda */}
         {gameState.status === 'waiting' && (
           <div className="game-screen waiting">
             <div className="loader">
@@ -714,6 +776,7 @@ function App() {
           </div>
         )}
         
+        {/* PLAYING - O'yin davom etmoqda */}
         {gameState.status === 'playing' && (
           <div className="game-screen playing">
             <div className="opponent-info">
@@ -758,6 +821,7 @@ function App() {
               </div>
             </div>
             
+            {/* Tanlovlar ko'rinishi */}
             <div className="choices-display">
               <div className="player-choice">
                 <div className="choice-box you">
@@ -781,9 +845,17 @@ function App() {
                 </div>
               </div>
             </div>
+            
+            {/* Savollar */}
+            <div className="game-tips">
+              <p>💡 <strong>Maslahat:</strong> {gameState.myChoice ? 
+                'Raqib tanlov qilishini kutayapmaniz...' : 
+                'Tezroq tanlang, vaqt chegarasi bor!'}</p>
+            </div>
           </div>
         )}
         
+        {/* FINISHED - O'yin tugadi */}
         {gameState.status === 'finished' && (
           <div className="game-screen finished">
             <div className="result">
@@ -816,6 +888,7 @@ function App() {
                 </div>
               </div>
               
+              {/* Koin mukofoti */}
               <div className="coins-reward">
                 <div className="reward-badge">
                   <div className="reward-icon">🪙</div>
@@ -826,6 +899,19 @@ function App() {
                   </div>
                   <div className="reward-label">Koinlar</div>
                 </div>
+                
+                {gameState.result === 'win' && (
+                  <div className="bonus-info">
+                    <p>🔥 Ketma-ket g'alaba qozonsangiz, bonus koinlar olasiz!</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="result-description">
+                {gameState.result === 'win' && 'Tabriklaymiz! Siz raqibingizni mag\'lub etdingiz! 🎉'}
+                {gameState.result === 'lose' && 'Afsuski, raqibingiz sizni mag\'lub etdi. Keyingi safar omad!'}
+                {gameState.result === 'draw' && 'Qiziq! Ikkalangiz ham teng kuchdasiz!'}
+                {gameState.result === 'timeout' && 'Vaqt tugadi. Keyingi safar tezroq harakat qiling!'}
               </div>
               
               <div className="result-actions">
@@ -844,11 +930,45 @@ function App() {
             </div>
           </div>
         )}
+        
+        {/* STATISTIKA PANELI (faqat idle vaqtida) */}
+        {gameState.status === 'idle' && !showShop && !showProfile && !showLeaderboard && (
+          <div className="stats-panel">
+            <div className="stat-item">
+              <span className="stat-label">O'yinlar:</span>
+              <span className="stat-value">{userStats?.totalGames || 0}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">G'alaba:</span>
+              <span className="stat-value">{userStats?.wins || 0}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Mag'lubiyat:</span>
+              <span className="stat-value">{userStats?.losses || 0}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Durrang:</span>
+              <span className="stat-value">{userStats?.draws || 0}</span>
+            </div>
+          </div>
+        )}
       </main>
       
+      {/* Footer */}
       <footer>
         <div className="footer-content">
           <p>🎮 Telegram Mini App • Tosh-Qaychi-Qog'oz</p>
+          <p className="footer-links">
+            <span onClick={() => window.Telegram?.WebApp.openLink('https://t.me/yourbot')}>
+              🤖 Bot
+            </span> • 
+            <span onClick={() => window.Telegram?.WebApp.openLink('https://t.me/channel')}>
+              📢 Kanal
+            </span> • 
+            <span onClick={() => window.Telegram?.WebApp.openLink('https://t.me/support')}>
+              🆘 Yordam
+            </span>
+          </p>
         </div>
       </footer>
     </div>
