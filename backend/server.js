@@ -1,65 +1,81 @@
-// server.js - Telegram Bot Backend
+// server.js - Telegram Bot va O'yin Serveri
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
+const http = require('http');
+const WebSocket = require('ws');
 
-// Express app yaratish
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ==================== MONGODB ULANISHI ====================
-// Foydalanuvchi nomini KICHIK HARFLARDA yozing
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Habibullox:6RVgQY%23N27CJY%405@cluster0.mku75qs.mongodb.net/?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://habibullox:6RVgQY%23N27CJY%405@cluster0.mku75qs.mongodb.net/telegram_bot_game?retryWrites=true&w=majority&appName=Cluster0';
 
 console.log('📡 MongoDB URI:', MONGODB_URI.replace(/:[^:]*@/, ':****@'));
 
-// User Schema (YANGILANGAN)
+// User Schema
 const userSchema = new mongoose.Schema({
-  telegramId: { 
-    type: Number, 
-    required: true, 
-    unique: true,
-    index: true 
-  },
-  firstName: {
-    type: String,
-    default: 'User'
-  },
+  telegramId: { type: Number, required: true, unique: true, index: true },
+  firstName: { type: String, default: 'User' },
   lastName: String,
   username: String,
-  languageCode: {
-    type: String,
-    default: 'en'
-  },
-  isBot: {
-    type: Boolean,
-    default: false
-  },
-  joinDate: { 
-    type: Date, 
-    default: () => new Date()
-  },
-  lastActivity: { 
-    type: Date, 
-    default: () => new Date()
-  },
-  visitCount: { 
-    type: Number, 
-    default: 0 
+  languageCode: { type: String, default: 'en' },
+  isBot: { type: Boolean, default: false },
+  joinDate: { type: Date, default: () => new Date() },
+  lastActivity: { type: Date, default: () => new Date() },
+  visitCount: { type: Number, default: 0 },
+  gameStats: {
+    wins: { type: Number, default: 0 },
+    losses: { type: Number, default: 0 },
+    draws: { type: Number, default: 0 },
+    totalGames: { type: Number, default: 0 },
+    winRate: { type: Number, default: 0 }
   }
-}, {
-  timestamps: false,
-  collection: 'users' // Collection nomini aniq belgilash
-});
+}, { timestamps: false });
 
 const User = mongoose.model('User', userSchema);
 
-// MongoDB ulanish (YANGILANGAN)
+// Game Schema
+const gameSchema = new mongoose.Schema({
+  gameId: { type: String, required: true, unique: true },
+  player1: {
+    id: Number,
+    username: String,
+    firstName: String,
+    choice: String,
+    ready: Boolean,
+    connected: Boolean
+  },
+  player2: {
+    id: Number,
+    username: String,
+    firstName: String,
+    choice: String,
+    ready: Boolean,
+    connected: Boolean
+  },
+  status: { type: String, default: 'waiting' }, // waiting, playing, finished
+  result: String, // player1_win, player2_win, draw, timeout
+  winnerId: Number,
+  createdAt: { type: Date, default: Date.now },
+  finishedAt: Date,
+  moves: [{
+    playerId: Number,
+    choice: String,
+    timestamp: Date
+  }]
+}, { timestamps: true });
+
+const Game = mongoose.model('Game', gameSchema);
+
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -71,22 +87,9 @@ mongoose.connect(MONGODB_URI, {
 .then(() => {
   console.log('✅ MongoDB ga ulandi');
   console.log('📊 Connection state:', mongoose.connection.readyState);
-  console.log('📁 Database:', mongoose.connection.db?.databaseName);
-  
-  // Collection ni tekshirish
-  mongoose.connection.db.listCollections({name: 'users'}).toArray((err, collections) => {
-    if (err) {
-      console.log('⚠️  Collection tekshirish xatosi:', err.message);
-    } else if (collections.length === 0) {
-      console.log('ℹ️  "users" collection yaratiladi...');
-    } else {
-      console.log('✅ "users" collection mavjud');
-    }
-  });
 })
 .catch((err) => {
   console.error('❌ MongoDB ulanish xatosi:', err.message);
-  console.log('📊 Ma\'lumotlar bazasi: Ulanmagan');
 });
 
 // ==================== TELEGRAM BOT ====================
@@ -94,24 +97,17 @@ const BOT_TOKEN = process.env.BOT_TOKEN || 'YOUR_BOT_TOKEN_HERE';
 const ADMIN_ID = process.env.ADMIN_ID || 'YOUR_ADMIN_ID';
 
 console.log('🤖 Bot token:', BOT_TOKEN ? 'Mavjud' : 'Yo\'q');
-console.log('👑 Admin ID:', ADMIN_ID);
 
-// Bot yaratish (WEBHOOK emas, polling)
+// Bot yaratish
 const bot = new TelegramBot(BOT_TOKEN, {
   polling: {
-    interval: 1000, // 1 soniya
-    params: {
-      timeout: 10,
-      allowed_updates: ["message", "callback_query", "chat_member"]
-    },
-    autoStart: false
+    interval: 1000,
+    autoStart: false,
+    params: { timeout: 10 }
   }
 });
 
-// Botni ishga tushirish funksiyasi (YANGILANGAN)
 let botPollingActive = false;
-let retryCount = 0;
-const MAX_RETRIES = 5;
 
 const startBotPolling = async () => {
   if (botPollingActive) {
@@ -120,100 +116,531 @@ const startBotPolling = async () => {
   }
   
   try {
-    // Avval polling to'xtatish
     await bot.stopPolling();
-    
-    // 2 soniya kutish
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    console.log(`🚀 Bot polling ishga tushirilmoqda... (urush: ${retryCount + 1})`);
+    console.log('🚀 Bot polling ishga tushirilmoqda...');
     
-    // Yangi polling boshlash
-    bot.startPolling({
-      restart: true
-    }).then(() => {
-      botPollingActive = true;
-      retryCount = 0;
-      console.log('✅ Bot polling muvaffaqiyatli ishga tushdi');
-      
-      // Polling holatini tekshirish
-      bot.isPolling().then(isPolling => {
-        console.log(`📡 Bot polling holati: ${isPolling ? 'active' : 'inactive'}`);
-      });
-      
-    }).catch(err => {
-      console.error('❌ Bot polling xatosi:', err.message);
-      
-      // 409 xatosi bo'lsa, qayta urinish
-      if (err.message.includes('409 Conflict') && retryCount < MAX_RETRIES) {
-        retryCount++;
-        const delay = 5000 * retryCount; // Har bir urinishda ortib boradi
-        console.log(`🔄 ${delay/1000} soniya kutib qayta urinilmoqda (${retryCount}/${MAX_RETRIES})...`);
-        
-        botPollingActive = false;
-        setTimeout(startBotPolling, delay);
-      } else {
-        console.error('❌ Maksimal urinishlar soniga yetildi, bot ishlamayapti');
-      }
-    });
-    
+    bot.startPolling({ restart: true });
+    botPollingActive = true;
+    console.log('✅ Bot polling muvaffaqiyatli ishga tushdi');
   } catch (error) {
-    console.error('❌ Botni ishga tushirishda xato:', error.message);
+    console.error('❌ Bot polling xatosi:', error.message);
+    
+    if (error.message.includes('409 Conflict')) {
+      console.log('🔄 10 soniya kutib qayta urinilmoqda...');
+      botPollingActive = false;
+      setTimeout(startBotPolling, 10000);
+    }
   }
 };
 
-// Dastur ishga tushganda botni yoqish
 setTimeout(() => {
   startBotPolling();
 }, 3000);
 
-// ==================== FOYDALANUVCHI FUNKSIYALARI ====================
+// ==================== O'YIN LOGIKASI ====================
+const activeGames = new Map(); // gameId -> game data
+const waitingPlayers = new Map(); // userId -> {socket, gameId}
+const playerSockets = new Map(); // userId -> WebSocket
 
-// Foydalanuvchini saqlash/yangilash (YANGILANGAN)
+// WebSocket server
+wss.on('connection', (ws, req) => {
+  console.log('✅ WebSocket ulandi');
+  
+  ws.on('message', async (message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      await handleWebSocketMessage(ws, data);
+    } catch (error) {
+      console.error('❌ WebSocket xatosi:', error);
+    }
+  });
+  
+  ws.on('close', () => {
+    console.log('❌ WebSocket uzildi');
+    // O'yinchini waiting ro'yxatidan o'chirish
+    for (const [userId, player] of waitingPlayers.entries()) {
+      if (player.socket === ws) {
+        waitingPlayers.delete(userId);
+        break;
+      }
+    }
+    
+    // Socket'larni tozalash
+    for (const [userId, socket] of playerSockets.entries()) {
+      if (socket === ws) {
+        playerSockets.delete(userId);
+        break;
+      }
+    }
+  });
+});
+
+async function handleWebSocketMessage(ws, data) {
+  switch (data.type) {
+    case 'register':
+      await handlePlayerRegistration(ws, data);
+      break;
+      
+    case 'create_game':
+      await handleCreateGame(ws, data);
+      break;
+      
+    case 'find_opponent':
+      await handleFindOpponent(ws, data);
+      break;
+      
+    case 'make_choice':
+      await handleMakeChoice(ws, data);
+      break;
+      
+    case 'player_ready':
+      await handlePlayerReady(ws, data);
+      break;
+      
+    case 'ping':
+      ws.send(JSON.stringify({ type: 'pong' }));
+      break;
+  }
+}
+
+async function handlePlayerRegistration(ws, data) {
+  const { userId, username, firstName } = data;
+  
+  playerSockets.set(userId, ws);
+  
+  // Foydalanuvchini saqlash/yangilash
+  await saveOrUpdateUser({
+    id: userId,
+    username: username,
+    first_name: firstName
+  });
+  
+  ws.send(JSON.stringify({
+    type: 'registered',
+    userId: userId,
+    timestamp: new Date().toISOString()
+  }));
+}
+
+async function handleCreateGame(ws, data) {
+  const { userId, username, firstName } = data;
+  const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const gameData = {
+    gameId,
+    player1: { id: userId, username, firstName, choice: null, ready: false, connected: true },
+    player2: null,
+    status: 'waiting',
+    createdAt: new Date()
+  };
+  
+  activeGames.set(gameId, gameData);
+  waitingPlayers.set(userId, { socket: ws, gameId });
+  
+  // MongoDB'ga saqlash
+  const game = new Game({
+    gameId: gameId,
+    player1: gameData.player1,
+    status: 'waiting'
+  });
+  
+  await game.save();
+  
+  ws.send(JSON.stringify({
+    type: 'game_created',
+    gameId: gameId,
+    status: 'waiting'
+  }));
+}
+
+async function handleFindOpponent(ws, data) {
+  const { userId, gameId } = data;
+  
+  // O'yinni topish
+  const game = activeGames.get(gameId);
+  if (!game) {
+    ws.send(JSON.stringify({ type: 'error', message: 'O\'yin topilmadi' }));
+    return;
+  }
+  
+  // Raqib qidirish
+  let opponent = null;
+  for (const [opponentId, playerData] of waitingPlayers.entries()) {
+    if (opponentId !== userId && playerData.gameId && !activeGames.get(playerData.gameId)?.player2) {
+      opponent = { id: opponentId, socket: playerData.socket, gameId: playerData.gameId };
+      break;
+    }
+  }
+  
+  if (opponent) {
+    // Raqib topildi - o'yinlarni birlashtirish
+    const opponentGame = activeGames.get(opponent.gameId);
+    
+    // O'yin 1: Hozirgi o'yin
+    game.player2 = opponentGame.player1;
+    game.status = 'playing';
+    
+    // O'yin 2: Raqibning o'yini
+    opponentGame.player2 = game.player1;
+    opponentGame.status = 'playing';
+    
+    // Waiting ro'yxatidan o'chirish
+    waitingPlayers.delete(userId);
+    waitingPlayers.delete(opponent.id);
+    
+    // O'yinlarni yangilash
+    activeGames.set(gameId, game);
+    activeGames.set(opponent.gameId, opponentGame);
+    
+    // MongoDB'da yangilash
+    await Game.updateOne(
+      { gameId: gameId },
+      { 
+        player2: game.player2,
+        status: 'playing'
+      }
+    );
+    
+    await Game.updateOne(
+      { gameId: opponent.gameId },
+      { 
+        player2: opponentGame.player2,
+        status: 'playing'
+      }
+    );
+    
+    // Har ikkala o'yinchiga xabar
+    const player1Message = {
+      type: 'opponent_found',
+      gameId: gameId,
+      opponent: {
+        id: game.player2.id,
+        username: game.player2.username,
+        firstName: game.player2.firstName
+      },
+      status: 'playing'
+    };
+    
+    const player2Message = {
+      type: 'opponent_found',
+      gameId: opponent.gameId,
+      opponent: {
+        id: game.player1.id,
+        username: game.player1.username,
+        firstName: game.player1.firstName
+      },
+      status: 'playing'
+    };
+    
+    ws.send(JSON.stringify(player1Message));
+    if (opponent.socket) {
+      opponent.socket.send(JSON.stringify(player2Message));
+    }
+    
+    // Taymer boshlash
+    startGameTimer(gameId);
+    startGameTimer(opponent.gameId);
+    
+  } else {
+    // Raqib topilmadi
+    ws.send(JSON.stringify({
+      type: 'waiting_for_opponent',
+      gameId: gameId,
+      status: 'waiting'
+    }));
+  }
+}
+
+async function handleMakeChoice(ws, data) {
+  const { userId, gameId, choice } = data;
+  
+  const game = activeGames.get(gameId);
+  if (!game) {
+    ws.send(JSON.stringify({ type: 'error', message: 'O\'yin topilmadi' }));
+    return;
+  }
+  
+  // Tanlovni saqlash
+  let isPlayer1 = game.player1.id === userId;
+  let isPlayer2 = game.player2 && game.player2.id === userId;
+  
+  if (!isPlayer1 && !isPlayer2) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Siz bu o\'yinda emassiz' }));
+    return;
+  }
+  
+  if (isPlayer1) {
+    game.player1.choice = choice;
+    game.player1.ready = true;
+  } else if (isPlayer2) {
+    game.player2.choice = choice;
+    game.player2.ready = true;
+  }
+  
+  // Harakatni saqlash
+  game.moves = game.moves || [];
+  game.moves.push({
+    playerId: userId,
+    choice: choice,
+    timestamp: new Date()
+  });
+  
+  activeGames.set(gameId, game);
+  
+  // Raqibga tanlov haqida xabar
+  const opponentId = isPlayer1 ? game.player2?.id : game.player1?.id;
+  const opponentSocket = playerSockets.get(opponentId);
+  
+  if (opponentSocket) {
+    opponentSocket.send(JSON.stringify({
+      type: 'opponent_choice_made',
+      gameId: gameId
+    }));
+  }
+  
+  // Ikkala o'yinchi ham tanlaganini tekshirish
+  if (game.player1.ready && game.player2?.ready) {
+    await calculateGameResult(gameId);
+  }
+  
+  ws.send(JSON.stringify({
+    type: 'choice_accepted',
+    choice: choice,
+    gameId: gameId
+  }));
+}
+
+async function handlePlayerReady(ws, data) {
+  const { userId, gameId } = data;
+  
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  if (game.player1.id === userId) {
+    game.player1.connected = true;
+  } else if (game.player2?.id === userId) {
+    game.player2.connected = true;
+  }
+}
+
+async function calculateGameResult(gameId) {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  const choice1 = game.player1.choice;
+  const choice2 = game.player2.choice;
+  
+  const rules = {
+    rock: { beats: 'scissors', loses: 'paper' },
+    paper: { beats: 'rock', loses: 'scissors' },
+    scissors: { beats: 'paper', loses: 'rock' }
+  };
+  
+  let result, winnerId;
+  
+  if (choice1 === choice2) {
+    result = 'draw';
+    winnerId = null;
+  } else if (rules[choice1].beats === choice2) {
+    result = 'player1_win';
+    winnerId = game.player1.id;
+  } else {
+    result = 'player2_win';
+    winnerId = game.player2.id;
+  }
+  
+  game.result = result;
+  game.winnerId = winnerId;
+  game.status = 'finished';
+  game.finishedAt = new Date();
+  
+  // Statistikalarni yangilash
+  await updateGameStats(game.player1.id, game.player2.id, result);
+  
+  // MongoDB'da yangilash
+  await Game.updateOne(
+    { gameId: gameId },
+    {
+      result: result,
+      winnerId: winnerId,
+      status: 'finished',
+      finishedAt: new Date(),
+      moves: game.moves
+    }
+  );
+  
+  // O'yinchilarga natija haqida xabar
+  const player1Socket = playerSockets.get(game.player1.id);
+  const player2Socket = playerSockets.get(game.player2.id);
+  
+  const resultMessage = {
+    type: 'game_result',
+    gameId: gameId,
+    result: result,
+    winnerId: winnerId,
+    choices: {
+      player1: choice1,
+      player2: choice2
+    },
+    players: {
+      player1: game.player1,
+      player2: game.player2
+    }
+  };
+  
+  if (player1Socket) player1Socket.send(JSON.stringify(resultMessage));
+  if (player2Socket) player2Socket.send(JSON.stringify(resultMessage));
+  
+  // Faol o'yinlardan o'chirish
+  setTimeout(() => {
+    activeGames.delete(gameId);
+  }, 30000); // 30 soniyadan keyin
+}
+
+async function updateGameStats(player1Id, player2Id, result) {
+  try {
+    const updatePromises = [];
+    
+    if (result === 'player1_win') {
+      updatePromises.push(
+        User.updateOne(
+          { telegramId: player1Id },
+          { $inc: { 'gameStats.wins': 1, 'gameStats.totalGames': 1 } }
+        ),
+        User.updateOne(
+          { telegramId: player2Id },
+          { $inc: { 'gameStats.losses': 1, 'gameStats.totalGames': 1 } }
+        )
+      );
+    } else if (result === 'player2_win') {
+      updatePromises.push(
+        User.updateOne(
+          { telegramId: player2Id },
+          { $inc: { 'gameStats.wins': 1, 'gameStats.totalGames': 1 } }
+        ),
+        User.updateOne(
+          { telegramId: player1Id },
+          { $inc: { 'gameStats.losses': 1, 'gameStats.totalGames': 1 } }
+        )
+      );
+    } else { // draw
+      updatePromises.push(
+        User.updateOne(
+          { telegramId: player1Id },
+          { $inc: { 'gameStats.draws': 1, 'gameStats.totalGames': 1 } }
+        ),
+        User.updateOne(
+          { telegramId: player2Id },
+          { $inc: { 'gameStats.draws': 1, 'gameStats.totalGames': 1 } }
+        )
+      );
+    }
+    
+    await Promise.all(updatePromises);
+    
+    // Win rate'ni yangilash
+    await updateWinRate(player1Id);
+    await updateWinRate(player2Id);
+    
+  } catch (error) {
+    console.error('❌ Statistika yangilash xatosi:', error);
+  }
+}
+
+async function updateWinRate(userId) {
+  try {
+    const user = await User.findOne({ telegramId: userId });
+    if (!user || !user.gameStats) return;
+    
+    const stats = user.gameStats;
+    if (stats.totalGames > 0) {
+      const winRate = Math.round((stats.wins / stats.totalGames) * 100);
+      await User.updateOne(
+        { telegramId: userId },
+        { $set: { 'gameStats.winRate': winRate } }
+      );
+    }
+  } catch (error) {
+    console.error('❌ Win rate yangilash xatosi:', error);
+  }
+}
+
+function startGameTimer(gameId) {
+  setTimeout(async () => {
+    const game = activeGames.get(gameId);
+    if (!game || game.status !== 'playing') return;
+    
+    // Vaqt tugadi
+    game.status = 'finished';
+    game.result = 'timeout';
+    game.finishedAt = new Date();
+    
+    // MongoDB'da yangilash
+    await Game.updateOne(
+      { gameId: gameId },
+      {
+        result: 'timeout',
+        status: 'finished',
+        finishedAt: new Date()
+      }
+    );
+    
+    // O'yinchilarga xabar
+    const player1Socket = playerSockets.get(game.player1.id);
+    const player2Socket = playerSockets.get(game.player2?.id);
+    
+    const timeoutMessage = {
+      type: 'game_timeout',
+      gameId: gameId,
+      result: 'timeout'
+    };
+    
+    if (player1Socket) player1Socket.send(JSON.stringify(timeoutMessage));
+    if (player2Socket) player2Socket.send(JSON.stringify(timeoutMessage));
+    
+    // Faol o'yinlardan o'chirish
+    setTimeout(() => {
+      activeGames.delete(gameId);
+    }, 30000);
+    
+  }, 60000); // 60 soniya
+}
+
+// ==================== FOYDALANUVCHI FUNKSIYALARI ====================
 async function saveOrUpdateUser(telegramUser) {
   try {
     console.log(`👤 Foydalanuvchi saqlanmoqda: ${telegramUser.id} - ${telegramUser.first_name}`);
     
-    // MongoDB holatini tekshirish
     if (mongoose.connection.readyState !== 1) {
-      console.log('⚠️  MongoDB ulanmagan, saqlash bekor');
+      console.log('⚠️  MongoDB ulanmagan');
       return null;
     }
     
     const currentDate = new Date();
-    
-    // Ma'lumotlarni tozalash
     const userData = {
       telegramId: Number(telegramUser.id),
-      firstName: String(telegramUser.first_name || 'User'),
-      lastName: telegramUser.last_name ? String(telegramUser.last_name) : '',
-      username: telegramUser.username ? String(telegramUser.username) : '',
-      languageCode: String(telegramUser.language_code || 'en'),
-      isBot: Boolean(telegramUser.is_bot || false),
+      firstName: telegramUser.first_name || 'User',
+      lastName: telegramUser.last_name || '',
+      username: telegramUser.username || '',
+      languageCode: telegramUser.language_code || 'en',
+      isBot: telegramUser.is_bot || false,
       lastActivity: currentDate
     };
     
-    console.log('📝 Saqlanayotgan ma\'lumotlar:', {
-      telegramId: userData.telegramId,
-      firstName: userData.firstName,
-      date: currentDate.toISOString()
-    });
-    
-    // Find and update
     const existingUser = await User.findOne({ telegramId: userData.telegramId });
     
     if (existingUser) {
-      // Mavjud foydalanuvchini yangilash
-      existingUser.visitCount = Number(existingUser.visitCount || 0) + 1;
+      existingUser.visitCount = (existingUser.visitCount || 0) + 1;
       existingUser.lastActivity = currentDate;
       existingUser.firstName = userData.firstName;
       if (userData.username) existingUser.username = userData.username;
       
       await existingUser.save();
-      console.log(`✅ Foydalanuvchi yangilandi: ${userData.telegramId}, kirishlar: ${existingUser.visitCount}`);
+      console.log(`✅ Foydalanuvchi yangilandi: ${userData.telegramId}`);
       return existingUser;
     } else {
-      // Yangi foydalanuvchi yaratish
       const newUser = new User({
         ...userData,
         joinDate: currentDate,
@@ -226,63 +653,27 @@ async function saveOrUpdateUser(telegramUser) {
     }
   } catch (error) {
     console.error('❌ Saqlash xatosi:', error.message);
-    console.error('❌ Xato tafsilotlari:', error.stack);
-    
-    // BSON xatosini aniqlash
-    if (error.message.includes('BSON') || error.message.includes('datetime') || error.message.includes('habibullox')) {
-      console.log('⚠️  Database struktura xatosi, qayta urinib ko\'ramiz...');
-      
-      // Muammoli ma'lumotlarni o'chirish
-      try {
-        // Barcha noto'g'ri ma'lumotlarni o'chirish
-        const result = await User.deleteMany({
-          $or: [
-            { joinDate: { $type: 'string' } },
-            { lastActivity: { $type: 'string' } },
-            { telegramId: { $type: 'string' } }
-          ]
-        });
-        console.log(`🗑️  ${result.deletedCount} ta noto'g'ri ma'lumot o'chirildi`);
-      } catch (cleanErr) {
-        console.log('⚠️  Tozalashda xato:', cleanErr.message);
-      }
-    }
-    
     return null;
   }
 }
 
-// ==================== BOT COMMAND HANDLERS ====================
-
-// /start komandasi
+// ==================== TELEGRAM BOT HANDLERS ====================
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   const user = msg.from;
   
-  console.log(`📨 /start from: ${user.id} - ${user.first_name}`);
+  await saveOrUpdateUser(user);
   
-  // Foydalanuvchini saqlash
-  const savedUser = await saveOrUpdateUser(user);
-  
-  // Inline keyboard
   const keyboard = {
     inline_keyboard: [[
-      {
-        text: "📱 App'ni ochish",
-        web_app: { 
-          url: process.env.APP_URL || "https://your-frontend.onrender.com" 
-        }
-      }
+      { text: "🎮 O'ynash", web_app: { url: process.env.APP_URL || "https://your-frontend.onrender.com" } }
     ]]
   };
   
-  const visits = savedUser ? savedUser.visitCount : 1;
-  
   bot.sendMessage(chatId, 
     `Salom ${user.first_name}! 👋\n` +
-    `Sizning ma'lumotlaringiz saqlandi.\n` +
-    `Kirishlar soni: ${visits}\n\n` +
-    `Mini App'ni ochish uchun tugmani bosing:`,
+    `🎮 **Tosh-Qaychi-Qog'oz** o'yiniga xush kelibsiz!\n\n` +
+    `O'yinni boshlash uchun tugmani bosing:`,
     {
       reply_markup: keyboard,
       parse_mode: 'HTML'
@@ -290,387 +681,351 @@ bot.onText(/\/start/, async (msg) => {
   );
 });
 
-// /test komandasi (debug uchun)
-bot.onText(/\/test/, async (msg) => {
+bot.onText(/\/game/, async (msg) => {
   const chatId = msg.chat.id;
   const user = msg.from;
   
-  const savedUser = await saveOrUpdateUser(user);
+  await saveOrUpdateUser(user);
   
-  if (savedUser) {
+  const keyboard = {
+    inline_keyboard: [[
+      { text: "🎮 O'yinni boshlash", web_app: { url: `${process.env.APP_URL || "https://your-frontend.onrender.com"}?start_game=true` } }
+    ]]
+  };
+  
+  bot.sendMessage(chatId,
+    `🎮 **O'YIN PANELI**\n\n` +
+    `O'yinni boshlash uchun quyidagi tugmani bosing.\n` +
+    `Sizga raqib topiladi va o'yin boshlanadi.`,
+    {
+      reply_markup: keyboard,
+      parse_mode: 'HTML'
+    }
+  );
+});
+
+bot.onText(/\/stats/, async (msg) => {
+  const chatId = msg.chat.id;
+  const user = msg.from;
+  
+  try {
+    const dbUser = await User.findOne({ telegramId: user.id });
+    const stats = dbUser?.gameStats || { wins: 0, losses: 0, draws: 0, totalGames: 0, winRate: 0 };
+    
+    const totalGames = await Game.countDocuments({
+      $or: [
+        { 'player1.id': user.id },
+        { 'player2.id': user.id }
+      ],
+      status: 'finished'
+    });
+    
+    const wins = await Game.countDocuments({
+      $or: [
+        { 'player1.id': user.id, result: 'player1_win' },
+        { 'player2.id': user.id, result: 'player2_win' }
+      ]
+    });
+    
     bot.sendMessage(chatId,
-      `✅ Test muvaffaqiyatli!\n` +
-      `ID: ${savedUser.telegramId}\n` +
-      `Ism: ${savedUser.firstName}\n` +
-      `Kirishlar: ${savedUser.visitCount}\n` +
-      `Admin panel: /admin`,
+      `📊 **O'YIN STATISTIKASI**\n\n` +
+      `👤 ${user.first_name}\n` +
+      `🎮 Jami o'yinlar: ${totalGames}\n` +
+      `🏆 G'alabalar: ${wins}\n` +
+      `😔 Mag'lubiyatlar: ${stats.losses}\n` +
+      `🤝 Durranglar: ${stats.draws}\n` +
+      `📈 G'alaba foizi: ${stats.winRate}%\n\n` +
+      `O'yinni boshlash: /game`,
       { parse_mode: 'HTML' }
     );
-  } else {
-    bot.sendMessage(chatId, '❌ Test muvaffaqiyatsiz. Database ulanmagan.');
+  } catch (error) {
+    bot.sendMessage(chatId, '❌ Statistika olishda xato');
   }
 });
 
-// /testdb komandasi - Database test (YANGI)
-bot.onText(/\/testdb/, async (msg) => {
+bot.onText(/\/leaderboard/, async (msg) => {
   const chatId = msg.chat.id;
   
-  const dbState = mongoose.connection.readyState;
-  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
-  
-  let message = `📊 Database Test:\n`;
-  message += `🔌 Status: ${states[dbState]} (${dbState})\n`;
-  message += `🕐 Vaqt: ${new Date().toISOString()}\n`;
-  message += `🤖 Bot polling: ${botPollingActive ? 'active' : 'inactive'}\n`;
-  
-  // Test saqlash
   try {
-    if (dbState === 1) {
-      const testId = Date.now(); // Unique ID
-      const testUser = new User({
-        telegramId: testId,
-        firstName: 'Test User',
-        joinDate: new Date(),
-        lastActivity: new Date(),
-        visitCount: 1
-      });
+    const topPlayers = await User.find({ 'gameStats.totalGames': { $gt: 0 } })
+      .sort({ 'gameStats.winRate': -1 })
+      .limit(10);
+    
+    let leaderboard = '🏆 **TOP 10 O\'YINCHILAR**\n\n';
+    
+    topPlayers.forEach((player, index) => {
+      const stats = player.gameStats || { wins: 0, losses: 0, draws: 0, totalGames: 0, winRate: 0 };
+      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
       
-      await testUser.save();
-      message += `✅ Test saqlash muvaffaqiyatli!\n`;
-      message += `📝 Test ID: ${testId}\n`;
-      
-      // Test ma'lumotni tekshirish
-      const foundUser = await User.findOne({ telegramId: testId });
-      if (foundUser) {
-        message += `🔍 Test ma'lumot topildi: ${foundUser.firstName}\n`;
-      }
-      
-      // Test ma'lumotni o'chirish
-      await User.deleteOne({ telegramId: testId });
-      message += `🗑️ Test ma'lumot o'chirildi\n`;
-    } else {
-      message += `❌ Database ulanmagan\n`;
-    }
+      leaderboard += `${medals[index] || `${index + 1}.`} ${player.firstName}\n`;
+      leaderboard += `   ${stats.wins}✅ ${stats.losses}❌ ${stats.draws}🤝 (${stats.winRate}%)\n\n`;
+    });
+    
+    bot.sendMessage(chatId, leaderboard, { parse_mode: 'HTML' });
   } catch (error) {
-    message += `❌ Test saqlash xatosi: ${error.message}\n`;
+    bot.sendMessage(chatId, '❌ Reyting jadvalini yuklashda xato');
   }
-  
-  bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
 });
 
-// /admin komandasi
 bot.onText(/\/admin/, async (msg) => {
   const chatId = msg.chat.id;
   const user = msg.from;
   
-  const backendUrl = process.env.RENDER_EXTERNAL_URL || `https://telegram-bot-server-2-matj.onrender.com`;
-  const adminUrl = `${backendUrl}/admin`;
-  
-  // Admin tekshirish
-  if (user.id.toString() === ADMIN_ID.toString()) {
-    bot.sendMessage(chatId,
-      `👑 Admin Panel\n\n` +
-      `🔗 ${adminUrl}\n\n` +
-      `Foydalanuvchilar: /users\n` +
-      `Statistika: /stats\n` +
-      `Database holati: /dbstatus\n` +
-      `Database test: /testdb`,
-      { parse_mode: 'HTML' }
-    );
-  } else {
-    bot.sendMessage(chatId, '❌ Siz admin emassiz!');
-  }
-});
-
-// /stats komandasi
-bot.onText(/\/stats/, async (msg) => {
-  const chatId = msg.chat.id;
-  
-  try {
-    const totalUsers = await User.countDocuments();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const newToday = await User.countDocuments({ joinDate: { $gte: today } });
-    const activeToday = await User.countDocuments({ 
-      lastActivity: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } 
-    });
-    
-    bot.sendMessage(chatId,
-      `📊 Bot Statistika\n\n` +
-      `👥 Jami foydalanuvchilar: ${totalUsers}\n` +
-      `🆕 Bugun qo'shilgan: ${newToday}\n` +
-      `🔵 Faol (24 soat): ${activeToday}\n` +
-      `🕐 Vaqt: ${new Date().toLocaleTimeString()}\n` +
-      `📡 Bot holati: ${botPollingActive ? 'ishlayapti' : 'to\'xtagan'}`,
-      { parse_mode: 'HTML' }
-    );
-  } catch (error) {
-    bot.sendMessage(chatId, '❌ Statistika olishda xato: ' + error.message);
-  }
-});
-
-// /users komandasi
-bot.onText(/\/users/, async (msg) => {
-  const chatId = msg.chat.id;
-  const user = msg.from;
-  
-  // Admin tekshirish
   if (user.id.toString() !== ADMIN_ID.toString()) {
-    bot.sendMessage(chatId, '❌ Siz admin emassiz!');
-    return;
+    return bot.sendMessage(chatId, '❌ Siz admin emassiz!');
   }
   
-  try {
-    const users = await User.find().sort({ lastActivity: -1 }).limit(5);
-    
-    let message = `👥 So'nggi 5 foydalanuvchi:\n\n`;
-    
-    users.forEach((u, index) => {
-      message += `${index + 1}. ${u.firstName || 'Noma\'lum'} (ID: ${u.telegramId})\n`;
-      message += `   👤 @${u.username || 'yo\'q'} | Kirish: ${u.visitCount}\n`;
-      message += `   🕐 ${u.lastActivity.toLocaleDateString()}\n\n`;
-    });
-    
-    const totalUsers = await User.countDocuments();
-    message += `\n📊 Jami: ${totalUsers} ta foydalanuvchi`;
-    
-    bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
-  } catch (error) {
-    bot.sendMessage(chatId, '❌ Foydalanuvchilarni olishda xato: ' + error.message);
-  }
-});
-
-// /dbstatus komandasi
-bot.onText(/\/dbstatus/, async (msg) => {
-  const chatId = msg.chat.id;
+  const activeGameCount = activeGames.size;
+  const waitingPlayerCount = waitingPlayers.size;
+  const connectedPlayerCount = playerSockets.size;
   
-  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
-  const state = states[mongoose.connection.readyState] || 'unknown';
-  
-  // Foydalanuvchilar soni
-  let userCount = 0;
-  try {
-    userCount = await User.countDocuments();
-  } catch (err) {
-    userCount = -1;
-  }
+  const totalGames = await Game.countDocuments();
+  const finishedGames = await Game.countDocuments({ status: 'finished' });
+  const todayGames = await Game.countDocuments({
+    createdAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+  });
   
   bot.sendMessage(chatId,
-    `📊 Database Holati\n\n` +
-    `🔌 Status: ${state} (${mongoose.connection.readyState})\n` +
-    `👥 Foydalanuvchilar: ${userCount}\n` +
-    `🤖 Bot polling: ${botPollingActive ? 'active' : 'inactive'}\n` +
-    `🕐 Vaqt: ${new Date().toLocaleTimeString()}`,
+    `👑 **ADMIN PANEL**\n\n` +
+    `🤖 Bot holati: ${botPollingActive ? '✅ Ishlamoqda' : '❌ To\'xtatilgan'}\n` +
+    `🎮 Faol o'yinlar: ${activeGameCount}\n` +
+    `⏳ Kutayotgan o'yinchilar: ${waitingPlayerCount}\n` +
+    `🔗 Ulangan o'yinchilar: ${connectedPlayerCount}\n\n` +
+    `📊 O'yin statistikasi:\n` +
+    `   • Jami o'yinlar: ${totalGames}\n` +
+    `   • Tugagan o'yinlar: ${finishedGames}\n` +
+    `   • Bugungi o'yinlar: ${todayGames}\n\n` +
+    `🔄 Database: ${mongoose.connection.readyState === 1 ? '✅ Ulangan' : '❌ Ulanmagan'}`,
     { parse_mode: 'HTML' }
   );
 });
 
-// Web App ma'lumotlari
-bot.on('web_app_data', async (msg) => {
-  const chatId = msg.chat.id;
-  const user = msg.from;
-  
-  console.log(`📱 Web App data from: ${user.id}`);
-  
-  await saveOrUpdateUser(user);
-  
-  try {
-    if (msg.web_app_data?.data) {
-      const data = JSON.parse(msg.web_app_data.data);
-      console.log('Web App ma\'lumoti:', data);
-      
-      bot.sendMessage(chatId, '✅ Ma\'lumotlar qabul qilindi!');
-    }
-  } catch (error) {
-    console.error('Web App xatosi:', error);
-  }
-});
-
-// Har qanday xabar
-bot.on('message', async (msg) => {
-  if (msg.from && !msg.text?.startsWith('/')) {
-    await saveOrUpdateUser(msg.from);
-  }
-});
-
-// ==================== EXPRESS SERVER & API ====================
-
-// Statik fayllar
+// ==================== EXPRESS API ENDPOINTS ====================
 app.use(express.static(__dirname));
 
-// Bosh sahifa
 app.get('/', (req, res) => {
-  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
-  const dbState = states[mongoose.connection.readyState] || 'unknown';
-  
   res.json({
     status: 'online',
-    service: 'Telegram Bot Backend',
+    service: 'Telegram Game Bot',
     bot: botPollingActive ? 'running' : 'stopped',
-    database: dbState,
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    games: {
+      active: activeGames.size,
+      waiting: waitingPlayers.size,
+      connected: playerSockets.size
+    },
     endpoints: {
       home: '/',
       admin: '/admin',
-      api_users: '/api/users',
       api_stats: '/api/stats',
-      api_debug: '/api/debug',
-      health: '/health'
-    },
-    timestamp: new Date().toISOString()
+      api_games: '/api/games',
+      api_leaderboard: '/api/leaderboard',
+      health: '/health',
+      ws: 'ws://' + req.get('host') + '/ws'
+    }
   });
 });
 
-// Admin panel sahifasi
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    database: mongoose.connection.readyState === 1,
     bot: botPollingActive,
-    mongodbState: mongoose.connection.readyState,
+    database: mongoose.connection.readyState === 1,
+    games: activeGames.size,
     timestamp: new Date().toISOString()
   });
 });
 
-// ==================== API ENDPOINTS ====================
-
-// API: Foydalanuvchilar
-app.get('/api/users', async (req, res) => {
+// API: O'yin statistikasi
+app.get('/api/stats/:userId?', async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    const skip = (page - 1) * limit;
+    const userId = req.params.userId ? parseInt(req.params.userId) : null;
     
-    let users = [];
-    let totalUsers = 0;
-    
-    if (mongoose.connection.readyState === 1) {
-      users = await User.find()
-        .sort({ lastActivity: -1 })
-        .skip(skip)
-        .limit(limit);
-      
-      totalUsers = await User.countDocuments();
+    let userStats = null;
+    if (userId) {
+      const user = await User.findOne({ telegramId: userId });
+      if (user) {
+        userStats = user.gameStats;
+      }
     }
+    
+    const totalGames = await Game.countDocuments();
+    const activeGamesCount = activeGames.size;
+    const todayGames = await Game.countDocuments({
+      createdAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+    });
     
     res.json({
       success: true,
-      page,
-      limit,
-      total: totalUsers,
-      totalPages: Math.ceil(totalUsers / limit),
-      databaseConnected: mongoose.connection.readyState === 1,
-      users: users.map(user => ({
-        id: user.telegramId,
-        name: `${user.firstName} ${user.lastName || ''}`.trim() || 'Noma\'lum',
-        username: user.username,
-        joinDate: user.joinDate,
-        lastActivity: user.lastActivity,
-        visits: user.visitCount,
-        isBot: user.isBot
+      stats: {
+        user: userStats,
+        global: {
+          totalGames,
+          activeGames: activeGamesCount,
+          todayGames,
+          connectedPlayers: playerSockets.size
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// API: O'yinlar ro'yxati
+app.get('/api/games/:userId?', async (req, res) => {
+  try {
+    const userId = req.params.userId ? parseInt(req.params.userId) : null;
+    const limit = parseInt(req.query.limit) || 20;
+    
+    let query = { status: 'finished' };
+    if (userId) {
+      query = {
+        ...query,
+        $or: [
+          { 'player1.id': userId },
+          { 'player2.id': userId }
+        ]
+      };
+    }
+    
+    const games = await Game.find(query)
+      .sort({ finishedAt: -1 })
+      .limit(limit);
+    
+    res.json({
+      success: true,
+      games: games.map(game => ({
+        gameId: game.gameId,
+        player1: game.player1,
+        player2: game.player2,
+        result: game.result,
+        winnerId: game.winnerId,
+        finishedAt: game.finishedAt,
+        duration: game.finishedAt - game.createdAt
       }))
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      databaseConnected: mongoose.connection.readyState === 1
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// API: Statistika
-app.get('/api/stats', async (req, res) => {
+// API: Reyting jadvali
+app.get('/api/leaderboard', async (req, res) => {
   try {
-    let totalUsers = 0;
-    let newToday = 0;
-    let activeToday = 0;
+    const topPlayers = await User.find({ 'gameStats.totalGames': { $gte: 5 } })
+      .sort({ 'gameStats.winRate': -1, 'gameStats.wins': -1 })
+      .limit(20)
+      .select('telegramId firstName username gameStats');
     
-    if (mongoose.connection.readyState === 1) {
-      totalUsers = await User.countDocuments();
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      newToday = await User.countDocuments({ joinDate: { $gte: today } });
-      activeToday = await User.countDocuments({ 
-        lastActivity: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } 
-      });
-    }
-    
-    // stats obyektini qaytarish
     res.json({
       success: true,
-      stats: {
-        totalUsers,
-        newToday,
-        activeToday,
-        databaseStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-        botStatus: botPollingActive ? 'running' : 'stopped'
-      },
-      timestamp: new Date().toISOString()
+      leaderboard: topPlayers.map((player, index) => ({
+        rank: index + 1,
+        id: player.telegramId,
+        name: player.firstName,
+        username: player.username,
+        stats: player.gameStats
+      }))
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      stats: {
-        totalUsers: 0,
-        newToday: 0,
-        activeToday: 0,
-        databaseStatus: 'error',
-        botStatus: 'unknown'
-      }
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// API: Debug
-app.get('/api/debug', async (req, res) => {
-  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
-  
-  // Database ma'lumotlari
-  let dbInfo = {};
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const collections = await mongoose.connection.db.listCollections().toArray();
-      dbInfo = {
-        collections: collections.map(c => c.name),
-        usersCount: await User.countDocuments()
-      };
-    } catch (err) {
-      dbInfo = { error: err.message };
+// API: O'yin yaratish (WebSocket alternativa)
+app.post('/api/create-game', async (req, res) => {
+  try {
+    const { userId, username, firstName } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId talab qilinadi' });
     }
+    
+    const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const gameData = {
+      gameId,
+      player1: { id: userId, username, firstName, choice: null, ready: false, connected: true },
+      player2: null,
+      status: 'waiting',
+      createdAt: new Date()
+    };
+    
+    activeGames.set(gameId, gameData);
+    
+    // MongoDB'ga saqlash
+    const game = new Game({
+      gameId: gameId,
+      player1: gameData.player1,
+      status: 'waiting'
+    });
+    
+    await game.save();
+    
+    res.json({
+      success: true,
+      gameId: gameId,
+      status: 'waiting'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
-  
-  res.json({
-    mongodb: {
-      state: mongoose.connection.readyState,
-      status: states[mongoose.connection.readyState] || 'unknown',
-      host: mongoose.connection.host || 'N/A',
-      database: mongoose.connection.db?.databaseName || 'N/A',
-      collections: dbInfo.collections || []
-    },
-    bot: {
-      polling: botPollingActive,
-      token: BOT_TOKEN ? 'set' : 'not set',
-      adminId: ADMIN_ID || 'not set'
-    },
-    environment: {
-      node: process.version,
-      platform: process.platform,
-      memory: process.memoryUsage(),
-      uptime: process.uptime()
-    },
-    users: {
-      count: dbInfo.usersCount || 0
+});
+
+// API: Tanlov qilish
+app.post('/api/make-choice', async (req, res) => {
+  try {
+    const { userId, gameId, choice } = req.body;
+    
+    if (!userId || !gameId || !choice) {
+      return res.status(400).json({ success: false, error: 'Barcha maydonlar talab qilinadi' });
     }
-  });
+    
+    const game = activeGames.get(gameId);
+    if (!game) {
+      return res.status(404).json({ success: false, error: 'O\'yin topilmadi' });
+    }
+    
+    let isPlayer1 = game.player1.id === userId;
+    let isPlayer2 = game.player2 && game.player2.id === userId;
+    
+    if (!isPlayer1 && !isPlayer2) {
+      return res.status(403).json({ success: false, error: 'Siz bu o\'yinda emassiz' });
+    }
+    
+    if (isPlayer1) {
+      game.player1.choice = choice;
+      game.player1.ready = true;
+    } else if (isPlayer2) {
+      game.player2.choice = choice;
+      game.player2.ready = true;
+    }
+    
+    // MongoDB'da yangilash
+    await Game.updateOne(
+      { gameId: gameId },
+      isPlayer1 ? { 'player1.choice': choice, 'player1.ready': true } : { 'player2.choice': choice, 'player2.ready': true }
+    );
+    
+    // Ikkala o'yinchi ham tanlaganini tekshirish
+    if (game.player1.ready && game.player2?.ready) {
+      await calculateGameResult(gameId);
+    }
+    
+    res.json({
+      success: true,
+      choice: choice,
+      gameId: gameId,
+      status: 'choice_accepted'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // 404 handler
@@ -678,75 +1033,43 @@ app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: 'Endpoint not found',
-    available: ['/', '/admin', '/api/users', '/api/stats', '/health', '/api/debug']
+    available: ['/', '/admin', '/api/stats', '/api/games', '/api/leaderboard', '/health']
   });
 });
 
 // ==================== SERVER ISHGA TUSHIRISH ====================
 const PORT = process.env.PORT || 10000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🌐 Server ${PORT}-portda ishlayapti`);
   console.log(`🔗 Bosh sahifa: http://localhost:${PORT}`);
   console.log(`👑 Admin panel: http://localhost:${PORT}/admin`);
-  console.log(`📊 API: http://localhost:${PORT}/api/users`);
+  console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
   console.log(`🤖 Bot polling: ${botPollingActive ? 'ishlaydi' : 'kutilmoqda'}`);
   console.log('==========================================');
-  
-  // Server ishga tushganda test qilish
-  setTimeout(() => {
-    console.log('🔍 Server test rejimi...');
-    console.log(`📊 MongoDB holati: ${mongoose.connection.readyState}`);
-    console.log(`🤖 Bot polling: ${botPollingActive}`);
-  }, 5000);
 });
 
 // Server to'xtash signallari
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM: Server to\'xtatilmoqda...');
-  bot.stopPolling().then(() => {
-    console.log('✅ Bot polling to\'xtatildi');
-  }).catch(err => {
-    console.log('⚠️  Botni to\'xtatishda xato:', err.message);
-  });
-  
-  mongoose.connection.close(false, () => {
-    console.log('✅ MongoDB ulanishi yopildi');
-  });
-  
-  setTimeout(() => {
-    console.log('✅ Server to\'xtatildi');
-    process.exit(0);
-  }, 1000);
+  shutdown();
 });
 
 process.on('SIGINT', () => {
   console.log('🛑 SIGINT: Server to\'xtatilmoqda...');
-  bot.stopPolling().then(() => {
-    console.log('✅ Bot polling to\'xtatildi');
-  }).catch(err => {
-    console.log('⚠️  Botni to\'xtatishda xato:', err.message);
-  });
+  shutdown();
+});
+
+async function shutdown() {
+  bot.stopPolling();
+  wss.close();
   
-  mongoose.connection.close(false, () => {
-    console.log('✅ MongoDB ulanishi yopildi');
-  });
+  for (const socket of playerSockets.values()) {
+    socket.close();
+  }
   
-  setTimeout(() => {
-    console.log('✅ Server to\'xtatildi');
-    process.exit(0);
-  }, 1000);
-});
-
-// MongoDB ulanishni monitoring qilish
-mongoose.connection.on('connected', () => {
-  console.log('✅ MongoDB ga ulandi');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('❌ MongoDB xatosi:', err.message);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('⚠️  MongoDB ulanmadi');
-});
+  await mongoose.connection.close();
+  
+  console.log('✅ Server to\'xtatildi');
+  process.exit(0);
+}
