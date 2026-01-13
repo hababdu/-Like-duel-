@@ -58,3 +58,6 @@ function App() {
     </div>
   );
 }
+
+// ======== BU QATORNI QO'SHING! ========
+export default App;
