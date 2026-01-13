@@ -378,24 +378,6 @@ bot.on('message', async (msg) => {
 
 // Statik fayllar
 app.use(express.static(__dirname));
-app.get('/admin', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head><title>Admin</title></head>
-    <body>
-      <h1>Admin Panel</h1>
-      <div id="users">Yuklanmoqda...</div>
-      <script>
-        fetch('/api/users').then(r => r.json()).then(data => {
-          document.getElementById('users').innerHTML = 
-            data.users ? JSON.stringify(data.users, null, 2) : 'Xato: ' + data.error;
-        });
-      </script>
-    </body>
-    </html>
-  `);
-});
 
 // Bosh sahifa
 app.get('/', (req, res) => {
@@ -417,6 +399,11 @@ app.get('/', (req, res) => {
     },
     timestamp: new Date().toISOString()
   });
+});
+
+// Admin panel sahifasi - BU YERDA QO'SHILDI!
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
 // Health check
