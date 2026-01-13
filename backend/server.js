@@ -1636,6 +1636,871 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+// ==================== KOIN & SOVG'A TIZIMI ====================
+
+// Koin schemasi
+const coinSchema = new mongoose.Schema({
+  userId: { type: Number, required: true, unique: true, index: true },
+  balance: { type: Number, default: 100 }, // Boshlang'ich koin
+  earned: { type: Number, default: 0 },
+  spent: { type: Number, default: 0 },
+  dailyStreak: { type: Number, default: 0 },
+  lastDaily: Date,
+  achievements: [{
+    type: String,
+    date: Date
+  }],
+  transactions: [{
+    type: String, // win, daily, bonus, purchase, gift
+    amount: Number,
+    description: String,
+    timestamp: { type: Date, default: Date.now }
+  }]
+}, { timestamps: true });
+
+const Coin = mongoose.model('Coin', coinSchema);
+
+// Sovg'a (item) schemasi
+const itemSchema = new mongoose.Schema({
+  itemId: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  description: String,
+  type: { type: String, enum: ['avatar', 'frame', 'effect', 'title'], required: true },
+  price: { type: Number, required: true },
+  rarity: { type: String, enum: ['common', 'rare', 'epic', 'legendary'], default: 'common' },
+  icon: String,
+  available: { type: Boolean, default: true }
+}, { timestamps: true });
+
+const Item = mongoose.model('Item', itemSchema);
+
+// Foydalanuvchi sovg'alari
+const userItemSchema = new mongoose.Schema({
+  userId: { type: Number, required: true, index: true },
+  itemId: { type: String, required: true },
+  purchasedAt: { type: Date, default: Date.now },
+  equipped: { type: Boolean, default: false },
+  metadata: mongoose.Schema.Types.Mixed
+}, { timestamps: true });
+
+const UserItem = mongoose.model('UserItem', userItemSchema);
+
+// Leaderboard schemasi
+const leaderboardSchema = new mongoose.Schema({
+  userId: { type: Number, required: true, unique: true, index: true },
+  username: String,
+  firstName: String,
+  totalCoins: { type: Number, default: 0 },
+  winStreak: { type: Number, default: 0 },
+  rank: Number,
+  weeklyWins: { type: Number, default: 0 }
+}, { timestamps: true });
+
+const Leaderboard = mongoose.model('Leaderboard', leaderboardSchema);
+
+// O'yin natijasida koin berish
+async function awardCoinsForGame(userId, gameResult, isWinner, winStreak = 0) {
+  try {
+    let userCoins = await Coin.findOne({ userId });
+    
+    if (!userCoins) {
+      userCoins = new Coin({ 
+        userId, 
+        balance: 100,
+        earned: 0 
+      });
+    }
+    
+    let coinsEarned = 0;
+    const baseWinReward = 50;
+    const baseLoseReward = 10;
+    const drawReward = 20;
+    
+    if (isWinner) {
+      coinsEarned = baseWinReward + (winStreak * 10); // Har bir ketma-ket g'alaba uchun +10
+      
+      // Bonus: 5+ ketma-ket g'alaba uchun bonus
+      if (winStreak >= 5) coinsEarned += 50;
+      if (winStreak >= 10) coinsEarned += 100;
+      
+      // Random bonus (1/10 ehtimol)
+      if (Math.random() < 0.1) {
+        const bonus = Math.floor(Math.random() * 50) + 10;
+        coinsEarned += bonus;
+      }
+    } else if (gameResult === 'draw') {
+      coinsEarned = drawReward;
+    } else {
+      coinsEarned = baseLoseReward;
+      
+      // Mag'lubiyat bonus (tasalli)
+      if (Math.random() < 0.3) {
+        coinsEarned += Math.floor(Math.random() * 20);
+      }
+    }
+    
+    // Koinlarni yangilash
+    userCoins.balance += coinsEarned;
+    userCoins.earned += coinsEarned;
+    
+    // Transaksiya qo'shish
+    userCoins.transactions.push({
+      type: isWinner ? 'win' : (gameResult === 'draw' ? 'draw' : 'lose'),
+      amount: coinsEarned,
+      description: `O'yin natijasi: ${gameResult}`,
+      timestamp: new Date()
+    });
+    
+    await userCoins.save();
+    
+    // Leaderboard yangilash
+    await updateLeaderboard(userId, coinsEarned, isWinner);
+    
+    return coinsEarned;
+  } catch (error) {
+    console.error('❌ Koin berish xatosi:', error);
+    return 0;
+  }
+}
+
+// Daily bonus
+async function getDailyBonus(userId) {
+  try {
+    const userCoins = await Coin.findOne({ userId });
+    const now = new Date();
+    
+    if (!userCoins) {
+      const newUserCoins = new Coin({ 
+        userId, 
+        balance: 150, // Daily bonus bilan boshlash
+        earned: 150 
+      });
+      newUserCoins.dailyStreak = 1;
+      newUserCoins.lastDaily = now;
+      newUserCoins.transactions.push({
+        type: 'daily',
+        amount: 150,
+        description: 'Birinchi kunlik bonus',
+        timestamp: now
+      });
+      await newUserCoins.save();
+      return { success: true, amount: 150, streak: 1, isFirst: true };
+    }
+    
+    // Oxirgi daily bonus vaqtini tekshirish
+    if (userCoins.lastDaily) {
+      const lastDate = new Date(userCoins.lastDaily);
+      const diffHours = (now - lastDate) / (1000 * 60 * 60);
+      
+      if (diffHours < 20) {
+        const nextIn = Math.ceil(20 - diffHours);
+        return { 
+          success: false, 
+          message: `Kutish kerak: ${nextIn} soat`,
+          nextIn: nextIn 
+        };
+      }
+      
+      // Streak davom ettirish yoki qayta boshlash
+      if (diffHours < 48) {
+        userCoins.dailyStreak += 1;
+      } else {
+        userCoins.dailyStreak = 1;
+      }
+    } else {
+      userCoins.dailyStreak = 1;
+    }
+    
+    // Bonus miqdorini hisoblash
+    let bonusAmount = 50; // Asosiy bonus
+    bonusAmount += userCoins.dailyStreak * 10; // Streak bonus
+    
+    // Max 200 gacha
+    if (bonusAmount > 200) bonusAmount = 200;
+    
+    // Random extra bonus
+    if (Math.random() < 0.2) {
+      bonusAmount += Math.floor(Math.random() * 50);
+    }
+    
+    // Koinlarni yangilash
+    userCoins.balance += bonusAmount;
+    userCoins.earned += bonusAmount;
+    userCoins.lastDaily = now;
+    
+    userCoins.transactions.push({
+      type: 'daily',
+      amount: bonusAmount,
+      description: `Kunlik bonus (${userCoins.dailyStreak} kun)`,
+      timestamp: now
+    });
+    
+    // Achievement
+    if (userCoins.dailyStreak >= 7) {
+      userCoins.achievements.push('7_kun_streak');
+    }
+    if (userCoins.dailyStreak >= 30) {
+      userCoins.achievements.push('30_kun_streak');
+    }
+    
+    await userCoins.save();
+    
+    return { 
+      success: true, 
+      amount: bonusAmount, 
+      streak: userCoins.dailyStreak,
+      message: `+${bonusAmount} koin (${userCoins.dailyStreak} kun)` 
+    };
+  } catch (error) {
+    console.error('❌ Daily bonus xatosi:', error);
+    return { success: false, message: 'Xato yuz berdi' };
+  }
+}
+
+// Leaderboard yangilash
+async function updateLeaderboard(userId, coinsEarned, isWinner) {
+  try {
+    const user = await User.findOne({ telegramId: userId });
+    if (!user) return;
+    
+    let leaderboard = await Leaderboard.findOne({ userId });
+    
+    if (!leaderboard) {
+      leaderboard = new Leaderboard({
+        userId,
+        username: user.username,
+        firstName: user.firstName,
+        totalCoins: coinsEarned,
+        winStreak: isWinner ? 1 : 0,
+        weeklyWins: isWinner ? 1 : 0
+      });
+    } else {
+      leaderboard.totalCoins += coinsEarned;
+      
+      if (isWinner) {
+        leaderboard.winStreak += 1;
+        leaderboard.weeklyWins += 1;
+      } else {
+        leaderboard.winStreak = 0;
+      }
+    }
+    
+    await leaderboard.save();
+    
+    // Leaderboard ranking
+    await calculateLeaderboardRanks();
+    
+  } catch (error) {
+    console.error('❌ Leaderboard yangilash xatosi:', error);
+  }
+}
+
+// Leaderboard ranking hisoblash
+async function calculateLeaderboardRanks() {
+  try {
+    const leaders = await Leaderboard.find()
+      .sort({ totalCoins: -1, weeklyWins: -1 })
+      .limit(100);
+    
+    for (let i = 0; i < leaders.length; i++) {
+      leaders[i].rank = i + 1;
+      await leaders[i].save();
+    }
+  } catch (error) {
+    console.error('❌ Rank hisoblash xatosi:', error);
+  }
+}
+
+// O'yin natijasida statistika yangilash (updateGameStats funksiyasini yangilash)
+async function updateGameStats(player1Id, player2Id, result) {
+  try {
+    const updatePromises = [];
+    
+    // Koinlarni taqsimlash
+    let player1Coins = 0, player2Coins = 0;
+    
+    if (result === 'player1_win') {
+      // Player 1 statistika
+      updatePromises.push(
+        User.updateOne(
+          { telegramId: player1Id },
+          { 
+            $inc: { 
+              'gameStats.wins': 1, 
+              'gameStats.totalGames': 1 
+            } 
+          }
+        )
+      );
+      
+      // Player 2 statistika
+      updatePromises.push(
+        User.updateOne(
+          { telegramId: player2Id },
+          { 
+            $inc: { 
+              'gameStats.losses': 1, 
+              'gameStats.totalGames': 1 
+            } 
+          }
+        )
+      );
+      
+      // Koinlarni hisoblash
+      const player1Streak = await getWinStreak(player1Id);
+      const player2Streak = await getWinStreak(player2Id);
+      
+      player1Coins = await awardCoinsForGame(player1Id, 'win', true, player1Streak);
+      player2Coins = await awardCoinsForGame(player2Id, 'lose', false, 0);
+      
+    } else if (result === 'player2_win') {
+      // Player 2 statistika
+      updatePromises.push(
+        User.updateOne(
+          { telegramId: player2Id },
+          { 
+            $inc: { 
+              'gameStats.wins': 1, 
+              'gameStats.totalGames': 1 
+            } 
+          }
+        )
+      );
+      
+      // Player 1 statistika
+      updatePromises.push(
+        User.updateOne(
+          { telegramId: player1Id },
+          { 
+            $inc: { 
+              'gameStats.losses': 1, 
+              'gameStats.totalGames': 1 
+            } 
+          }
+        )
+      );
+      
+      // Koinlarni hisoblash
+      const player2Streak = await getWinStreak(player2Id);
+      const player1Streak = await getWinStreak(player1Id);
+      
+      player2Coins = await awardCoinsForGame(player2Id, 'win', true, player2Streak);
+      player1Coins = await awardCoinsForGame(player1Id, 'lose', false, 0);
+      
+    } else { // draw
+      updatePromises.push(
+        User.updateOne(
+          { telegramId: player1Id },
+          { 
+            $inc: { 
+              'gameStats.draws': 1, 
+              'gameStats.totalGames': 1 
+            } 
+          }
+        ),
+        User.updateOne(
+          { telegramId: player2Id },
+          { 
+            $inc: { 
+              'gameStats.draws': 1, 
+              'gameStats.totalGames': 1 
+            } 
+          }
+        )
+      );
+      
+      // Durrang uchun koinlar
+      player1Coins = await awardCoinsForGame(player1Id, 'draw', false, 0);
+      player2Coins = await awardCoinsForGame(player2Id, 'draw', false, 0);
+    }
+    
+    await Promise.all(updatePromises);
+    
+    // Win rate'ni yangilash
+    await updateWinRate(player1Id);
+    await updateWinRate(player2Id);
+    
+    return { player1Coins, player2Coins };
+    
+  } catch (error) {
+    console.error('❌ Statistika yangilash xatosi:', error);
+    return { player1Coins: 0, player2Coins: 0 };
+  }
+}
+
+// Ketma-ket g'alabalar soni
+async function getWinStreak(userId) {
+  try {
+    const recentGames = await Game.find({
+      $or: [
+        { 'player1.id': userId },
+        { 'player2.id': userId }
+      ],
+      status: 'finished'
+    })
+    .sort({ finishedAt: -1 })
+    .limit(10);
+    
+    let streak = 0;
+    
+    for (const game of recentGames) {
+      const isPlayer1 = game.player1.id === userId;
+      const isWinner = (isPlayer1 && game.result === 'player1_win') || 
+                      (!isPlayer1 && game.result === 'player2_win');
+      
+      if (isWinner) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
+  } catch (error) {
+    console.error('❌ Win streak xatosi:', error);
+    return 0;
+  }
+}
+// ==================== YANGI API ENDPOINT'LAR ====================
+
+// 1. Foydalanuvchi koinlari
+app.get('/api/coins/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    
+    let userCoins = await Coin.findOne({ userId });
+    if (!userCoins) {
+      userCoins = new Coin({ userId, balance: 100 });
+      await userCoins.save();
+    }
+    
+    // Daily bonus holati
+    let dailyStatus = { available: false };
+    if (userCoins.lastDaily) {
+      const now = new Date();
+      const lastDate = new Date(userCoins.lastDaily);
+      const diffHours = (now - lastDate) / (1000 * 60 * 60);
+      dailyStatus = {
+        available: diffHours >= 20,
+        nextIn: diffHours < 20 ? Math.ceil(20 - diffHours) : 0,
+        streak: userCoins.dailyStreak
+      };
+    } else {
+      dailyStatus = { available: true, streak: 0 };
+    }
+    
+    // Achievements
+    const achievements = [];
+    if (userCoins.achievements.includes('7_kun_streak')) {
+      achievements.push({ id: '7_streak', name: '7 kun ketma-ket', icon: '🔥' });
+    }
+    if (userCoins.achievements.includes('30_kun_streak')) {
+      achievements.push({ id: '30_streak', name: '30 kun ketma-ket', icon: '👑' });
+    }
+    
+    res.json({
+      success: true,
+      balance: userCoins.balance,
+      earned: userCoins.earned,
+      spent: userCoins.spent,
+      dailyStreak: userCoins.dailyStreak,
+      lastDaily: userCoins.lastDaily,
+      dailyBonus: dailyStatus,
+      achievements,
+      recentTransactions: userCoins.transactions.slice(-5).reverse()
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. Daily bonus olish
+app.post('/api/daily-bonus', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId talab qilinadi' });
+    }
+    
+    const result = await getDailyBonus(userId);
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. Leaderboard
+app.get('/api/leaderboard/top', async (req, res) => {
+  try {
+    const topPlayers = await Leaderboard.find()
+      .sort({ rank: 1 })
+      .limit(50);
+    
+    // Foydalanuvchilar uchun buyumlarni olish
+    const enrichedPlayers = await Promise.all(
+      topPlayers.map(async (player) => {
+        const equippedItems = await UserItem.find({ 
+          userId: player.userId, 
+          equipped: true 
+        });
+        
+        return {
+          rank: player.rank,
+          userId: player.userId,
+          name: player.firstName,
+          username: player.username,
+          totalCoins: player.totalCoins,
+          winStreak: player.winStreak,
+          weeklyWins: player.weeklyWins,
+          equippedItems: equippedItems.map(item => item.itemId),
+          updatedAt: player.updatedAt
+        };
+      })
+    );
+    
+    // Haftalik reset (yakshanba)
+    const now = new Date();
+    const isSunday = now.getDay() === 0;
+    const nextReset = new Date(now);
+    nextReset.setDate(now.getDate() + (7 - now.getDay()));
+    nextReset.setHours(0, 0, 0, 0);
+    
+    res.json({
+      success: true,
+      leaderboard: enrichedPlayers,
+      resetInfo: {
+        weeklyReset: isSunday,
+        nextReset: nextReset,
+        timeToReset: nextReset - now
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4. Sovg'alar do'koni
+app.get('/api/shop/items', async (req, res) => {
+  try {
+    const items = await Item.find({ available: true });
+    
+    res.json({
+      success: true,
+      items: items.map(item => ({
+        id: item.itemId,
+        name: item.name,
+        description: item.description,
+        type: item.type,
+        price: item.price,
+        rarity: item.rarity,
+        icon: item.icon
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 5. Sovg'a sotib olish
+app.post('/api/shop/purchase', async (req, res) => {
+  try {
+    const { userId, itemId } = req.body;
+    
+    if (!userId || !itemId) {
+      return res.status(400).json({ success: false, error: 'userId va itemId talab qilinadi' });
+    }
+    
+    // Sovg'ani tekshirish
+    const item = await Item.findOne({ itemId, available: true });
+    if (!item) {
+      return res.status(404).json({ success: false, error: 'Sovg\'a topilmadi' });
+    }
+    
+    // Koinlarni tekshirish
+    const userCoins = await Coin.findOne({ userId });
+    if (!userCoins || userCoins.balance < item.price) {
+      return res.status(400).json({ success: false, error: 'Koinlar yetarli emas' });
+    }
+    
+    // Sovg'ani allaqachon sotib olganligini tekshirish
+    const alreadyOwned = await UserItem.findOne({ userId, itemId });
+    if (alreadyOwned) {
+      return res.status(400).json({ success: false, error: 'Sizda bu sovg\'a bor' });
+    }
+    
+    // Tranzaksiya
+    userCoins.balance -= item.price;
+    userCoins.spent += item.price;
+    
+    userCoins.transactions.push({
+      type: 'purchase',
+      amount: -item.price,
+      description: `Sovg'a: ${item.name}`,
+      timestamp: new Date()
+    });
+    
+    await userCoins.save();
+    
+    // Sovg'ani foydalanuvchiga qo'shish
+    const userItem = new UserItem({
+      userId,
+      itemId
+    });
+    
+    await userItem.save();
+    
+    res.json({
+      success: true,
+      message: `"${item.name}" sovg'asi sotib olindi`,
+      newBalance: userCoins.balance,
+      item: {
+        id: item.itemId,
+        name: item.name,
+        type: item.type
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 6. Sovg'alarni kiyish
+app.post('/api/items/equip', async (req, res) => {
+  try {
+    const { userId, itemId } = req.body;
+    
+    if (!userId || !itemId) {
+      return res.status(400).json({ success: false, error: 'userId va itemId talab qilinadi' });
+    }
+    
+    // Sovg'a mavjudligini tekshirish
+    const userItem = await UserItem.findOne({ userId, itemId });
+    if (!userItem) {
+      return res.status(404).json({ success: false, error: 'Sovg\'a topilmadi' });
+    }
+    
+    // Barcha shu turdagi sovg'alarni kiyilmagan qilish
+    const itemType = (await Item.findOne({ itemId }))?.type;
+    if (itemType) {
+      await UserItem.updateMany(
+        { 
+          userId, 
+          itemId: { $in: await Item.find({ type: itemType }).distinct('itemId') }
+        },
+        { $set: { equipped: false } }
+      );
+    }
+    
+    // Yangi sovg'ani kiyish
+    userItem.equipped = true;
+    await userItem.save();
+    
+    res.json({
+      success: true,
+      message: 'Sovg\'a kiyildi',
+      item: {
+        id: itemId,
+        equipped: true
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 7. Foydalanuvchi sovg'alari
+app.get('/api/items/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    
+    const userItems = await UserItem.find({ userId });
+    
+    // Sovg'a ma'lumotlarini to'ldirish
+    const enrichedItems = await Promise.all(
+      userItems.map(async (userItem) => {
+        const item = await Item.findOne({ itemId: userItem.itemId });
+        return {
+          itemId: userItem.itemId,
+          name: item?.name || 'Noma\'lum',
+          type: item?.type || 'unknown',
+          rarity: item?.rarity || 'common',
+          icon: item?.icon,
+          purchasedAt: userItem.purchasedAt,
+          equipped: userItem.equipped,
+          price: item?.price || 0
+        };
+      })
+    );
+    
+    // Kiyilgan sovg'alar
+    const equippedItems = enrichedItems.filter(item => item.equipped);
+    
+    res.json({
+      success: true,
+      items: enrichedItems,
+      equipped: equippedItems.reduce((acc, item) => {
+        acc[item.type] = item;
+        return acc;
+      }, {})
+    });
+    
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 8. Bonus vazifalar
+app.get('/api/quests/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    
+    // Hozirgi haftaning boshlanishi
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    
+    // Haftalik statistikalar
+    const weeklyGames = await Game.countDocuments({
+      $or: [
+        { 'player1.id': userId },
+        { 'player2.id': userId }
+      ],
+      status: 'finished',
+      finishedAt: { $gte: weekStart }
+    });
+    
+    const weeklyWins = await Game.countDocuments({
+      $or: [
+        { 'player1.id': userId, result: 'player1_win' },
+        { 'player2.id': userId, result: 'player2_win' }
+      ],
+      finishedAt: { $gte: weekStart }
+    });
+    
+    const winStreak = await getWinStreak(userId);
+    
+    // Vazifalar
+    const quests = [
+      {
+        id: 'first_game',
+        title: 'Birinchi o\'yin',
+        description: 'Birinchi o\'yinni o\'tkaz',
+        reward: 50,
+        progress: Math.min(weeklyGames, 1),
+        target: 1,
+        completed: weeklyGames >= 1
+      },
+      {
+        id: 'weekly_5_games',
+        title: 'Haftalik o\'yinchi',
+        description: 'Haftada 5 ta o\'yin o\'tkaz',
+        reward: 100,
+        progress: Math.min(weeklyGames, 5),
+        target: 5,
+        completed: weeklyGames >= 5
+      },
+      {
+        id: 'weekly_3_wins',
+        title: 'Haftalik g\'olib',
+        description: 'Haftada 3 ta g\'alaba qozon',
+        reward: 150,
+        progress: Math.min(weeklyWins, 3),
+        target: 3,
+        completed: weeklyWins >= 3
+      },
+      {
+        id: 'win_streak_3',
+        title: 'Ketma-ket g\'olib',
+        description: '3 ketma-ket g\'alaba qozon',
+        reward: 200,
+        progress: Math.min(winStreak, 3),
+        target: 3,
+        completed: winStreak >= 3
+      },
+      {
+        id: 'daily_login_3',
+        title: 'Sodiq o\'yinchi',
+        description: '3 kun ketma-ket tizimga kir',
+        reward: 300,
+        progress: 0, // Bu ma'lumotni Coin modelidan olish kerak
+        target: 3,
+        completed: false
+      }
+    ];
+    
+    res.json({
+      success: true,
+      quests,
+      weeklyStats: {
+        games: weeklyGames,
+        wins: weeklyWins,
+        winStreak
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 9. Vazifa mukofotini olish
+app.post('/api/quests/claim', async (req, res) => {
+  try {
+    const { userId, questId } = req.body;
+    
+    if (!userId || !questId) {
+      return res.status(400).json({ success: false, error: 'userId va questId talab qilinadi' });
+    }
+    
+    // Vazifani tekshirish (bu oddiy misol, aslida baza bilan ishlash kerak)
+    const userCoins = await Coin.findOne({ userId });
+    if (!userCoins) {
+      return res.status(404).json({ success: false, error: 'Foydalanuvchi topilmadi' });
+    }
+    
+    // Mukofot miqdori (vazifaga qarab)
+    const rewards = {
+      'first_game': 50,
+      'weekly_5_games': 100,
+      'weekly_3_wins': 150,
+      'win_streak_3': 200,
+      'daily_login_3': 300
+    };
+    
+    const rewardAmount = rewards[questId] || 0;
+    if (rewardAmount === 0) {
+      return res.status(400).json({ success: false, error: 'Noto\'g\'ri vazifa' });
+    }
+    
+    // Koinlarni qo'shish
+    userCoins.balance += rewardAmount;
+    userCoins.earned += rewardAmount;
+    
+    userCoins.transactions.push({
+      type: 'quest',
+      amount: rewardAmount,
+      description: `Vazifa mukofoti: ${questId}`,
+      timestamp: new Date()
+    });
+    
+    await userCoins.save();
+    
+    res.json({
+      success: true,
+      message: `+${rewardAmount} koin mukofoti olindi`,
+      reward: rewardAmount,
+      newBalance: userCoins.balance
+    });
+    
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 // ==================== SERVER ISHGA TUSHIRISH ====================
 const PORT = process.env.PORT || 10000;
 
