@@ -13,11 +13,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ==================== MONGODB ULANISHI ====================
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://habibullox:6RVgQY%23N27CJY%405@cluster0.mku75qs.mongodb.net/telegram_users?retryWrites=true&w=majority';
+// Foydalanuvchi nomini KICHIK HARFLARDA yozing
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://habibullox:6RVgQY%23N27CJY%405@cluster0.mku75qs.mongodb.net/telegram_users?retryWrites=true&w=majority&appName=Cluster0';
 
 console.log('📡 MongoDB URI:', MONGODB_URI.replace(/:[^:]*@/, ':****@'));
 
-// User Schema (TIMESERIES EMAS!)
+// User Schema (YANGILANGAN)
 const userSchema = new mongoose.Schema({
   telegramId: { 
     type: Number, 
@@ -27,7 +28,6 @@ const userSchema = new mongoose.Schema({
   },
   firstName: {
     type: String,
-    required: true,
     default: 'User'
   },
   lastName: String,
@@ -42,32 +42,47 @@ const userSchema = new mongoose.Schema({
   },
   joinDate: { 
     type: Date, 
-    default: Date.now 
+    default: () => new Date()
   },
   lastActivity: { 
     type: Date, 
-    default: Date.now 
+    default: () => new Date()
   },
   visitCount: { 
     type: Number, 
     default: 0 
   }
 }, {
-  timestamps: false // BU MUHIM! Timeseries xatosini oldini olish
+  timestamps: false,
+  collection: 'users' // Collection nomini aniq belgilash
 });
 
 const User = mongoose.model('User', userSchema);
 
-// MongoDB ulanish
+// MongoDB ulanish (YANGILANGAN)
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
+  serverSelectionTimeoutMS: 10000,
   socketTimeoutMS: 45000,
+  retryWrites: true,
+  w: 'majority'
 })
 .then(() => {
   console.log('✅ MongoDB ga ulandi');
   console.log('📊 Connection state:', mongoose.connection.readyState);
+  console.log('📁 Database:', mongoose.connection.db?.databaseName);
+  
+  // Collection ni tekshirish
+  mongoose.connection.db.listCollections({name: 'users'}).toArray((err, collections) => {
+    if (err) {
+      console.log('⚠️  Collection tekshirish xatosi:', err.message);
+    } else if (collections.length === 0) {
+      console.log('ℹ️  "users" collection yaratiladi...');
+    } else {
+      console.log('✅ "users" collection mavjud');
+    }
+  });
 })
 .catch((err) => {
   console.error('❌ MongoDB ulanish xatosi:', err.message);
@@ -81,53 +96,80 @@ const ADMIN_ID = process.env.ADMIN_ID || 'YOUR_ADMIN_ID';
 console.log('🤖 Bot token:', BOT_TOKEN ? 'Mavjud' : 'Yo\'q');
 console.log('👑 Admin ID:', ADMIN_ID);
 
-// Bot yaratish (polling paramlari bilan)
+// Bot yaratish (WEBHOOK emas, polling)
 const bot = new TelegramBot(BOT_TOKEN, {
   polling: {
-    interval: 300,
-    timeout: 10,
+    interval: 1000, // 1 soniya
+    params: {
+      timeout: 10,
+      allowed_updates: ["message", "callback_query", "chat_member"]
+    },
     autoStart: false
-  },
-  request: {
-    timeout: 30000
-  },
-  onlyFirstMatch: true,
-  filepath: false
+  }
 });
 
-// Botni ishga tushirish funksiyasi
+// Botni ishga tushirish funksiyasi (YANGILANGAN)
 let botPollingActive = false;
+let retryCount = 0;
+const MAX_RETRIES = 5;
 
-const startBotPolling = () => {
+const startBotPolling = async () => {
   if (botPollingActive) {
     console.log('⚠️  Bot allaqachon ishlayapti');
     return;
   }
   
-  bot.startPolling().then(() => {
-    botPollingActive = true;
-    console.log('✅ Bot polling ishga tushdi');
-  }).catch(err => {
-    console.error('❌ Bot polling xatosi:', err.message);
+  try {
+    // Avval polling to'xtatish
+    await bot.stopPolling();
     
-    // 409 xatosi bo'lsa, 10 soniya kutish
-    if (err.message.includes('409 Conflict')) {
-      console.log('🔄 10 soniya kutib qayta urinilmoqda...');
-      botPollingActive = false;
-      setTimeout(startBotPolling, 10000);
-    }
-  });
+    // 2 soniya kutish
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    console.log(`🚀 Bot polling ishga tushirilmoqda... (urush: ${retryCount + 1})`);
+    
+    // Yangi polling boshlash
+    bot.startPolling({
+      restart: true
+    }).then(() => {
+      botPollingActive = true;
+      retryCount = 0;
+      console.log('✅ Bot polling muvaffaqiyatli ishga tushdi');
+      
+      // Polling holatini tekshirish
+      bot.isPolling().then(isPolling => {
+        console.log(`📡 Bot polling holati: ${isPolling ? 'active' : 'inactive'}`);
+      });
+      
+    }).catch(err => {
+      console.error('❌ Bot polling xatosi:', err.message);
+      
+      // 409 xatosi bo'lsa, qayta urinish
+      if (err.message.includes('409 Conflict') && retryCount < MAX_RETRIES) {
+        retryCount++;
+        const delay = 5000 * retryCount; // Har bir urinishda ortib boradi
+        console.log(`🔄 ${delay/1000} soniya kutib qayta urinilmoqda (${retryCount}/${MAX_RETRIES})...`);
+        
+        botPollingActive = false;
+        setTimeout(startBotPolling, delay);
+      } else {
+        console.error('❌ Maksimal urinishlar soniga yetildi, bot ishlamayapti');
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Botni ishga tushirishda xato:', error.message);
+  }
 };
 
 // Dastur ishga tushganda botni yoqish
 setTimeout(() => {
-  console.log('🚀 Bot ishga tushirilmoqda...');
   startBotPolling();
-}, 2000);
+}, 3000);
 
 // ==================== FOYDALANUVCHI FUNKSIYALARI ====================
 
-// Foydalanuvchini saqlash/yangilash
+// Foydalanuvchini saqlash/yangilash (YANGILANGAN)
 async function saveOrUpdateUser(telegramUser) {
   try {
     console.log(`👤 Foydalanuvchi saqlanmoqda: ${telegramUser.id} - ${telegramUser.first_name}`);
@@ -138,52 +180,71 @@ async function saveOrUpdateUser(telegramUser) {
       return null;
     }
     
+    const currentDate = new Date();
+    
+    // Ma'lumotlarni tozalash
     const userData = {
-      telegramId: telegramUser.id,
-      firstName: telegramUser.first_name || 'User',
-      lastName: telegramUser.last_name || '',
-      username: telegramUser.username || '',
-      languageCode: telegramUser.language_code || 'en',
-      isBot: telegramUser.is_bot || false,
-      lastActivity: new Date()
+      telegramId: Number(telegramUser.id),
+      firstName: String(telegramUser.first_name || 'User'),
+      lastName: telegramUser.last_name ? String(telegramUser.last_name) : '',
+      username: telegramUser.username ? String(telegramUser.username) : '',
+      languageCode: String(telegramUser.language_code || 'en'),
+      isBot: Boolean(telegramUser.is_bot || false),
+      lastActivity: currentDate
     };
     
-    // Find and update - timeseries EMAS!
-    const existingUser = await User.findOne({ telegramId: telegramUser.id });
+    console.log('📝 Saqlanayotgan ma\'lumotlar:', {
+      telegramId: userData.telegramId,
+      firstName: userData.firstName,
+      date: currentDate.toISOString()
+    });
+    
+    // Find and update
+    const existingUser = await User.findOne({ telegramId: userData.telegramId });
     
     if (existingUser) {
       // Mavjud foydalanuvchini yangilash
-      existingUser.visitCount += 1;
-      existingUser.lastActivity = new Date();
-      if (userData.firstName) existingUser.firstName = userData.firstName;
+      existingUser.visitCount = Number(existingUser.visitCount || 0) + 1;
+      existingUser.lastActivity = currentDate;
+      existingUser.firstName = userData.firstName;
       if (userData.username) existingUser.username = userData.username;
       
       await existingUser.save();
-      console.log(`✅ Foydalanuvchi yangilandi: ${telegramUser.id}, kirishlar: ${existingUser.visitCount}`);
+      console.log(`✅ Foydalanuvchi yangilandi: ${userData.telegramId}, kirishlar: ${existingUser.visitCount}`);
       return existingUser;
     } else {
       // Yangi foydalanuvchi yaratish
       const newUser = new User({
         ...userData,
-        joinDate: new Date(),
+        joinDate: currentDate,
         visitCount: 1
       });
       
       await newUser.save();
-      console.log(`✅ Yangi foydalanuvchi saqlandi: ${telegramUser.id}`);
+      console.log(`✅ Yangi foydalanuvchi saqlandi: ${userData.telegramId}`);
       return newUser;
     }
   } catch (error) {
     console.error('❌ Saqlash xatosi:', error.message);
+    console.error('❌ Xato tafsilotlari:', error.stack);
     
-    // Agar "timeseries" xatosi bo'lsa, collection'ni o'chirib yangilash
-    if (error.message.includes('timeseries')) {
-      console.log('⚠️  Timeseries xatosi, collection yangilanadi...');
+    // BSON xatosini aniqlash
+    if (error.message.includes('BSON') || error.message.includes('datetime') || error.message.includes('habibullox')) {
+      console.log('⚠️  Database struktura xatosi, qayta urinib ko\'ramiz...');
+      
+      // Muammoli ma'lumotlarni o'chirish
       try {
-        await mongoose.connection.db.dropCollection('users');
-        console.log('✅ Collection o\'chirildi, yangilanadi...');
-      } catch (dropErr) {
-        console.log('ℹ️  Collection o\'chirishda xato:', dropErr.message);
+        // Barcha noto'g'ri ma'lumotlarni o'chirish
+        const result = await User.deleteMany({
+          $or: [
+            { joinDate: { $type: 'string' } },
+            { lastActivity: { $type: 'string' } },
+            { telegramId: { $type: 'string' } }
+          ]
+        });
+        console.log(`🗑️  ${result.deletedCount} ta noto'g'ri ma'lumot o'chirildi`);
+      } catch (cleanErr) {
+        console.log('⚠️  Tozalashda xato:', cleanErr.message);
       }
     }
     
@@ -250,6 +311,53 @@ bot.onText(/\/test/, async (msg) => {
   }
 });
 
+// /testdb komandasi - Database test (YANGI)
+bot.onText(/\/testdb/, async (msg) => {
+  const chatId = msg.chat.id;
+  
+  const dbState = mongoose.connection.readyState;
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  
+  let message = `📊 Database Test:\n`;
+  message += `🔌 Status: ${states[dbState]} (${dbState})\n`;
+  message += `🕐 Vaqt: ${new Date().toISOString()}\n`;
+  message += `🤖 Bot polling: ${botPollingActive ? 'active' : 'inactive'}\n`;
+  
+  // Test saqlash
+  try {
+    if (dbState === 1) {
+      const testId = Date.now(); // Unique ID
+      const testUser = new User({
+        telegramId: testId,
+        firstName: 'Test User',
+        joinDate: new Date(),
+        lastActivity: new Date(),
+        visitCount: 1
+      });
+      
+      await testUser.save();
+      message += `✅ Test saqlash muvaffaqiyatli!\n`;
+      message += `📝 Test ID: ${testId}\n`;
+      
+      // Test ma'lumotni tekshirish
+      const foundUser = await User.findOne({ telegramId: testId });
+      if (foundUser) {
+        message += `🔍 Test ma'lumot topildi: ${foundUser.firstName}\n`;
+      }
+      
+      // Test ma'lumotni o'chirish
+      await User.deleteOne({ telegramId: testId });
+      message += `🗑️ Test ma'lumot o'chirildi\n`;
+    } else {
+      message += `❌ Database ulanmagan\n`;
+    }
+  } catch (error) {
+    message += `❌ Test saqlash xatosi: ${error.message}\n`;
+  }
+  
+  bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+});
+
 // /admin komandasi
 bot.onText(/\/admin/, async (msg) => {
   const chatId = msg.chat.id;
@@ -265,7 +373,8 @@ bot.onText(/\/admin/, async (msg) => {
       `🔗 ${adminUrl}\n\n` +
       `Foydalanuvchilar: /users\n` +
       `Statistika: /stats\n` +
-      `Database holati: /dbstatus`,
+      `Database holati: /dbstatus\n` +
+      `Database test: /testdb`,
       { parse_mode: 'HTML' }
     );
   } else {
@@ -292,11 +401,12 @@ bot.onText(/\/stats/, async (msg) => {
       `👥 Jami foydalanuvchilar: ${totalUsers}\n` +
       `🆕 Bugun qo'shilgan: ${newToday}\n` +
       `🔵 Faol (24 soat): ${activeToday}\n` +
-      `🕐 Vaqt: ${new Date().toLocaleTimeString()}`,
+      `🕐 Vaqt: ${new Date().toLocaleTimeString()}\n` +
+      `📡 Bot holati: ${botPollingActive ? 'ishlayapti' : 'to\'xtagan'}`,
       { parse_mode: 'HTML' }
     );
   } catch (error) {
-    bot.sendMessage(chatId, '❌ Statistika olishda xato');
+    bot.sendMessage(chatId, '❌ Statistika olishda xato: ' + error.message);
   }
 });
 
@@ -327,7 +437,7 @@ bot.onText(/\/users/, async (msg) => {
     
     bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
   } catch (error) {
-    bot.sendMessage(chatId, '❌ Foydalanuvchilarni olishda xato');
+    bot.sendMessage(chatId, '❌ Foydalanuvchilarni olishda xato: ' + error.message);
   }
 });
 
@@ -338,9 +448,19 @@ bot.onText(/\/dbstatus/, async (msg) => {
   const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
   const state = states[mongoose.connection.readyState] || 'unknown';
   
+  // Foydalanuvchilar soni
+  let userCount = 0;
+  try {
+    userCount = await User.countDocuments();
+  } catch (err) {
+    userCount = -1;
+  }
+  
   bot.sendMessage(chatId,
     `📊 Database Holati\n\n` +
     `🔌 Status: ${state} (${mongoose.connection.readyState})\n` +
+    `👥 Foydalanuvchilar: ${userCount}\n` +
+    `🤖 Bot polling: ${botPollingActive ? 'active' : 'inactive'}\n` +
     `🕐 Vaqt: ${new Date().toLocaleTimeString()}`,
     { parse_mode: 'HTML' }
   );
@@ -401,7 +521,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Admin panel sahifasi - BU YERDA QO'SHILDI!
+// Admin panel sahifasi
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
@@ -412,6 +532,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     database: mongoose.connection.readyState === 1,
     bot: botPollingActive,
+    mongodbState: mongoose.connection.readyState,
     timestamp: new Date().toISOString()
   });
 });
@@ -463,7 +584,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// API: Statistika (MAJHURIY: stats obyekti bo'lishi kerak)
+// API: Statistika
 app.get('/api/stats', async (req, res) => {
   try {
     let totalUsers = 0;
@@ -482,14 +603,15 @@ app.get('/api/stats', async (req, res) => {
       });
     }
     
-    // MAJHURIY: stats obyektini qaytarish
+    // stats obyektini qaytarish
     res.json({
       success: true,
       stats: {
         totalUsers,
         newToday,
         activeToday,
-        databaseStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+        databaseStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        botStatus: botPollingActive ? 'running' : 'stopped'
       },
       timestamp: new Date().toISOString()
     });
@@ -497,11 +619,12 @@ app.get('/api/stats', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message,
-      stats: { // Xato bo'lsa ham stats obyekti bo'lsin
+      stats: {
         totalUsers: 0,
         newToday: 0,
         activeToday: 0,
-        databaseStatus: 'error'
+        databaseStatus: 'error',
+        botStatus: 'unknown'
       }
     });
   }
@@ -511,20 +634,41 @@ app.get('/api/stats', async (req, res) => {
 app.get('/api/debug', async (req, res) => {
   const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
   
+  // Database ma'lumotlari
+  let dbInfo = {};
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      dbInfo = {
+        collections: collections.map(c => c.name),
+        usersCount: await User.countDocuments()
+      };
+    } catch (err) {
+      dbInfo = { error: err.message };
+    }
+  }
+  
   res.json({
     mongodb: {
       state: mongoose.connection.readyState,
       status: states[mongoose.connection.readyState] || 'unknown',
-      host: mongoose.connection.host || 'N/A'
+      host: mongoose.connection.host || 'N/A',
+      database: mongoose.connection.db?.databaseName || 'N/A',
+      collections: dbInfo.collections || []
     },
     bot: {
       polling: botPollingActive,
-      token: BOT_TOKEN ? 'set' : 'not set'
+      token: BOT_TOKEN ? 'set' : 'not set',
+      adminId: ADMIN_ID || 'not set'
     },
     environment: {
       node: process.version,
       platform: process.platform,
-      memory: process.memoryUsage()
+      memory: process.memoryUsage(),
+      uptime: process.uptime()
+    },
+    users: {
+      count: dbInfo.usersCount || 0
     }
   });
 });
@@ -546,22 +690,63 @@ app.listen(PORT, () => {
   console.log(`🔗 Bosh sahifa: http://localhost:${PORT}`);
   console.log(`👑 Admin panel: http://localhost:${PORT}/admin`);
   console.log(`📊 API: http://localhost:${PORT}/api/users`);
+  console.log(`🤖 Bot polling: ${botPollingActive ? 'ishlaydi' : 'kutilmoqda'}`);
   console.log('==========================================');
+  
+  // Server ishga tushganda test qilish
+  setTimeout(() => {
+    console.log('🔍 Server test rejimi...');
+    console.log(`📊 MongoDB holati: ${mongoose.connection.readyState}`);
+    console.log(`🤖 Bot polling: ${botPollingActive}`);
+  }, 5000);
 });
 
 // Server to'xtash signallari
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM: Server to\'xtatilmoqda...');
-  bot.stopPolling();
-  mongoose.connection.close();
-  console.log('✅ Server to\'xtatildi');
-  process.exit(0);
+  bot.stopPolling().then(() => {
+    console.log('✅ Bot polling to\'xtatildi');
+  }).catch(err => {
+    console.log('⚠️  Botni to\'xtatishda xato:', err.message);
+  });
+  
+  mongoose.connection.close(false, () => {
+    console.log('✅ MongoDB ulanishi yopildi');
+  });
+  
+  setTimeout(() => {
+    console.log('✅ Server to\'xtatildi');
+    process.exit(0);
+  }, 1000);
 });
 
 process.on('SIGINT', () => {
   console.log('🛑 SIGINT: Server to\'xtatilmoqda...');
-  bot.stopPolling();
-  mongoose.connection.close();
-  console.log('✅ Server to\'xtatildi');
-  process.exit(0);
+  bot.stopPolling().then(() => {
+    console.log('✅ Bot polling to\'xtatildi');
+  }).catch(err => {
+    console.log('⚠️  Botni to\'xtatishda xato:', err.message);
+  });
+  
+  mongoose.connection.close(false, () => {
+    console.log('✅ MongoDB ulanishi yopildi');
+  });
+  
+  setTimeout(() => {
+    console.log('✅ Server to\'xtatildi');
+    process.exit(0);
+  }, 1000);
+});
+
+// MongoDB ulanishni monitoring qilish
+mongoose.connection.on('connected', () => {
+  console.log('✅ MongoDB ga ulandi');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB xatosi:', err.message);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️  MongoDB ulanmadi');
 });
