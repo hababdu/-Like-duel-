@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel - Foydalanuvchilar</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .user { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .stats { background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>📊 Foydalanuvchilar Admin Paneli</h1>
+    
+    <div class="stats" id="stats">
+        <h3>Statistika yuklanmoqda...</h3>
+    </div>
+    
+    <div id="users-list">
+        <h3>Foydalanuvchilar ro'yxati</h3>
+        <div id="users">Yuklanmoqda...</div>
+    </div>
+    
+    <script>
+        const API_URL = 'https://your-backend.onrender.com/api';
+        
+        async function loadStats() {
+            const response = await fetch(`${API_URL}/stats`);
+            const data = await response.json();
+            
+            document.getElementById('stats').innerHTML = `
+                <h3>📈 Statistika</h3>
+                <p><strong>Jami foydalanuvchilar:</strong> ${data.stats.totalUsers}</p>
+                <p><strong>Bugun qo'shilgan:</strong> ${data.stats.newToday}</p>
+                <p><strong>So'ngi yangilanish:</strong> ${new Date(data.stats.timestamp).toLocaleString()}</p>
+            `;
+        }
+        
+        async function loadUsers() {
+            const response = await fetch(`${API_URL}/users`);
+            const data = await response.json();
+            
+            let html = '<table>';
+            html += '<tr><th>ID</th><th>Ism</th><th>Username</th><th>Qoshilgan sana</th><th>Songi faollik</th><th>Kirishlar</th></tr>';
+            
+            data.users.forEach(user => {
+                html += `
+                    <tr>
+                        <td>${user.telegramId}</td>
+                        <td>${user.firstName || ''} ${user.lastName || ''}</td>
+                        <td>@${user.username || 'yo\'q'}</td>
+                        <td>${new Date(user.joinDate).toLocaleDateString()}</td>
+                        <td>${user.lastActivity ? new Date(user.lastActivity).toLocaleString() : 'Noma\'lum'}</td>
+                        <td>${user.visitCount}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</table>';
+            document.getElementById('users').innerHTML = html;
+        }
+        
+        // Har 30 soniyada yangilash
+        loadStats();
+        loadUsers();
+        setInterval(() => {
+            loadStats();
+            loadUsers();
+        }, 30000);
+    </script>
+</body>
+</html>

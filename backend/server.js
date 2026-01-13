@@ -1,196 +1,320 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
-const cors = require('cors');
+const mongoose = require('mongoose'); // MongoDB uchun
+// YOKI PostgreSQL uchun:
+// const { Pool } = require('pg');
 
-// Express server yaratish
 const app = express();
-app.use(cors());
 app.use(express.json());
 
-// Bot tokenini .env faylidan olish
-const token = process.env.BOT_TOKEN;
+// MongoDB ulanishi
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/telegram_users', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
+
+// User modeli
+const userSchema = new mongoose.Schema({
+  telegramId: { type: Number, required: true, unique: true },
+  firstName: String,
+  lastName: String,
+  username: String,
+  languageCode: String,
+  isBot: Boolean,
+  joinDate: { type: Date, default: Date.now },
+  lastActivity: Date,
+  visitCount: { type: Number, default: 0 }
+});
+
+const User = mongoose.model('User', userSchema);
+
+// YOKI PostgreSQL uchun:
+/*
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+async function createUsersTable() {
+  const query = `
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      telegram_id BIGINT UNIQUE NOT NULL,
+      first_name VARCHAR(100),
+      last_name VARCHAR(100),
+      username VARCHAR(100),
+      language_code VARCHAR(10),
+      is_bot BOOLEAN DEFAULT FALSE,
+      join_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_activity TIMESTAMP,
+      visit_count INTEGER DEFAULT 0
+    )
+  `;
+  await pool.query(query);
+}
+createUsersTable();
+*/
 
 // Botni yaratish
-const bot = new TelegramBot(token, { 
-  polling: true,
-  filepath: false
-});
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
 console.log('🤖 Bot ishga tushdi...');
 
-// /start komandasi
-bot.onText(/\/start/, (msg) => {
+// ========== HAR BIR FOYDALANUVCHINI SAQLASH ==========
+
+// /start komandasi - foydalanuvchini saqlash
+bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-  const firstName = msg.from.first_name;
+  const user = msg.from;
   
-  const keyboard = {
-    inline_keyboard: [[
-      {
-        text: "📱 Mini App'ni ochish",
-        web_app: { 
-          url: process.env.APP_URL || "https://sizning-app.vercel.app" 
-        }
-      }
-    ]]
-  };
+  console.log('Yangi foydalanuvchi:', user);
   
-  bot.sendMessage(chatId, `Salom ${firstName}! 👋\n\nQuyidagi tugma orqali Mini App'ni oching:`, {
-    reply_markup: keyboard,
-    parse_mode: 'HTML'
-  });
-});
-
-// /help komandasi
-bot.onText(/\/help/, (msg) => {
-  const chatId = msg.chat.id;
-  
-  const helpText = `
-<b>📋 Mavjud komandalar:</b>
-/start - Botni ishga tushirish
-/help - Yordam olish
-/app - Mini App'ni ochish
-
-<b>🔗 Mini App havolasi:</b>
-${process.env.APP_URL || "Havola sozlanmagan"}
-
-<b>📞 Aloqa:</b>
-Muammo bo'lsa: @sizning_username
-  `;
-  
-  bot.sendMessage(chatId, helpText, {
-    parse_mode: 'HTML'
-  });
-});
-
-// Web App'dan kelgan ma'lumotlarni qabul qilish
-bot.on('web_app_data', async (msg) => {
-  const chatId = msg.chat.id;
-  const data = JSON.parse(msg.web_app_data.data);
-  
-  console.log('📨 Web App dan ma\'lumot keldi:', data);
-  
-  // Ma'lumot turiga qarab ishlov berish
-  if (data.type === 'order') {
-    // Buyurtmani qayta ishlash
-    await processOrder(chatId, data);
-  } else if (data.type === 'feedback') {
-    // Fikr-mulohazani qayta ishlash
-    await processFeedback(chatId, data);
-  }
-  
-  // Foydalanuvchiga javob qaytarish
-  bot.sendMessage(chatId, "✅ Ma'lumot qabul qilindi!");
-});
-
-// Buyurtmani qayta ishlash funksiyasi
-async function processOrder(chatId, orderData) {
   try {
-    const message = `
-🛒 <b>Yangi buyurtma!</b>
-
-<b>Mijoz:</b> ${orderData.userName || 'Noma\'lum'}
-<b>Telefon:</b> ${orderData.phone || 'Ko\'rsatilmagan'}
-<b>Mahsulot:</b> ${orderData.productName}
-<b>Miqdor:</b> ${orderData.quantity}
-<b>Jami:</b> ${orderData.totalPrice} so'm
-<b>Vaqt:</b> ${new Date().toLocaleString()}
-    `;
+    // Foydalanuvchini ma'lumotlar bazasiga saqlash yoki yangilash
+    await saveOrUpdateUser(user);
     
-    // Mijozga xabar
-    await bot.sendMessage(chatId, `📦 Buyurtmangiz qabul qilindi!\nBuyurtma raqami: #${Date.now()}`, {
-      parse_mode: 'HTML'
-    });
+    // Mini App havolasi
+    const keyboard = {
+      inline_keyboard: [[
+        {
+          text: "📱 App'ni ochish",
+          web_app: { url: process.env.APP_URL }
+        }
+      ]]
+    };
     
-    // Admin'ga bildirishnoma
-    const adminId = process.env.ADMIN_ID;
-    if (adminId) {
-      await bot.sendMessage(adminId, message, {
-        parse_mode: 'HTML'
-      });
-    }
-    
-    // Ma'lumotlar bazasiga saqlash (agar bo'lsa)
-    // await saveToDatabase(orderData);
+    await bot.sendMessage(chatId, 
+      `Salom ${user.first_name}! 👋\n` +
+      `Sizning ma'lumotlaringiz saqlandi.\n` +
+      `App'ni ochish uchun tugmani bosing:`,
+      { reply_markup: keyboard }
+    );
     
   } catch (error) {
-    console.error('Buyurtma qayta ishlash xatosi:', error);
-    bot.sendMessage(chatId, '❌ Xatolik yuz berdi, iltimos qayta urinib ko\'ring.');
-  }
-}
-
-// Fikr-mulohazani qayta ishlash
-async function processFeedback(chatId, feedbackData) {
-  const adminId = process.env.ADMIN_ID;
-  
-  if (adminId) {
-    await bot.sendMessage(adminId, 
-      `📝 <b>Yangi fikr-mulohaza</b>\n\n` +
-      `<b>Kimdan:</b> ${feedbackData.userName || 'Anonim'}\n` +
-      `<b>Xabar:</b> ${feedbackData.message}\n` +
-      `<b>Bahosi:</b> ${'⭐'.repeat(feedbackData.rating || 0)}`,
-      { parse_mode: 'HTML' }
-    );
-  }
-  
-  await bot.sendMessage(chatId, '🙏 Fikringiz uchun rahmat!');
-}
-
-// Oddiy text xabarlarni qayta ishlash
-bot.on('message', (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text;
-  
-  // Agar bu / komanda bo'lmasa
-  if (!text.startsWith('/')) {
-    bot.sendMessage(chatId, 
-      `Sizning xabaringiz: "${text}"\n\n` +
-      `Mini App orqali ishlash uchun /start ni bosing`,
-      { reply_markup: {
-        inline_keyboard: [[
-          { text: "🔄 /start", callback_data: "restart" }
-        ]]
-      }}
-    );
+    console.error('Foydalanuvchini saqlashda xato:', error);
+    bot.sendMessage(chatId, 'Xatolik yuz berdi, iltimos qayta urinib ko\'ring.');
   }
 });
 
-// Callback query (inline tugmalar)
-bot.on('callback_query', (callbackQuery) => {
-  const msg = callbackQuery.message;
-  const data = callbackQuery.data;
+// Mini App'dan kirgan foydalanuvchilarni saqlash
+bot.on('web_app_data', async (msg) => {
+  const user = msg.from;
+  const data = JSON.parse(msg.web_app_data?.data || '{}');
   
-  if (data === 'restart') {
-    bot.deleteMessage(msg.chat.id, msg.message_id);
-    bot.sendMessage(msg.chat.id, "Qaytadan boshlaymiz...");
-    // /start komandasini simulyatsiya qilish
-    msg.text = '/start';
-    msg.from = callbackQuery.from;
-    bot.processUpdate({ message: msg });
+  console.log('Web App foydalanuvchisi:', user);
+  console.log('App dan ma\'lumot:', data);
+  
+  try {
+    // Foydalanuvchini saqlash
+    await saveOrUpdateUser(user);
+    
+    // Agar app dan qo'shimcha ma'lumot kelsa
+    if (data.userAction) {
+      await saveUserAction(user.id, data.userAction);
+    }
+    
+  } catch (error) {
+    console.error('Web App foydalanuvchisini saqlashda xato:', error);
   }
 });
 
-// Express server ishga tushirish
+// Har qanday xabarda foydalanuvchi faolligini yangilash
+bot.on('message', async (msg) => {
+  if (msg.from) {
+    try {
+      await updateUserActivity(msg.from.id);
+    } catch (error) {
+      console.error('Faollikni yangilashda xato:', error);
+    }
+  }
+});
+
+// ========== MA'LUMOTLAR BAZASI FUNKSIYALARI ==========
+
+// Foydalanuvchini saqlash/yangilash funksiyasi
+async function saveOrUpdateUser(telegramUser) {
+  const userData = {
+    telegramId: telegramUser.id,
+    firstName: telegramUser.first_name,
+    lastName: telegramUser.last_name,
+    username: telegramUser.username,
+    languageCode: telegramUser.language_code,
+    isBot: telegramUser.is_bot || false,
+    lastActivity: new Date()
+  };
+  
+  // MongoDB
+  const result = await User.findOneAndUpdate(
+    { telegramId: telegramUser.id },
+    { 
+      $set: userData,
+      $inc: { visitCount: 1 },
+      $setOnInsert: { joinDate: new Date() }
+    },
+    { upsert: true, new: true }
+  );
+  
+  console.log(`Foydalanuvchi saqlandi: ${telegramUser.id} - ${telegramUser.first_name}`);
+  return result;
+  
+  // YOKI PostgreSQL
+  /*
+  const query = `
+    INSERT INTO users (telegram_id, first_name, last_name, username, language_code, is_bot, last_activity, visit_count)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
+    ON CONFLICT (telegram_id) 
+    DO UPDATE SET 
+      first_name = EXCLUDED.first_name,
+      last_name = EXCLUDED.last_name,
+      username = EXCLUDED.username,
+      last_activity = EXCLUDED.last_activity,
+      visit_count = users.visit_count + 1
+    RETURNING *
+  `;
+  
+  const values = [
+    userData.telegramId,
+    userData.firstName,
+    userData.lastName,
+    userData.username,
+    userData.languageCode,
+    userData.isBot,
+    userData.lastActivity
+  ];
+  
+  const result = await pool.query(query, values);
+  return result.rows[0];
+  */
+}
+
+// Foydalanuvchi faolligini yangilash
+async function updateUserActivity(telegramId) {
+  // MongoDB
+  await User.updateOne(
+    { telegramId },
+    { $set: { lastActivity: new Date() } }
+  );
+  
+  // PostgreSQL
+  // await pool.query('UPDATE users SET last_activity = $1 WHERE telegram_id = $2', [new Date(), telegramId]);
+}
+
+// Qo'shimcha harakatlarni saqlash
+async function saveUserAction(telegramId, action) {
+  // Actions collection/table yaratishingiz mumkin
+  console.log(`Foydalanuvchi harakati: ${telegramId} - ${action}`);
+}
+
+// ========== ADMIN API ENDPOINTLARI ==========
+
+// Barcha foydalanuvchilarni olish
+app.get('/api/users', async (req, res) => {
+  try {
+    // MongoDB
+    const users = await User.find().sort({ joinDate: -1 }).limit(100);
+    
+    // PostgreSQL
+    // const result = await pool.query('SELECT * FROM users ORDER BY join_date DESC LIMIT 100');
+    // const users = result.rows;
+    
+    res.json({
+      success: true,
+      count: users.length,
+      users: users
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Faol foydalanuvchilar
+app.get('/api/users/active', async (req, res) => {
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    // MongoDB
+    const activeUsers = await User.find({
+      lastActivity: { $gte: oneDayAgo }
+    }).sort({ lastActivity: -1 });
+    
+    res.json({
+      success: true,
+      count: activeUsers.length,
+      users: activeUsers
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Statistikalar
+app.get('/api/stats', async (req, res) => {
+  try {
+    // MongoDB
+    const totalUsers = await User.countDocuments();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const newToday = await User.countDocuments({ joinDate: { $gte: today } });
+    
+    // PostgreSQL
+    /*
+    const totalResult = await pool.query('SELECT COUNT(*) FROM users');
+    const todayResult = await pool.query('SELECT COUNT(*) FROM users WHERE join_date >= CURRENT_DATE');
+    const totalUsers = parseInt(totalResult.rows[0].count);
+    const newToday = parseInt(todayResult.rows[0].count);
+    */
+    
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        newToday,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== FRONTEND (MINI APP) UCHUN API ==========
+
+// Frontend'dan kelgan foydalanuvchi ma'lumotlarini saqlash
+app.post('/api/save-user', async (req, res) => {
+  try {
+    const userData = req.body;
+    
+    // Telegram WebApp'dan kelgan ma'lumotlarni tekshirish
+    if (!userData.id) {
+      return res.status(400).json({ success: false, error: 'Telegram ID kerak' });
+    }
+    
+    const savedUser = await saveOrUpdateUser(userData);
+    
+    res.json({
+      success: true,
+      message: 'Foydalanuvchi ma\'lumotlari saqlandi',
+      user: savedUser
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== SERVER ISHGA TUSHIRISH ==========
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🌐 Server ${PORT}-portda ishga tushdi`);
+  console.log(`🌐 Server ${PORT}-portda ishlayapti`);
+  console.log(`📊 Ma'lumotlar bazasi: ${mongoose.connection.readyState === 1 ? 'Ulangan' : 'Ulanmagan'}`);
 });
 
-// Server test uchun endpoint
-app.get('/', (req, res) => {
-  res.json({ 
-    status: 'online', 
-    bot: 'running',
-    timestamp: new Date().toISOString()
-  });
+// MongoDB ulanish xatolari
+mongoose.connection.on('error', err => {
+  console.error('MongoDB ulanish xatosi:', err);
 });
 
-// Webhook endpoint (agar kerak bo'lsa)
-app.post('/webhook', (req, res) => {
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
+mongoose.connection.once('open', () => {
+  console.log('✅ MongoDB ga ulandi');
 });
-
-// Bot'ni to'xtatish signalini ushlash
-process.once('SIGINT', () => bot.stopPolling());
-process.once('SIGTERM', () => bot.stopPolling());

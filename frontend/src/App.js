@@ -1,78 +1,60 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import './App.css';
+import { useEffect, useState } from 'react';
 
 function App() {
-  const [tg, setTg] = useState(null);
   const [user, setUser] = useState(null);
-
-  // sendDataToBot funksiyasini useCallback ichiga olish
-  const sendDataToBot = useCallback(() => {
-    if (!tg) return;
-    
-    const orderData = {
-      type: 'order',
-      userName: user?.first_name || 'Mijoz',
-      phone: '+998901234567',
-      productName: 'iPhone 15',
-      quantity: 1,
-      totalPrice: 12000000
-    };
-    
-    tg.sendData(JSON.stringify(orderData));
-    tg.close();
-  }, [tg, user]);
-
+  
   useEffect(() => {
     if (window.Telegram?.WebApp) {
-      const telegram = window.Telegram.WebApp;
-      telegram.ready();
-      telegram.expand();
-      setTg(telegram);
-      setUser(telegram.initDataUnsafe?.user);
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
       
-      // MainButton sozlash
-      telegram.MainButton.setText("Buyurtma berish");
-      telegram.MainButton.color = "#3390ec";
-      telegram.MainButton.show();
-      telegram.MainButton.onClick(sendDataToBot);
+      const userData = tg.initDataUnsafe?.user;
+      setUser(userData);
       
-      return () => {
-        telegram.MainButton.offClick(sendDataToBot);
-      };
+      // Backend'ga foydalanuvchi ma'lumotlarini yuborish
+      if (userData) {
+        saveUserToBackend(userData);
+      }
+      
+      // Main Button
+      tg.MainButton.setText("Saqlangan ✓");
+      tg.MainButton.color = "#31b545";
+      tg.MainButton.show();
     }
-  }, [sendDataToBot]); // ← sendDataToBot ni dependency qo'shing
-
+  }, []);
+  
+  // Backend'ga foydalanuvchi ma'lumotlarini yuborish
+  const saveUserToBackend = async (userData) => {
+    try {
+      const response = await fetch('https://your-backend.onrender.com/api/save-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      
+      const result = await response.json();
+      console.log('Backend javobi:', result);
+    } catch (error) {
+      console.error('Foydalanuvchini saqlashda xato:', error);
+    }
+  };
+  
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Telegram Mini App</h1>
-        {user && (
-          <div className="user-info">
-            <p>👤 {user.first_name}</p>
-            <p className="user-id">ID: {user.id}</p>
-          </div>
-        )}
-      </header>
-      
-      <main className="App-main">
-        <div className="product-card">
-          <h3>iPhone 15 Pro</h3>
-          <p>128GB, Titanium</p>
-          <p className="price">12,000,000 so'm</p>
-          <button 
-            className="buy-btn"
-            onClick={sendDataToBot}
-          >
-            🛒 Sotib olish
-          </button>
+    <div className="app">
+      <h1>📊 Foydalanuvchi Ma'lumotlari</h1>
+      {user ? (
+        <div className="user-card">
+          <div className="avatar">{user.first_name?.[0]}</div>
+          <h2>{user.first_name} {user.last_name || ''}</h2>
+          <p>👤 ID: {user.id}</p>
+          <p>📱 Username: @{user.username || 'yo\'q'}</p>
+          <p>🌐 Til: {user.language_code || 'en'}</p>
+          <p className="status">✅ Ma'lumotlaringiz saqlandi</p>
         </div>
-      </main>
-      
-      <footer className="App-footer">
-        <p>© 2024 Mening Do'konim</p>
-      </footer>
+      ) : (
+        <p>Foydalanuvchi ma'lumotlari yuklanmoqda...</p>
+      )}
     </div>
   );
 }
-
-export default App;
