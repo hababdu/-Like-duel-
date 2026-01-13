@@ -1027,7 +1027,328 @@ app.post('/api/make-choice', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// ==================== ADMIN PANEL API ENDPOINTS ====================
+// (Bu kodni '// 404 handler' qismidan oldin qo'ying)
 
+// 1. /api/debug - Server holati haqida batafsil ma'lumot
+app.get('/api/debug', async (req, res) => {
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const dbState = mongoose.connection.readyState;
+
+  // MongoDB collection'larini olish
+  let dbInfo = {};
+  try {
+    if (dbState === 1) {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      dbInfo.collections = collections.map(c => c.name);
+      dbInfo.usersCount = await User.countDocuments();
+      dbInfo.gamesCount = await Game.countDocuments({});
+    }
+  } catch (err) {
+    dbInfo.error = err.message;
+  }
+
+  // Bot haqida ma'lumot olish
+  let botInfo = {};
+  try {
+    botInfo = await bot.getMe();
+  } catch (err) {
+    botInfo = { error: err.message };
+  }
+
+  res.json({
+    mongodb: {
+      state: dbState,
+      status: states[dbState] || 'unknown',
+      host: mongoose.connection.host || 'N/A',
+      database: mongoose.connection.db?.databaseName || 'N/A',
+      collections: dbInfo.collections || []
+    },
+    bot: {
+      polling: botPollingActive,
+      token: BOT_TOKEN ? 'set' : 'not set',
+      adminId: ADMIN_ID || 'not set',
+      info: botInfo
+    },
+    game: {
+      activeGames: Array.from(activeGames?.values() || []).length,
+      waitingPlayers: Array.from(waitingPlayers?.values() || []).length
+    },
+    environment: {
+      node: process.version,
+      platform: process.platform,
+      memory: process.memoryUsage(),
+      uptime: process.uptime(),
+      env: {
+        NODE_ENV: process.env.NODE_ENV || 'development',
+        PORT: process.env.PORT || '10000'
+      }
+    },
+    counts: {
+      users: dbInfo.usersCount || 0,
+      games: dbInfo.gamesCount || 0
+    }
+  });
+});
+
+// 2. /api/users - Foydalanuvchilar ro'yxati (PAGINATION bilan)
+app.get('/api/users', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    let users = [];
+    let totalUsers = 0;
+
+    if (mongoose.connection.readyState === 1) {
+      // Foydalanuvchilarni bazadan olish
+      users = await User.find()
+        .sort({ lastActivity: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      totalUsers = await User.countDocuments();
+    }
+
+    // Frontendga yuborish uchun formatlash
+    const formattedUsers = users.map(user => ({
+      id: user.telegramId,
+      name: `${user.firstName} ${user.lastName || ''}`.trim() || 'Noma\'lum',
+      username: user.username,
+      joinDate: user.joinDate,
+      lastActivity: user.lastActivity,
+      visits: user.visitCount,
+      isBot: user.isBot,
+      gameStats: user.gameStats || {
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        totalGames: 0,
+        winRate: 0
+      }
+    }));
+
+    res.json({
+      success: true,
+      page: page,
+      limit: limit,
+      total: totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      databaseConnected: mongoose.connection.readyState === 1,
+      users: formattedUsers
+    });
+
+  } catch (error) {
+    console.error('❌ /api/users xatosi:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      databaseConnected: mongoose.connection.readyState === 1
+    });
+  }
+});
+
+// 3. /api/stats - Umumiy statistika (Bu sizda bor, lekin to'liq versiyasi)
+app.get('/api/stats', async (req, res) => {
+  try {
+    let totalUsers = 0;
+    let newToday = 0;
+    let activeToday = 0;
+    let totalGames = 0;
+    let activeGamesCount = 0;
+
+    if (mongoose.connection.readyState === 1) {
+      totalUsers = await User.countDocuments();
+
+      // Bugungi sana
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Bugun qo'shilganlar
+      newToday = await User.countDocuments({ joinDate: { $gte: today } });
+
+      // So'nggi 24 soatdagi faollar
+      activeToday = await User.countDocuments({
+        lastActivity: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+      });
+
+      // O'yin statistikasi
+      totalGames = await Game.countDocuments({});
+      activeGamesCount = await Game.countDocuments({ status: 'playing' });
+    }
+
+    // Faol o'yinlar (xotiradagi)
+    const memoryActiveGames = activeGames ? activeGames.size : 0;
+    const memoryWaitingPlayers = waitingPlayers ? waitingPlayers.size : 0;
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        newToday,
+        activeToday,
+        totalGames,
+        activeGames: Math.max(activeGamesCount, memoryActiveGames),
+        waitingPlayers: memoryWaitingPlayers,
+        databaseStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        botStatus: botPollingActive ? 'running' : 'stopped'
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ /api/stats xatosi:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stats: {
+        totalUsers: 0,
+        newToday: 0,
+        activeToday: 0,
+        totalGames: 0,
+        activeGames: 0,
+        waitingPlayers: 0,
+        databaseStatus: 'error',
+        botStatus: 'unknown'
+      }
+    });
+  }
+});
+
+// 4. /api/games - O'yinlar ro'yxati
+app.get('/api/games', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 15;
+    const skip = (page - 1) * limit;
+
+    let games = [];
+    let totalGames = 0;
+
+    if (mongoose.connection.readyState === 1) {
+      games = await Game.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      totalGames = await Game.countDocuments();
+    }
+
+    // Faol o'yinlarni qo'shish (agar mavjud bo'lsa)
+    let activeGamesList = [];
+    if (activeGames) {
+      activeGamesList = Array.from(activeGames.values()).map(game => ({
+        gameId: game.gameId,
+        player1: game.player1,
+        player2: game.player2,
+        status: game.status,
+        createdAt: game.createdAt,
+        type: 'active'
+      }));
+    }
+
+    res.json({
+      success: true,
+      page,
+      limit,
+      total: totalGames,
+      activeCount: activeGamesList.length,
+      databaseConnected: mongoose.connection.readyState === 1,
+      games: games.map(game => ({
+        gameId: game.gameId,
+        player1: game.player1,
+        player2: game.player2,
+        status: game.status,
+        result: game.result,
+        winnerId: game.winnerId,
+        createdAt: game.createdAt,
+        finishedAt: game.finishedAt,
+        type: 'completed'
+      })),
+      activeGames: activeGamesList
+    });
+
+  } catch (error) {
+    console.error('❌ /api/games xatosi:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      databaseConnected: mongoose.connection.readyState === 1
+    });
+  }
+});
+
+// 5. /api/leaderboard - Reyting jadvali
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const topPlayers = await User.find({ 'gameStats.totalGames': { $gt: 0 } })
+      .sort({ 'gameStats.winRate': -1, 'gameStats.wins': -1 })
+      .limit(10)
+      .select('telegramId firstName username gameStats');
+
+    res.json({
+      success: true,
+      leaderboard: topPlayers.map((player, index) => ({
+        rank: index + 1,
+        id: player.telegramId,
+        name: player.firstName,
+        username: player.username,
+        stats: player.gameStats || {
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          totalGames: 0,
+          winRate: 0
+        }
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ /api/leaderboard xatosi:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// 6. /api/endpoints - Barcha mavjud endpoint'lar ro'yxati
+app.get('/api/endpoints', (req, res) => {
+  res.json({
+    endpoints: [
+      { method: 'GET', path: '/', description: 'Bosh sahifa' },
+      { method: 'GET', path: '/admin', description: 'Admin panel sahifasi' },
+      { method: 'GET', path: '/health', description: 'Server holati' },
+      { method: 'GET', path: '/api/users', description: 'Foydalanuvchilar ro\'yxati' },
+      { method: 'GET', path: '/api/stats', description: 'Statistika' },
+      { method: 'GET', path: '/api/games', description: 'O\'yinlar ro\'yxati' },
+      { method: 'GET', path: '/api/debug', description: 'Debug ma\'lumotlari' },
+      { method: 'GET', path: '/api/endpoints', description: 'Barcha endpoint\'lar' },
+      { method: 'GET', path: '/api/leaderboard', description: 'Reyting jadvali' },
+      { method: 'POST', path: '/api/create-game', description: 'Yangi o\'yin yaratish' },
+      { method: 'GET', path: '/api/game-status/:gameId', description: 'O\'yin holati' },
+      { method: 'POST', path: '/api/make-choice', description: 'Tanlov qilish' }
+    ],
+    description: 'Telegram Bot Game API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ==================== 404 HANDLER (BU QISMI O'ZGARMASIN) ====================
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint not found',
+    available: [
+      '/', '/admin', '/health',
+      '/api/users', '/api/stats', '/api/games',
+      '/api/debug', '/api/endpoints', '/api/leaderboard',
+      '/api/create-game', '/api/game-status/:gameId', '/api/make-choice'
+    ]
+  });
+});
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
