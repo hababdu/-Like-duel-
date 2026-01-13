@@ -41,7 +41,6 @@ function App() {
       }
       
       // Telegram tugmalarini sozlash
-      tg.MainButton.setText("🎮 O'ynash");
       tg.MainButton.color = "#31b545";
       tg.MainButton.onClick(startNewGame);
       tg.MainButton.show();
