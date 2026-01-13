@@ -40,7 +40,18 @@ function App() {
         loadUserData(userData.id);
       }
       
-    
+      // Telegram tugmalarini sozlash
+      tg.MainButton.setText("🎮 O'ynash");
+      tg.MainButton.color = "#31b545";
+      tg.MainButton.onClick(startNewGame);
+      tg.MainButton.show();
+      
+      tg.BackButton.onClick(() => {
+        if (showShop) setShowShop(false);
+        else if (showProfile) setShowProfile(false);
+        else if (showLeaderboard) setShowLeaderboard(false);
+        else tg.BackButton.hide();
+      });
       
       tg.sendData(JSON.stringify({ 
         type: 'web_app_ready',
