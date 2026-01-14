@@ -169,6 +169,18 @@ bot.onText(/\/start/, async (msg) => {
     
     // Foydalanuvchini saqlash
     await saveOrUpdateUser(user);
+    // server.js ichida CORS sozlamalari
+const corsOptions = {
+  origin: [
+    'https://telegram-mini-app-gsny.onrender.com', // Frontend hosting manzili
+    'https://your-frontend-domain.com',
+    'http://localhost:3000'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
     
     const webAppUrl = process.env.WEB_APP_URL || 'https://your-app.onrender.com';
     
