@@ -729,24 +729,29 @@ function App() {
     });
     
     // Bot tarixini yangilash
-    if (isBot && botGameMode) {
-      const newHistoryEntry = {
-        timestamp: Date.now(),
-        botDifficulty: botDifficulty,
-        botChoice: opponentChoice,
-        playerChoice: playerChoice,
-        result: result,
-        botName: botName,
-        botLevel: botLevel
-      };
-      
-      setBotHistory(prev => {
-        const updatedHistory = [...prev, newHistoryEntry];
-        // LocalStorage'ga saqlash
-        localStorage.setItem('telegram_game_bot_history', JSON.stringify(updatedHistory));
-        return updatedHistory;
-      });
+   // Bot tarixini yangilash (to'g'irlangan)
+if (isBot && botGameMode) {
+  const newHistoryEntry = {
+    timestamp: Date.now(),
+    botDifficulty: botDifficulty,
+    botChoice: opponentChoice,
+    playerChoice: playerChoice,
+    result: result,
+    botName: botName,
+    botLevel: botLevel
+  };
+  
+  setBotHistory(prev => {
+    const updatedHistory = [...prev, newHistoryEntry];
+    // Faqat oxirgi 50 ta o'yinni saqlash
+    if (updatedHistory.length > 50) {
+      updatedHistory.shift();
     }
+    // LocalStorage'ga saqlash
+    localStorage.setItem('telegram_game_bot_history', JSON.stringify(updatedHistory));
+    return updatedHistory;
+  });
+}
     
     // Statistika yangilash
     setUserStats(prev => {
@@ -1319,47 +1324,60 @@ function App() {
   };
 
   // ✅ 33. BOT STATISTIKASI
-  const getBotStats = () => {
-    const totalGames = botHistory.length;
-    const wins = botHistory.filter(h => h.result === 'lose').length;
-    const losses = botHistory.filter(h => h.result === 'win').length;
-    const draws = botHistory.filter(h => h.result === 'draw').length;
+ // ✅ 33. BOT STATISTIKASI (To'g'irlangan versiya)
+const getBotStats = () => {
+  const totalGames = botHistory.length;
+  const wins = botHistory.filter(h => h.result === 'lose').length;
+  const losses = botHistory.filter(h => h.result === 'win').length;
+  const draws = botHistory.filter(h => h.result === 'draw').length;
+  
+  const favoriteChoice = (() => {
+    if (botHistory.length === 0) return null;
+    const choices = botHistory.map(h => h.botChoice);
+    const counts = {};
+    choices.forEach(choice => {
+      counts[choice] = (counts[choice] || 0) + 1;
+    });
     
-    const favoriteChoice = (() => {
-      if (botHistory.length === 0) return null;
-      const choices = botHistory.map(h => h.botChoice);
-      const counts = {};
-      choices.forEach(choice => {
-        counts[choice] = (counts[choice] || 0) + 1;
-      });
-      return Object.keys(counts).reduce((a, b) => 
-        counts[a] > counts[b] ? a : b
-      );
-    })();
+    // Reduce dan oldin array bo'sh emasligini tekshirish
+    const choiceKeys = Object.keys(counts);
+    if (choiceKeys.length === 0) return null;
     
-    return {
-      totalGames,
-      wins,
-      losses,
-      draws,
-      winRate: totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0,
-      currentStreak: botStreak,
-      favoriteChoice,
-      lastPlayed: botHistory.length > 0 ? 
-        new Date(botHistory[botHistory.length - 1].timestamp).toLocaleDateString() : 
-        'Hali yo\'q',
-      mostPlayedDifficulty: (() => {
-        const difficulties = botHistory.map(h => h.botDifficulty);
-        const counts = {};
-        difficulties.forEach(diff => {
-          counts[diff] = (counts[diff] || 0) + 1;
-        });
-        return Object.keys(counts).reduce((a, b) => 
-          counts[a] > counts[b] ? a : b
-        ) || 'medium';
-      })()
-    };
+    return choiceKeys.reduce((a, b) => 
+      counts[a] > counts[b] ? a : b
+    );
+  })();
+  
+  const mostPlayedDifficulty = (() => {
+    if (botHistory.length === 0) return 'medium';
+    const difficulties = botHistory.map(h => h.botDifficulty);
+    const counts = {};
+    difficulties.forEach(diff => {
+      counts[diff] = (counts[diff] || 0) + 1;
+    });
+    
+    const diffKeys = Object.keys(counts);
+    if (diffKeys.length === 0) return 'medium';
+    
+    return diffKeys.reduce((a, b) => 
+      counts[a] > counts[b] ? a : b
+    );
+  })();
+  
+  return {
+    totalGames,
+    wins,
+    losses,
+    draws,
+    winRate: totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0,
+    currentStreak: botStreak,
+    favoriteChoice,
+    lastPlayed: botHistory.length > 0 ? 
+      new Date(botHistory[botHistory.length - 1].timestamp).toLocaleDateString() : 
+      'Hali yo\'q',
+    mostPlayedDifficulty
   };
+};
 
   // ✅ 34. BOT DARAJASINI OSHIRISH
   const levelUpBot = () => {
@@ -1664,37 +1682,32 @@ function App() {
         <p className="practice-hint">Ma'lum bir tanlovga qarshi mashq qiling</p>
       </div>
       
-      <div className="bot-stats">
-        <h4>📊 Bot statistikasi:</h4>
-        <div className="stats-grid-mini">
-          <div className="stat-mini">
-            <span className="stat-icon">🤖</span>
-            <span className="stat-value">{getBotStats().totalGames}</span>
-            <span className="stat-label">O'yin</span>
-          </div>
-          <div className="stat-mini">
-            <span className="stat-icon">🎯</span>
-            <span className="stat-value">{getBotStats().winRate}%</span>
-            <span className="stat-label">Bot g'alaba</span>
-          </div>
-          <div className="stat-mini">
-            <span className="stat-icon">🔥</span>
-            <span className="stat-value">{getBotStats().currentStreak}</span>
-            <span className="stat-label">Streak</span>
-          </div>
-          <div className="stat-mini">
-            <span className="stat-icon">📈</span>
-            <span className="stat-value">{botLevel}</span>
-            <span className="stat-label">Daraja</span>
-          </div>
-        </div>
-        <button 
-          className="show-details-btn"
-          onClick={() => setShowBotStats(true)}
-        >
-          Batafsil ko'rish
-        </button>
-      </div>
+     {/* BOT STATISTIKASI KO'RSATISH QISMI */}
+<div className="bot-stats">
+  <h4>📊 Bot statistikasi:</h4>
+  <div className="stats-grid-mini">
+    <div className="stat-mini">
+      <span className="stat-icon">🤖</span>
+      <span className="stat-value">{getBotStats().totalGames}</span>
+      <span className="stat-label">O'yin</span>
+    </div>
+    <div className="stat-mini">
+      <span className="stat-icon">🎯</span>
+      <span className="stat-value">{getBotStats().winRate}%</span>
+      <span className="stat-label">Bot g'alaba</span>
+    </div>
+    <div className="stat-mini">
+      <span className="stat-icon">🔥</span>
+      <span className="stat-value">{getBotStats().currentStreak}</span>
+      <span className="stat-label">Streak</span>
+    </div>
+    <div className="stat-mini">
+      <span className="stat-icon">📈</span>
+      <span className="stat-value">{botLevel}</span>
+      <span className="stat-label">Daraja</span>
+    </div>
+  </div>
+</div>
     </div>
   );
 
