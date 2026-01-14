@@ -24,7 +24,22 @@ function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [userStats, setUserStats] = useState(null);
   const [websocket, setWebsocket] = useState(null);
-  
+  // useEffect ichida
+useEffect(() => {
+  if (websocket) {
+    const originalOnMessage = websocket.onmessage;
+    websocket.onmessage = (event) => {
+      console.log('📥 WebSocket message:', event.data);
+      originalOnMessage(event);
+    };
+    
+    const originalOnOpen = websocket.onopen;
+    websocket.onopen = (event) => {
+      console.log('✅ WebSocket opened');
+      originalOnOpen(event);
+    };
+  }
+}, [websocket]);
   // Telegram WebApp ni sozlash
   useEffect(() => {
     if (window.Telegram?.WebApp) {
@@ -233,69 +248,96 @@ function App() {
   };
   
   // O'yinni boshlash
-  const initializeGame = async (userData) => {
-    try {
-      // WebSocket ulanishi
-      const ws = new WebSocket('wss://your-backend.onrender.com/ws');
+// initializeGame funksiyasini yangilang
+const initializeGame = async (userData) => {
+  try {
+    // Local development uchun
+    const backendUrl = window.location.hostname.includes('localhost') 
+      ? 'ws://localhost:10000/ws'
+      : 'wss://your-backend.onrender.com/ws';
+    
+    console.log(`🔌 WebSocket ulanmoqda: ${backendUrl}`);
+    
+    const ws = new WebSocket(backendUrl);
+    
+    setWebsocket(ws);
+    
+    ws.onopen = () => {
+      console.log('✅ WebSocket ulandi');
+      // Foydalanuvchini ro'yxatdan o'tkazish
+      ws.send(JSON.stringify({
+        type: 'register',
+        userId: userData.id,
+        username: userData.username,
+        firstName: userData.first_name
+      }));
       
-      setWebsocket(ws);
-      
-      ws.onopen = () => {
-        console.log('WebSocket ulandi');
-        // Foydalanuvchini ro'yxatdan o'tkazish
-        ws.send(JSON.stringify({
-          type: 'register',
-          userId: userData.id,
-          username: userData.username,
-          firstName: userData.first_name
-        }));
-      };
-      
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleGameUpdate(data);
-      };
-      
-      ws.onerror = (error) => {
-        console.error('WebSocket xatosi:', error);
-      };
-      
-      ws.onclose = () => {
-        console.log('WebSocket uzildi');
-      };
-      
-    } catch (error) {
-      console.error('Oyin boshlash xatosi:', error);
-    }
-  };
+      // Har 30 soniyada ping yuborish
+      setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30000);
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('📥 WebSocket xabari:', data);
+      handleGameUpdate(data);
+    };
+    
+    ws.onerror = (error) => {
+      console.error('❌ WebSocket xatosi:', error);
+      // Qayta ulanish
+      setTimeout(() => initializeGame(userData), 3000);
+    };
+    
+    ws.onclose = () => {
+      console.log('🔌 WebSocket uzildi');
+      // Qayta ulanish
+      setTimeout(() => initializeGame(userData), 5000);
+    };
+    
+  } catch (error) {
+    console.error('❌ Oyin boshlash xatosi:', error);
+    setTimeout(() => initializeGame(userData), 3000);
+  }
+};
   
   // Yangi o'yin boshlash
-  const startNewGame = () => {
-    if (!user) return;
-    
-    setGameState({
-      ...gameState,
-      status: 'waiting',
-      timer: 60,
-      myChoice: null,
-      opponentChoice: null,
-      result: null
-    });
-    
-    // Backend'ga so'rov
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'create_game',
-        userId: user.id,
-        username: user.username,
-        firstName: user.first_name
-      }));
-    }
-    
-    // Taymer boshlash
-    startTimer();
-  };
+// YANGI O'YIN BOSHLASH FUNKSIYASI
+const startNewGame = () => {
+  if (!user || !websocket) {
+    console.error('❌ Foydalanuvchi yoki WebSocket mavjud emas');
+    return;
+  }
   
+  console.log('🎮 Yangi oyin boshlanmoqda...');
+  
+  setGameState({
+    ...gameState,
+    status: 'waiting',
+    timer: 60,
+    myChoice: null,
+    opponentChoice: null,
+    result: null,
+    gameId: null
+  });
+  
+  // Backend'ga so'rov
+  if (websocket.readyState === WebSocket.OPEN) {
+    websocket.send(JSON.stringify({
+      type: 'create_game',
+      userId: user.id,
+      username: user.username,
+      firstName: user.first_name
+    }));
+  } else {
+    console.error('❌ WebSocket ochiq emas');
+    // Qayta ulanish
+    initializeGame(user);
+  }
+};
   // Taymer
   const startTimer = () => {
     let timeLeft = 60;
@@ -339,65 +381,118 @@ function App() {
   };
   
   // O'yin yangilanishini qabul qilish
-  const handleGameUpdate = (data) => {
-    switch (data.type) {
-      case 'game_created':
-        setGameState(prev => ({
-          ...prev,
-          gameId: data.gameId,
-          status: 'waiting'
-        }));
-        break;
-        
-      case 'opponent_found':
-        setGameState(prev => ({
-          ...prev,
-          opponent: data.opponent,
-          status: 'playing'
-        }));
-        break;
-        
-      case 'opponent_choice_made':
-        // Raqib tanlov qilganligi haqida bildirish
+// O'YIN YANGILANISHINI QABUL QILISH
+const handleGameUpdate = (data) => {
+  console.log('🔄 Oyin yangilanishi:', data);
+  
+  switch (data.type) {
+    case 'game_created':
+      console.log(`🎮 O'yin yaratildi: ${data.gameId}`);
+      setGameState(prev => ({
+        ...prev,
+        gameId: data.gameId,
+        status: 'waiting'
+      }));
+      
+      // 2 soniyadan keyin raqib qidirish
+      setTimeout(() => {
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+          websocket.send(JSON.stringify({
+            type: 'find_opponent',
+            userId: user.id,
+            gameId: data.gameId
+          }));
+        }
+      }, 2000);
+      break;
+      
+    case 'waiting_for_opponent':
+      setGameState(prev => ({
+        ...prev,
+        status: 'waiting'
+      }));
+      
+      if (data.waitingPlayersCount > 1) {
+        console.log(`👥 ${data.waitingPlayersCount} o'yinchi kutmoqda...`);
+      }
+      break;
+      
+    case 'waiting_update':
+      console.log(`⏳ Kutish davom etmoqda: ${data.waitingTime}s`);
+      break;
+      
+    case 'opponent_found':
+      console.log(`🎯 Raqib topildi: ${data.opponent.firstName}`);
+      setGameState(prev => ({
+        ...prev,
+        opponent: data.opponent,
+        status: 'playing',
+        timer: 60 // Taymerni qayta boshlash
+      }));
+      break;
+      
+    case 'matchmaking_timeout':
+      console.log('⏰ Raqib topilmadi, vaqt tugadi');
+      setGameState(prev => ({
+        ...prev,
+        status: 'finished',
+        result: 'timeout'
+      }));
+      break;
+      
+    case 'opponent_choice_made':
+      console.log('🎯 Raqib tanlov qildi!');
+      // Bildirishnoma
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.showAlert('Raqib tanlov qildi!');
+      }
+      break;
+      
+    case 'choice_accepted':
+      console.log('✅ Tanlov qabul qilindi:', data.choice);
+      break;
+      
+    case 'game_result':
+      console.log('🏁 Oyin natijasi:', data.result);
+      setGameState(prev => ({
+        ...prev,
+        opponentChoice: data.choices?.player2,
+        result: data.result === 'player1_win' ? 'win' : 
+                data.result === 'player2_win' ? 'lose' : 'draw',
+        status: 'finished'
+      }));
+      
+      // Koinlarni yangilash
+      if (data.result === 'player1_win') {
+        const winCoins = 50;
+        setUserCoins(prev => prev + winCoins);
         if (window.Telegram?.WebApp) {
-          window.Telegram.WebApp.showAlert('Raqib tanlov qildi!');
+          window.Telegram.WebApp.showAlert(`🏆 G'alaba! +${winCoins} koin`);
         }
-        break;
-        
-      case 'choice_accepted':
-        console.log('Tanlov qabul qilindi:', data.choice);
-        break;
-        
-      case 'game_result':
-        setGameState(prev => ({
-          ...prev,
-          opponentChoice: data.choices?.player2,
-          result: data.result === 'player1_win' ? 'win' : 
-                  data.result === 'player2_win' ? 'lose' : 'draw',
-          status: 'finished'
-        }));
-        
-        // Koinlarni yangilash
-        if (data.result === 'player1_win') {
-          // G'alaba uchun koinlar
-          const winCoins = 50 + (data.winStreak || 0) * 10;
-          setUserCoins(prev => prev + winCoins);
-        } else if (data.result === 'draw') {
-          setUserCoins(prev => prev + 20);
-        } else {
-          setUserCoins(prev => prev + 10);
-        }
-        break;
-        
-      case 'game_timeout':
-        setGameState(prev => ({
-          ...prev,
-          result: 'timeout',
-          status: 'finished'
-        }));
-        break;
-    }
-  };
+      } else if (data.result === 'draw') {
+        setUserCoins(prev => prev + 20);
+      } else {
+        setUserCoins(prev => prev + 10);
+      }
+      break;
+      
+    case 'game_timeout':
+      console.log('⏰ Oyin vaqti tugadi');
+      setGameState(prev => ({
+        ...prev,
+        result: 'timeout',
+        status: 'finished'
+      }));
+      break;
+      
+    case 'error':
+      console.error('❌ Server xatosi:', data.message);
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.showAlert(`Xato: ${data.message}`);
+      }
+      break;
+  }
+};
   
   // O'yinni qayta boshlash
   const restartGame = () => {

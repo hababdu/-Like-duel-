@@ -273,7 +273,7 @@ async function handleFindOpponent(ws, data) {
   console.log(`✅ O'yinchi waiting ro'yxatiga qo'shildi: ${userId}`);
   console.log(`📊 Waiting ro'yxati:`, Array.from(waitingPlayers.keys()));
   
-  // Raqib qidirish - faqat boshqa gameId bilan solishtirish
+  // RAQIB QIDIRISH - faqat boshqa gameId bilan solishtirish
   let opponent = null;
   for (const [opponentId, playerData] of waitingPlayers.entries()) {
     console.log(`🔎 Tekshirilmoqda: ${opponentId} vs ${userId}`);
@@ -1067,7 +1067,54 @@ app.get('/', (req, res) => {
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
-
+// Test uchun raqib qo'shish
+app.post('/api/test/add-player', async (req, res) => {
+  try {
+    const { userId, gameId } = req.body;
+    
+    const testGame = {
+      gameId: `test_${Date.now()}`,
+      player1: {
+        id: 999999,
+        username: 'test_bot',
+        firstName: 'Test Bot',
+        choice: null,
+        ready: false,
+        connected: true
+      },
+      player2: {
+        id: userId,
+        username: 'player',
+        firstName: 'Player',
+        choice: null,
+        ready: false,
+        connected: true
+      },
+      status: 'playing'
+    };
+    
+    activeGames.set(testGame.gameId, testGame);
+    
+    // Foydalanuvchi socket'ini topish
+    const userSocket = playerSockets.get(userId);
+    if (userSocket) {
+      userSocket.send(JSON.stringify({
+        type: 'opponent_found',
+        gameId: gameId,
+        opponent: {
+          id: 999999,
+          username: 'test_bot',
+          firstName: 'Test Bot'
+        },
+        status: 'playing'
+      }));
+    }
+    
+    res.json({ success: true, message: 'Test raqib qo\'shildi' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
