@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import './App.css';
 
 function App() {
@@ -13,7 +13,9 @@ function App() {
     opponentChoice: null,
     result: null,
     timer: 60,
-    gameId: null
+    gameId: null,
+    roomCode: null,
+    playersInRoom: 0
   });
   
   const [userCoins, setUserCoins] = useState(1500);
@@ -24,42 +26,46 @@ function App() {
   const [dailyStatus, setDailyStatus] = useState({ 
     available: true, 
     streak: 3, 
-    nextIn: 0,
-    lastClaim: null 
+    nextIn: 0
   });
   
   const [showShop, setShowShop] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showCreateRoom, setShowCreateRoom] = useState(false);
+  const [showJoinRoom, setShowJoinRoom] = useState(false);
   const [userStats, setUserStats] = useState({
     wins: 25,
     losses: 10,
     draws: 5,
     totalGames: 40,
     winRate: 62.5,
-    rank: 15
+    rank: 15,
+    duelsWon: 12,
+    duelsPlayed: 20
   });
   
-  const [connectionStatus, setConnectionStatus] = useState('connected');
+  const [connectionStatus, setConnectionStatus] = useState('online');
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState(null);
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [activeRooms, setActiveRooms] = useState([]);
+  const [friends, setFriends] = useState([]);
   
   const timerRef = useRef(null);
-  const botTimerRef = useRef(null);
   const notificationTimerRef = useRef(null);
-  const userRef = useRef(null); // 🔥 User'ni ref'da saqlaymiz
+  const roomsUpdateRef = useRef(null);
 
   // 🔹 TELEGRAM WEBAPP SOZLASH
   useEffect(() => {
     const initApp = async () => {
       setIsLoading(true);
       
-      // Telegram WebApp mavjudligini tekshirish
-      if (window.Telegram?.WebApp) {
-        const tg = window.Telegram.WebApp;
-        
-        try {
-          // Telegram WebApp'ni boshlash
+      try {
+        // Telegram WebApp mavjudligini tekshirish
+        if (window.Telegram?.WebApp) {
+          const tg = window.Telegram.WebApp;
+          
           tg.ready();
           tg.expand();
           
@@ -69,27 +75,35 @@ function App() {
           // Foydalanuvchi ma'lumotlarini olish
           const userData = tg.initDataUnsafe?.user;
           if (userData) {
-            console.log('✅ Telegram user data:', userData);
-            await setupUser(userData, tg);
+            console.log('✅ Telegram user:', userData);
+            await setupUser(userData);
           } else {
-            console.log('⚠️ No Telegram user data, using test data');
+            console.log('⚠️ No Telegram user, using test data');
             await setupTestUser();
           }
           
           // Telegram tugmalarini sozlash
           setupTelegramButtons(tg);
           
-        } catch (error) {
-          console.error('Telegram init error:', error);
+        } else {
+          // Telegram WebApp yo'q - test rejimi
+          console.log('⚠️ Telegram WebApp not found, using test mode');
           await setupTestUser();
         }
-      } else {
-        // Telegram WebApp yo'q - test rejimi
-        console.log('⚠️ Telegram WebApp not found, using test mode');
+        
+        // Do'stlar ro'yxatini yuklash
+        loadFriendsList();
+        
+        // Faol xonalarni yuklash (simulyatsiya)
+        loadActiveRooms();
+        
+      } catch (error) {
+        console.error('App init error:', error);
         await setupTestUser();
       }
       
       setIsLoading(false);
+      showNotification('🎮 O\'yinga xush kelibsiz!', 'success');
     };
 
     initApp();
@@ -97,62 +111,27 @@ function App() {
     // Cleanup
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (botTimerRef.current) clearInterval(botTimerRef.current);
       if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
+      if (roomsUpdateRef.current) clearInterval(roomsUpdateRef.current);
     };
   }, []);
 
-  // 🔹 USER REF'NI YANGILASH (har state o'zgarganida)
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
-  // 🔹 TELEGRAM THEME MOSLASHUVI
-  const applyTelegramTheme = (tg) => {
-    const theme = tg.themeParams || {};
-    
-    // CSS custom properties
-    document.documentElement.style.setProperty('--tg-bg-color', theme.bg_color || '#1a1a1a');
-    document.documentElement.style.setProperty('--tg-text-color', theme.text_color || '#ffffff');
-    document.documentElement.style.setProperty('--tg-hint-color', theme.hint_color || '#999999');
-    document.documentElement.style.setProperty('--tg-link-color', theme.link_color || '#4a9eff');
-    document.documentElement.style.setProperty('--tg-button-color', theme.button_color || '#31b545');
-    document.documentElement.style.setProperty('--tg-button-text-color', theme.button_text_color || '#ffffff');
-    
-    // Background color
-    tg.setBackgroundColor(theme.bg_color || '#1a1a1a');
-    
-    // Header color
-    tg.setHeaderColor(theme.bg_color || '#1a1a1a');
-  };
-
   // 🔹 FOYDALANUVCHINI SOZLASH
-  const setupUser = async (userData, tg) => {
+  const setupUser = async (userData) => {
     const newUser = {
-      id: userData.id,
+      id: userData.id || Math.floor(Math.random() * 1000000) + 100000,
       first_name: userData.first_name || 'Foydalanuvchi',
       username: userData.username || '',
       language_code: userData.language_code || 'uz'
     };
     
     setUser(newUser);
-    userRef.current = newUser; // 🔥 Ref'ni ham yangilaymiz
     
-    // Telegram profil rasmini olish
     if (userData.photo_url) {
       setUserPhoto(userData.photo_url);
     }
     
-    // Ma'lumotlarni yuklash
     await loadUserData(newUser);
-    
-    // Haptic feedback (tebranish)
-    if (tg.HapticFeedback) {
-      tg.HapticFeedback.impactOccurred('light');
-    }
-    
-    // Bot haqida xabar
-    showNotification('🎮 O\'yinga xush kelibsiz!');
   };
 
   // 🔹 TEST FOYDALANUVCHI
@@ -165,25 +144,17 @@ function App() {
     };
     
     setUser(testUser);
-    userRef.current = testUser; // 🔥 Ref'ni ham yangilaymiz
     await loadUserData(testUser);
-    
-    // Test rejimi haqida xabar
-    showNotification('🔧 Test rejimi - Offline o\'ynash');
   };
 
   // 🔹 FOYDALANUVCHI MA'LUMOTLARINI YUKLASH
   const loadUserData = async (currentUser) => {
     try {
-      // Mock data - asosiy ma'lumotlar
-      console.log('Loading data for user:', currentUser);
-      
-      // Kunlik bonus holati
+      // Mock data
       setDailyStatus({
         available: true,
         streak: Math.floor(Math.random() * 10) + 1,
-        nextIn: 0,
-        lastClaim: Date.now() - 12 * 60 * 60 * 1000
+        nextIn: 0
       });
       
       // Inventar
@@ -195,30 +166,13 @@ function App() {
           rarity: 'epic',
           icon: '👑',
           equipped: true,
-          price: 1000,
-          color: '#FFD700'
-        },
-        { 
-          itemId: 'frame_fire', 
-          name: 'Olov Ramkasi', 
-          type: 'frame',
-          rarity: 'rare',
-          icon: '🔥',
-          equipped: true,
-          price: 500,
-          color: '#FF4500'
+          price: 1000
         }
       ];
       
       setInventory(mockInventory);
       
-      // Kiyilgan buyumlar
-      setEquippedItems({
-        avatar: mockInventory.find(item => item.itemId === 'avatar_gold'),
-        frame: mockInventory.find(item => item.itemId === 'frame_fire')
-      });
-      
-      // Do'kon mahsulotlari
+      // Do'kon
       const mockShopItems = [
         { 
           id: 'avatar_dragon', 
@@ -227,8 +181,7 @@ function App() {
           type: 'avatar', 
           rarity: 'legendary',
           icon: '🐉',
-          price: 5000,
-          color: '#FF4500'
+          price: 5000
         }
       ];
       
@@ -247,190 +200,222 @@ function App() {
       
       setLeaderboard(mockLeaderboard);
       
-      console.log('✅ User data loaded successfully');
+      console.log('✅ User data loaded');
       
     } catch (error) {
       console.error('❌ User data loading error:', error);
-      showNotification('❌ Ma\'lumotlar yuklanmadi, internetni tekshiring');
     }
   };
 
-  // 🔹 TELEGRAM TUGMALARINI SOZLASH
-  const setupTelegramButtons = (tg) => {
-    // Asosiy tugma
-    tg.MainButton.setText("🎮 O'YINNI BOSHLASH");
-    tg.MainButton.color = "#31b545";
-    tg.MainButton.textColor = "#ffffff";
-    tg.MainButton.onClick(startNewGame);
-    tg.MainButton.show();
+  // 🔹 DO'STLAR RO'YXATINI YUKLASH
+  const loadFriendsList = () => {
+    const mockFriends = [
+      { id: 222222, name: 'Sarah', username: 'sarah_queen', isOnline: true, lastSeen: Date.now() },
+      { id: 333333, name: 'Mike', username: 'mike_rock', isOnline: false, lastSeen: Date.now() - 3600000 },
+      { id: 444444, name: 'Luna', username: 'luna_star', isOnline: true, lastSeen: Date.now() },
+      { id: 555555, name: 'David', username: 'david_king', isOnline: true, lastSeen: Date.now() },
+      { id: 666666, name: 'Emma', username: 'emma_light', isOnline: false, lastSeen: Date.now() - 7200000 }
+    ];
     
-    // Orqaga tugmasi
-    tg.BackButton.onClick(() => {
-      if (showShop) setShowShop(false);
-      else if (showProfile) setShowProfile(false);
-      else if (showLeaderboard) setShowLeaderboard(false);
-      else tg.BackButton.hide();
-    });
-    
-    // Settings tugmasi
-    if (tg.SettingsButton) {
-      tg.SettingsButton.show();
-      tg.SettingsButton.onClick(() => {
-        setShowProfile(true);
-      });
-    }
+    setFriends(mockFriends);
   };
 
-  // 🔹 XABAR KO'RSATISH
-  const showNotification = (message, type = 'info', duration = 3000) => {
-    setNotification({ message, type });
+  // 🔹 FAOL XONALARNI YUKLASH
+  const loadActiveRooms = () => {
+    const mockRooms = [
+      { code: 'ABC123', host: 'Alex', players: 1, maxPlayers: 2, createdAt: Date.now() - 60000 },
+      { code: 'DEF456', host: 'Sarah', players: 2, maxPlayers: 2, createdAt: Date.now() - 120000 },
+      { code: 'GHI789', host: 'Mike', players: 1, maxPlayers: 2, createdAt: Date.now() - 180000 },
+      { code: 'JKL012', host: 'Luna', players: 2, maxPlayers: 2, createdAt: Date.now() - 240000 },
+      { code: 'MNO345', host: 'David', players: 1, maxPlayers: 2, createdAt: Date.now() - 300000 }
+    ];
     
-    if (notificationTimerRef.current) {
-      clearTimeout(notificationTimerRef.current);
-    }
+    setActiveRooms(mockRooms);
     
-    notificationTimerRef.current = setTimeout(() => {
-      setNotification(null);
-    }, duration);
-    
-    // Haptic feedback (agar Telegram bo'lsa)
-    if (window.Telegram?.WebApp?.HapticFeedback) {
-      const haptic = window.Telegram.WebApp.HapticFeedback;
-      if (type === 'success') haptic.notificationOccurred('success');
-      else if (type === 'error') haptic.notificationOccurred('error');
-      else haptic.selectionChanged();
-    }
+    // Har 30 soniyada xonalarni yangilash
+    roomsUpdateRef.current = setInterval(() => {
+      setActiveRooms(prev => prev.map(room => ({
+        ...room,
+        players: Math.min(room.players + (Math.random() > 0.7 ? 1 : 0), 2)
+      })));
+    }, 30000);
   };
 
-  // 🔹 YANGI O'YIN BOSHLASH - ASOSIY FUNKSIYA
-  const startNewGame = useCallback(() => {
-    console.log('🎮 startNewGame chaqirildi');
-    console.log('Current user:', user);
-    console.log('Ref user:', userRef.current);
-    
-    // 🔥 User'ni ref orqali tekshirish
-    const currentUser = userRef.current;
-    
-    if (!currentUser) {
-      console.error('❌ Foydalanuvchi ma\'lumotlari mavjud emas!');
-      showNotification('❌ Foydalanuvchi ma\'lumotlari mavjud emas! Iltimos, qayta yuklang.', 'error');
-      
-      // Qayta urinish - test foydalanuvchi yaratish
-      setupTestUser();
-      setTimeout(() => {
-        startNewGame();
-      }, 1000);
+  // 🔹 XONA KODI YARATISH
+  const generateRoomCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
+  // 🔹 XONA YARATISH
+  const createRoom = () => {
+    if (!user) {
+      showNotification('❌ Foydalanuvchi ma\'lumotlari mavjud emas', 'error');
       return;
     }
     
-    // Oldingi taymerni tozalash
+    const roomCode = generateRoomCode();
+    
+    setGameState(prev => ({
+      ...prev,
+      status: 'waiting',
+      roomCode: roomCode,
+      playersInRoom: 1
+    }));
+    
+    // Yangi xonani ro'yxatga qo'shish
+    const newRoom = {
+      code: roomCode,
+      host: user.first_name,
+      players: 1,
+      maxPlayers: 2,
+      createdAt: Date.now()
+    };
+    
+    setActiveRooms(prev => [newRoom, ...prev]);
+    setShowCreateRoom(false);
+    
+    showNotification(`🏠 Xona yaratildi: ${roomCode}\nKodni do'stlaringizga ulashing!`, 'success');
+    
+    // 60 soniya kutish
+    startRoomTimer();
+  };
+
+  // 🔹 XONAGA ULASHISH
+  const joinRoom = (roomCode) => {
+    if (!user) {
+      showNotification('❌ Foydalanuvchi ma\'lumotlari mavjud emas', 'error');
+      return;
+    }
+    
+    if (!roomCode) {
+      showNotification('❌ Xona kodi kiritilmadi', 'error');
+      return;
+    }
+    
+    // Xonani topish
+    const room = activeRooms.find(r => r.code === roomCode.toUpperCase());
+    
+    if (!room) {
+      showNotification('❌ Xona topilmadi', 'error');
+      return;
+    }
+    
+    if (room.players >= room.maxPlayers) {
+      showNotification('❌ Xona to\'ldi', 'error');
+      return;
+    }
+    
+    // Xonaga ulanish
+    setGameState(prev => ({
+      ...prev,
+      status: 'joining',
+      roomCode: room.code,
+      opponent: {
+        id: 0,
+        firstName: room.host,
+        username: 'host',
+        isHost: true
+      },
+      playersInRoom: room.players + 1
+    }));
+    
+    // Xonani yangilash
+    setActiveRooms(prev => 
+      prev.map(r => r.code === room.code ? { ...r, players: r.players + 1 } : r)
+    );
+    
+    setShowJoinRoom(false);
+    setRoomCodeInput('');
+    
+    showNotification(`✅ Xonaga ulandingiz: ${room.code}\nO'yin boshlanishini kuting...`, 'success');
+    
+    // 5 soniyadan keyin o'yin boshlanishi (simulyatsiya)
+    setTimeout(() => {
+      startGameWithOpponent(room.host);
+    }, 5000);
+  };
+
+  // 🔹 DO'ST BILAN O'YNASH
+  const playWithFriend = (friend) => {
+    if (!user) return;
+    
+    showNotification(`👋 ${friend.name} bilan o'ynash so'ralmoqda...`, 'info');
+    
+    // Do'stga "taklif" yuborish (simulyatsiya)
+    setTimeout(() => {
+      if (Math.random() > 0.3) { // 70% ehtimollik bilan qabul qiladi
+        startGameWithOpponent(friend.name, false);
+        showNotification(`✅ ${friend.name} taklifni qabul qildi!`, 'success');
+      } else {
+        showNotification(`❌ ${friend.name} hozir bo'sh emas`, 'info');
+      }
+    }, 3000);
+  };
+
+  // 🔹 RAQIB BILAN O'YIN BOSHLASH
+  const startGameWithOpponent = (opponentName, isRandom = true) => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
     
-    if (botTimerRef.current) {
-      clearInterval(botTimerRef.current);
-      botTimerRef.current = null;
-    }
+    const opponentId = Math.floor(Math.random() * 1000000) + 1000000;
     
-    // O'yin holatini yangilash
-    setGameState({
-      status: 'waiting',
-      opponent: null,
-      opponentPhoto: null,
+    setGameState(prev => ({
+      ...prev,
+      status: 'playing',
+      opponent: {
+        id: opponentId,
+        firstName: opponentName,
+        username: `${opponentName.toLowerCase()}_player`,
+        isRandom: isRandom,
+        isRealPlayer: true // Haqiqiy o'yinchi deb belgilaymiz
+      },
       myChoice: null,
       opponentChoice: null,
       result: null,
       timer: 60,
       gameId: `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    });
+    }));
     
-    console.log('🎮 O\'yin boshlanmoqda, foydalanuvchi:', currentUser.first_name);
-    
-    // Haptic feedback
-    if (window.Telegram?.WebApp?.HapticFeedback) {
-      window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-    }
-    
-    // Asosiy tugmani yashirish
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.MainButton.hide();
-    }
+    showNotification(`🎮 ${opponentName} bilan o'yin boshlanmoqda!`, 'success');
     
     // Taymerni boshlash
-    timerRef.current = setInterval(() => {
-      setGameState(prev => {
-        if (prev.status !== 'waiting') {
-          clearInterval(timerRef.current);
-          return prev;
-        }
-        
-        const newTimer = prev.timer - 1;
-        
-        if (newTimer <= 0) {
-          clearInterval(timerRef.current);
-          
-          // Agar raqib topilmagan bo'lsa, bot o'ynash
-          if (prev.status === 'waiting') {
-            setTimeout(() => playWithBot(), 1000);
-          }
-          
-          return prev;
-        }
-        
-        return { ...prev, timer: newTimer };
-      });
-    }, 1000);
+    startGameTimer();
     
-    showNotification('🔍 Raqib qidirilmoqda...', 'info');
-    
-    // 3-10 soniya orasida raqib topish (simulyatsiya)
-    const waitTime = Math.floor(Math.random() * 7000) + 3000;
-    setTimeout(() => {
-      setGameState(prevState => {
-        if (prevState.status === 'waiting') {
-          findOpponent();
-        }
-        return prevState;
-      });
-    }, waitTime);
-  }, [user]); // 🔥 user dependency qo'shildi
+    // Agar haqiqiy o'yinchi bo'lsa, uning tanlovini simulyatsiya qilish
+    if (isRandom) {
+      setTimeout(() => {
+        simulateOpponentChoice();
+      }, Math.floor(Math.random() * 5000) + 3000);
+    }
+  };
 
-  // 🔹 RAQIB TOPISH (SIMULYATSIYA)
-  const findOpponent = () => {
-    const botNames = ['Alex', 'Sarah', 'Mike', 'Luna', 'David'];
-    const randomName = botNames[Math.floor(Math.random() * botNames.length)];
-    const botId = Math.floor(Math.random() * 1000000) + 1000000;
-    
-    const opponent = {
-      id: botId,
-      firstName: randomName,
-      username: `${randomName.toLowerCase()}_bot`,
-      photo_url: null,
-      isBot: true
-    };
+  // 🔹 RAQIB TANLOVI (SIMULYATSIYA)
+  const simulateOpponentChoice = () => {
+    const choices = ['rock', 'paper', 'scissors'];
+    const opponentChoice = choices[Math.floor(Math.random() * choices.length)];
     
     setGameState(prev => ({
       ...prev,
-      status: 'playing',
-      opponent: opponent,
-      timer: 60
+      opponentChoice: opponentChoice
     }));
     
-    showNotification(`🎯 Raqib topildi: ${randomName}!`, 'success');
+    showNotification(`🎯 Raqib tanlov qildi!`, 'info');
     
-    // Bot o'yinchi ham tanlov qilishi
-    setTimeout(() => {
-      setGameState(prev => {
-        if (prev.status === 'playing' && !prev.opponentChoice) {
-          makeBotChoice();
-        }
-        return prev;
-      });
-    }, Math.floor(Math.random() * 3000) + 2000);
-    
-    // O'yin vaqti
+    // Agar siz ham tanlagan bo'lsangiz, natijani hisoblash
+    if (gameState.myChoice) {
+      setTimeout(() => calculateResult(gameState.myChoice, opponentChoice), 1000);
+    }
+  };
+
+  // 🔹 O'YIN TAYMERI
+  const startGameTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     
     timerRef.current = setInterval(() => {
@@ -453,25 +438,37 @@ function App() {
     }, 1000);
   };
 
-  // 🔹 BOT TANLOVI
-  const makeBotChoice = () => {
-    const choices = ['rock', 'paper', 'scissors'];
-    const botChoice = choices[Math.floor(Math.random() * choices.length)];
+  // 🔹 XONA TAYMERI
+  const startRoomTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
     
-    setGameState(prev => ({
-      ...prev,
-      opponentChoice: botChoice
-    }));
+    let timeLeft = 60;
     
-    // Agar ikkala o'yinchi ham tanlagan bo'lsa, natijani hisoblash
-    if (gameState.myChoice) {
-      setTimeout(() => calculateResult(gameState.myChoice, botChoice), 1000);
-    }
+    timerRef.current = setInterval(() => {
+      timeLeft -= 1;
+      
+      setGameState(prev => ({
+        ...prev,
+        timer: timeLeft
+      }));
+      
+      if (timeLeft <= 0) {
+        clearInterval(timerRef.current);
+        
+        // Agar raqib kelmasa, bot bilan o'ynash
+        if (gameState.status === 'waiting') {
+          showNotification('⏰ Raqib kelmadi. Bot bilan o\'ynaysiz.', 'info');
+          setTimeout(() => {
+            playWithBot();
+          }, 1000);
+        }
+      }
+    }, 1000);
   };
 
   // 🔹 BOT BILAN O'YNASH
   const playWithBot = () => {
-    const botNames = ['Bot_Junior', 'Bot_Pro'];
+    const botNames = ['Bot_Pro', 'Bot_Master', 'Bot_Champion', 'Bot_Expert'];
     const randomName = botNames[Math.floor(Math.random() * botNames.length)];
     
     setGameState(prev => ({
@@ -481,17 +478,79 @@ function App() {
         id: 999999,
         firstName: randomName,
         username: 'auto_bot',
-        isBot: true
+        isBot: true,
+        isRealPlayer: false
       },
-      timer: 30
+      timer: 60
     }));
     
     showNotification('🤖 Bot bilan o\'ynaysiz', 'info');
     
-    // Bot tezroq tanlov qiladi
+    startGameTimer();
+  };
+
+  // 🔹 TEZKOR O'YIN (RANDOM RAQIB)
+  const startQuickGame = () => {
+    if (!user) {
+      showNotification('❌ Foydalanuvchi ma\'lumotlari mavjud emas', 'error');
+      return;
+    }
+    
+    // Oldingi taymerni tozalash
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    setGameState({
+      status: 'searching',
+      opponent: null,
+      opponentPhoto: null,
+      myChoice: null,
+      opponentChoice: null,
+      result: null,
+      timer: 30,
+      gameId: null,
+      roomCode: null,
+      playersInRoom: 0
+    });
+    
+    showNotification('🔍 Raqib qidirilmoqda...', 'info');
+    
+    // 3-8 soniya kutish (simulyatsiya)
+    const searchTime = Math.floor(Math.random() * 5000) + 3000;
+    
+    const searchTimer = setInterval(() => {
+      setGameState(prev => {
+        const newTimer = prev.timer - 1;
+        
+        if (newTimer <= 0) {
+          clearInterval(searchTimer);
+          showNotification('❌ Raqib topilmadi', 'error');
+          setGameState({ ...prev, status: 'idle', timer: 60 });
+          return prev;
+        }
+        
+        return { ...prev, timer: newTimer };
+      });
+    }, 1000);
+    
+    // Raqib topish
     setTimeout(() => {
-      makeBotChoice();
-    }, 1500);
+      clearInterval(searchTimer);
+      
+      const opponentNames = ['Alex', 'Sarah', 'Mike', 'Luna', 'David', 'Emma', 'John', 'Anna'];
+      const randomName = opponentNames[Math.floor(Math.random() * opponentNames.length)];
+      
+      // 80% ehtimollik bilan "haqiqiy o'yinchi" topiladi
+      if (Math.random() > 0.2) {
+        startGameWithOpponent(randomName, true);
+        showNotification(`🎯 Raqib topildi: ${randomName}!`, 'success');
+      } else {
+        // 20% ehtimollik bilan bot
+        playWithBot();
+      }
+    }, searchTime);
   };
 
   // 🔹 TANLOV QILISH
@@ -515,13 +574,16 @@ function App() {
     // Agar raqib ham tanlagan bo'lsa, natijani hisoblash
     if (gameState.opponentChoice) {
       setTimeout(() => calculateResult(choice, gameState.opponentChoice), 1000);
-    } else if (gameState.opponent?.isBot) {
-      // Agar bot bo'lsa, u ham tezroq tanlaydi
+    } else if (!gameState.opponent?.isBot) {
+      // Agar haqiqiy o'yinchi bo'lsa, uning tanlovini kutish
+      showNotification('⏳ Raqib tanlov qilishini kuting...', 'info');
+      
+      // 2-5 soniyadan keyin raqib tanlov qiladi
       setTimeout(() => {
         if (!gameState.opponentChoice) {
-          makeBotChoice();
+          simulateOpponentChoice();
         }
-      }, 500);
+      }, Math.floor(Math.random() * 3000) + 2000);
     }
   };
 
@@ -529,7 +591,6 @@ function App() {
   const calculateResult = (playerChoice, opponentChoice) => {
     if (!playerChoice || !opponentChoice) return;
     
-    // O'yin qoidalari
     const rules = {
       rock: { beats: 'scissors', loses: 'paper' },
       paper: { beats: 'rock', loses: 'scissors' },
@@ -538,20 +599,21 @@ function App() {
     
     let result;
     let coinsEarned = 0;
+    let isDuel = !gameState.opponent?.isBot;
     
     if (playerChoice === opponentChoice) {
       result = 'draw';
-      coinsEarned = 20;
+      coinsEarned = isDuel ? 25 : 20; // Duelda ko'proq koin
     } else if (rules[playerChoice].beats === opponentChoice) {
       result = 'win';
-      coinsEarned = 50;
+      coinsEarned = isDuel ? 75 : 50; // Duelda ko'proq koin
       
       // Bonus: ketma-ket g'alaba
       const winStreak = dailyStatus.streak || 1;
-      coinsEarned += Math.min(winStreak * 5, 100);
+      coinsEarned += Math.min(winStreak * 10, 150);
     } else {
       result = 'lose';
-      coinsEarned = 10;
+      coinsEarned = isDuel ? 15 : 10; // Duelda biroz ko'proq
     }
     
     // Taymerni to'xtatish
@@ -573,31 +635,42 @@ function App() {
     
     // Statistika yangilash
     setUserStats(prev => {
-      const newStats = { ...prev, totalGames: prev.totalGames + 1 };
-      if (result === 'win') newStats.wins += 1;
-      else if (result === 'lose') newStats.losses += 1;
-      else newStats.draws += 1;
+      const newStats = { 
+        ...prev, 
+        totalGames: prev.totalGames + 1,
+        duelsPlayed: isDuel ? prev.duelsPlayed + 1 : prev.duelsPlayed
+      };
       
-      // G'alaba foizi
+      if (result === 'win') {
+        newStats.wins += 1;
+        if (isDuel) newStats.duelsWon += 1;
+      } else if (result === 'lose') {
+        newStats.losses += 1;
+      } else {
+        newStats.draws += 1;
+      }
+      
       newStats.winRate = Math.round((newStats.wins / newStats.totalGames) * 100);
       return newStats;
     });
     
+    // Kunlik streak yangilash
+    if (result === 'win') {
+      setDailyStatus(prev => ({
+        ...prev,
+        streak: (prev.streak || 0) + 1
+      }));
+    }
+    
     // Natija haqida xabar
+    const opponentType = gameState.opponent?.isBot ? 'Bot' : 'O\'yinchi';
     const resultMessages = {
-      win: `🏆 G'alaba! +${coinsEarned} koin qozondingiz!`,
-      lose: `😔 Mag'lubiyat! +${coinsEarned} koin qozondingiz`,
-      draw: `🤝 Durrang! +${coinsEarned} koin qozondingiz`
+      win: `🏆 G'alaba! ${opponentType}ni mag'lub etdingiz! +${coinsEarned} koin`,
+      lose: `😔 Mag'lubiyat! ${opponentType}ga yutqazdingiz. +${coinsEarned} koin`,
+      draw: `🤝 Durrang! ${opponentType} bilan teng. +${coinsEarned} koin`
     };
     
     showNotification(resultMessages[result], result === 'win' ? 'success' : 'info');
-    
-    // Asosiy tugmani qayta ko'rsatish
-    if (window.Telegram?.WebApp) {
-      setTimeout(() => {
-        window.Telegram.WebApp.MainButton.show();
-      }, 2000);
-    }
   };
 
   // 🔹 O'YINNI TUGATISH
@@ -620,16 +693,54 @@ function App() {
       status: 'finished',
       result: result
     }));
-    
-    // Asosiy tugmani qayta ko'rsatish
-    if (window.Telegram?.WebApp) {
-      setTimeout(() => {
-        window.Telegram.WebApp.MainButton.show();
-      }, 1000);
-    }
   };
 
-  // 🔹 TANLOV NOMINI OLISH
+  // 🔹 O'YINNI QAYTA BOSHLASH
+  const restartGame = () => {
+    setGameState({
+      status: 'idle',
+      opponent: null,
+      opponentPhoto: null,
+      myChoice: null,
+      opponentChoice: null,
+      result: null,
+      timer: 60,
+      gameId: null,
+      roomCode: null,
+      playersInRoom: 0
+    });
+  };
+
+  // 🔹 XABAR KO'RSATISH
+  const showNotification = (message, type = 'info', duration = 3000) => {
+    setNotification({ message, type });
+    
+    if (notificationTimerRef.current) {
+      clearTimeout(notificationTimerRef.current);
+    }
+    
+    notificationTimerRef.current = setTimeout(() => {
+      setNotification(null);
+    }, duration);
+  };
+
+  // 🔹 TELEGRAM THEME MOSLASHUVI
+  const applyTelegramTheme = (tg) => {
+    const theme = tg.themeParams || {};
+    document.documentElement.style.setProperty('--tg-bg-color', theme.bg_color || '#1a1a1a');
+    document.documentElement.style.setProperty('--tg-text-color', theme.text_color || '#ffffff');
+  };
+
+  // 🔹 TELEGRAM TUGMALARI
+  const setupTelegramButtons = (tg) => {
+    tg.MainButton.setText("⚡ Tezkor O'yin");
+    tg.MainButton.color = "#31b545";
+    tg.MainButton.textColor = "#ffffff";
+    tg.MainButton.onClick(startQuickGame);
+    tg.MainButton.show();
+  };
+
+  // 🔹 YORDAMCHI FUNKSIYALAR
   const getChoiceName = (choice) => {
     switch (choice) {
       case 'rock': return 'Tosh';
@@ -639,7 +750,6 @@ function App() {
     }
   };
 
-  // 🔹 TANLOV EMOJISI
   const getChoiceEmoji = (choice) => {
     switch (choice) {
       case 'rock': return '✊';
@@ -649,25 +759,13 @@ function App() {
     }
   };
 
-  // 🔹 RARITY RANGI
-  const getRarityColor = (rarity) => {
-    switch (rarity) {
-      case 'common': return '#808080';
-      case 'rare': return '#1E90FF';
-      case 'epic': return '#9370DB';
-      case 'legendary': return '#FFD700';
-      default: return '#808080';
-    }
-  };
-
-  // 🔹 PROFIL RASMINI KO'RSATISH
-  const getProfileImage = (photoUrl, firstName, size = 40, hasFrame = false) => {
+  const getProfileImage = (photoUrl, firstName, size = 40) => {
     const style = {
       width: `${size}px`,
       height: `${size}px`,
       borderRadius: '50%',
       objectFit: 'cover',
-      border: hasFrame ? '3px solid #FFD700' : '2px solid #31b545',
+      border: '2px solid #31b545',
       backgroundColor: '#2a2a2a',
       display: 'flex',
       alignItems: 'center',
@@ -679,21 +777,11 @@ function App() {
     
     if (photoUrl) {
       return (
-        <div className="profile-image-container" style={{ position: 'relative' }}>
-          <img 
-            src={photoUrl} 
-            alt={firstName}
-            style={style}
-            onError={(e) => {
-              e.target.style.display = 'none';
-              e.target.parentElement.innerHTML = `
-                <div style="${Object.entries(style).map(([k, v]) => `${k}: ${v}`).join(';')}">
-                  ${firstName?.[0]?.toUpperCase() || 'U'}
-                </div>
-              `;
-            }}
-          />
-        </div>
+        <img 
+          src={photoUrl} 
+          alt={firstName}
+          style={style}
+        />
       );
     }
     
@@ -710,8 +798,7 @@ function App() {
       <div className="app loading">
         <div className="loading-content">
           <div className="spinner"></div>
-          <h2>Telegram O'yin Yuklanmoqda...</h2>
-          <p>Iltimos, biroz kuting</p>
+          <h2>O'yin Yuklanmoqda...</h2>
         </div>
       </div>
     );
@@ -733,7 +820,7 @@ function App() {
           <div className="connection-status">
             <span className={`status-dot ${connectionStatus}`}></span>
             <span className="status-text">
-              {connectionStatus === 'connected' ? 'Online' : 'Offline'}
+              {connectionStatus === 'online' ? 'Online' : 'Offline'}
             </span>
           </div>
         </div>
@@ -741,42 +828,18 @@ function App() {
         <div className="header-right">
           {/* 💰 KOIN PANELI */}
           <div className="coins-panel">
-            <div className="coins-display" title="Koinlar">
+            <div className="coins-display">
               <span className="coin-icon">🪙</span>
               <span className="coin-amount">{userCoins.toLocaleString()}</span>
             </div>
-            <button 
-              className={`daily-bonus-btn ${dailyStatus.available ? 'available' : 'unavailable'}`}
-              onClick={() => {
-                const bonusAmount = 100 + (dailyStatus.streak || 0) * 25;
-                const newStreak = (dailyStatus.streak || 0) + 1;
-                
-                setUserCoins(prev => prev + bonusAmount);
-                setDailyStatus(prev => ({
-                  ...prev,
-                  available: false,
-                  streak: newStreak,
-                  lastClaim: Date.now()
-                }));
-                
-                showNotification(`🎉 +${bonusAmount} koin! (${newStreak} kun ketma-ket)`, 'success');
-              }}
-              title={dailyStatus.available ? 'Kunlik bonus olish' : 'Kunlik bonus tugadi'}
-            >
-              <span className="bonus-icon">🎁</span>
-              {dailyStatus.streak > 0 && (
-                <span className="bonus-streak">{dailyStatus.streak}</span>
-              )}
-            </button>
           </div>
           
           {/* 👤 PROFIL */}
           <button 
             className="profile-btn"
             onClick={() => setShowProfile(true)}
-            aria-label="Profil"
           >
-            {getProfileImage(userPhoto, user?.first_name, 40, true)}
+            {getProfileImage(userPhoto, user?.first_name, 40)}
           </button>
         </div>
       </header>
@@ -787,107 +850,194 @@ function App() {
         {gameState.status === 'idle' && !showShop && !showProfile && !showLeaderboard && (
           <div className="game-screen idle-screen">
             <div className="welcome-message">
-              <h2>Salom, {user?.first_name || 'Foydalanuvchi'}! 👋</h2>
-              <p>Raqibingizni mag'lub qiling va koinlar yuting! 🏆</p>
+              <h2>Salom, {user?.first_name}! 👋</h2>
+              <p>Haqiqiy o'yinchilar bilan kurashing! 🏆</p>
             </div>
             
-            <div className="quick-stats">
-              <div className="quick-stat">
-                <span className="stat-icon">🪙</span>
-                <span className="stat-text">{userCoins.toLocaleString()} koin</span>
+            <div className="game-modes">
+              <div className="mode-card quick-game" onClick={startQuickGame}>
+                <div className="mode-icon">⚡</div>
+                <div className="mode-info">
+                  <h3>Tezkor O'yin</h3>
+                  <p>Random raqib bilan o'ynash</p>
+                  <div className="mode-stats">
+                    <span className="stat">👥 {activeRooms.length} faol</span>
+                    <span className="stat">⏱️ 30s</span>
+                  </div>
+                </div>
               </div>
-              <div className="quick-stat">
-                <span className="stat-icon">🔥</span>
-                <span className="stat-text">{dailyStatus.streak || 0} kun streak</span>
+              
+              <div className="mode-card create-room" onClick={() => setShowCreateRoom(true)}>
+                <div className="mode-icon">🏠</div>
+                <div className="mode-info">
+                  <h3>Xona Yaratish</h3>
+                  <p>Do'stlaringizni taklif qiling</p>
+                  <div className="mode-stats">
+                    <span className="stat">🔐 Maxfiylik</span>
+                    <span className="stat">👥 1-2 o'yinchi</span>
+                  </div>
+                </div>
               </div>
-              <div className="quick-stat">
-                <span className="stat-icon">👥</span>
-                <span className="stat-text">{leaderboard.length} o'yinchi</span>
+              
+              <div className="mode-card join-room" onClick={() => setShowJoinRoom(true)}>
+                <div className="mode-icon">🔗</div>
+                <div className="mode-info">
+                  <h3>Xonaga Ulanish</h3>
+                  <p>Kod orqali xonaga ulaning</p>
+                  <div className="mode-stats">
+                    <span className="stat">🎯 Do'st bilan</span>
+                    <span className="stat">🎮 Haqiqiy duel</span>
+                  </div>
+                </div>
               </div>
             </div>
             
-            <div className="game-rules">
-              <h3>📖 O'yin qoidalari:</h3>
-              <ul className="rules-list">
-                <li><span>✊</span> Tosh qaychini yengadi</li>
-                <li><span>✌️</span> Qaychi qog'ozni yengadi</li>
-                <li><span>✋</span> Qog'oz toshni yengadi</li>
-                <li><span>🏆</span> G'alaba: +50 koin</li>
-                <li><span>🤝</span> Durrang: +20 koin</li>
-                <li><span>🎁</span> Har kun: Daily bonus</li>
-              </ul>
+            {/* FAOL XONALAR */}
+            <div className="active-rooms">
+              <h3>🏆 Faol Xonalar ({activeRooms.length})</h3>
+              <div className="rooms-list">
+                {activeRooms.slice(0, 5).map(room => (
+                  <div key={room.code} className="room-item">
+                    <div className="room-code">{room.code}</div>
+                    <div className="room-info">
+                      <div className="room-host">👑 {room.host}</div>
+                      <div className="room-players">
+                        👥 {room.players}/{room.maxPlayers}
+                      </div>
+                    </div>
+                    <button 
+                      className="join-room-btn"
+                      onClick={() => joinRoom(room.code)}
+                      disabled={room.players >= room.maxPlayers}
+                    >
+                      {room.players >= room.maxPlayers ? 'To\'ldi' : 'Ulanish'}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
             
-            <div className="action-buttons">
-              <button className="secondary-btn" onClick={() => setShowProfile(true)}>
-                👤 Profil
-              </button>
-              <button className="secondary-btn" onClick={() => setShowShop(true)}>
-                🛒 Do'kon
-              </button>
-              <button className="secondary-btn" onClick={() => setShowLeaderboard(true)}>
-                📊 Reyting
+            {/* DO'STLAR */}
+            <div className="friends-section">
+              <h3>👥 Do'stlar ({friends.filter(f => f.isOnline).length} online)</h3>
+              <div className="friends-list">
+                {friends.slice(0, 4).map(friend => (
+                  <div key={friend.id} className="friend-item">
+                    <div className="friend-avatar">
+                      {getProfileImage(null, friend.name, 32)}
+                      <span className={`online-status ${friend.isOnline ? 'online' : 'offline'}`}></span>
+                    </div>
+                    <div className="friend-info">
+                      <div className="friend-name">{friend.name}</div>
+                      <div className="friend-username">@{friend.username}</div>
+                    </div>
+                    <button 
+                      className="play-friend-btn"
+                      onClick={() => playWithFriend(friend)}
+                      disabled={!friend.isOnline}
+                    >
+                      🎮 O'ynash
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* STATISTIKA */}
+            <div className="user-stats">
+              <div className="stat-row">
+                <div className="stat-item">
+                  <span className="stat-label">Duel G'alaba:</span>
+                  <span className="stat-value">{userStats.duelsWon}/{userStats.duelsPlayed}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Umumiy G'alaba:</span>
+                  <span className="stat-value">{userStats.winRate}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* SEARCHING - Raqib qidirilmoqda */}
+        {gameState.status === 'searching' && (
+          <div className="game-screen searching-screen">
+            <div className="searching-content">
+              <div className="spinner large"></div>
+              <h2>Raqib qidirilmoqda...</h2>
+              
+              <div className="searching-animation">
+                <span className="dot">.</span>
+                <span className="dot">.</span>
+                <span className="dot">.</span>
+              </div>
+              
+              <div className="searching-stats">
+                <div className="searching-stat">
+                  <div className="stat-icon">⏱️</div>
+                  <div className="stat-value">{gameState.timer}s</div>
+                  <div className="stat-label">qoldi</div>
+                </div>
+                <div className="searching-stat">
+                  <div className="stat-icon">👥</div>
+                  <div className="stat-value">{activeRooms.length}</div>
+                  <div className="stat-label">faol o'yinchi</div>
+                </div>
+              </div>
+              
+              <div className="searching-tips">
+                <p>💡 <strong>Maslahat:</strong> Xona yaratib do'stlaringizni taklif qiling!</p>
+              </div>
+              
+              <button className="cancel-btn" onClick={restartGame}>
+                ❌ Bekor qilish
               </button>
             </div>
           </div>
         )}
         
-        {/* WAITING - Raqib qidirilmoqda */}
+        {/* WAITING - Xonada kutish */}
         {gameState.status === 'waiting' && (
           <div className="game-screen waiting-screen">
             <div className="waiting-content">
-              <div className="spinner large"></div>
-              <h2>Raqib qidirilmoqda...</h2>
+              <h2>🏠 Xona: {gameState.roomCode}</h2>
+              <p>Do'stlaringizni taklif qiling!</p>
               
-              <div className="waiting-animation">
-                <span className="dot">.</span>
-                <span className="dot">.</span>
-                <span className="dot">.</span>
-              </div>
-              
-              <div className="waiting-stats">
-                <div className="waiting-stat">
-                  <div className="stat-icon">⏱️</div>
-                  <div className="stat-value">{gameState.timer}s</div>
-                  <div className="stat-label">qoldi</div>
-                </div>
-                <div className="waiting-stat">
-                  <div className="stat-icon">👤</div>
-                  <div className="stat-value">1</div>
-                  <div className="stat-label">siz</div>
-                </div>
-                <div className="waiting-stat">
-                  <div className="stat-icon">👥</div>
-                  <div className="stat-value">?</div>
-                  <div className="stat-label">raqib</div>
+              <div className="room-info">
+                <div className="room-code-large">{gameState.roomCode}</div>
+                <div className="players-count">
+                  👥 {gameState.playersInRoom}/2 o'yinchi
                 </div>
               </div>
               
-              <div className="waiting-tips">
-                <p>💡 <strong>Maslahat:</strong> Do'stlaringizni taklif qiling tezroq o'ynash uchun!</p>
+              <div className="timer-display">
+                <div className="timer-icon">⏰</div>
+                <div className="timer-value">{gameState.timer}s</div>
+              </div>
+              
+              <div className="share-section">
+                <h4>Xonani ulashing:</h4>
+                <div className="share-buttons">
+                  <button className="share-btn" onClick={() => {
+                    navigator.clipboard.writeText(gameState.roomCode);
+                    showNotification('✅ Xona kodi nusxalandi!');
+                  }}>
+                    📋 Nusxalash
+                  </button>
+                  <button className="share-btn" onClick={() => {
+                    showNotification('📢 Xona havolasi yaratildi!');
+                  }}>
+                    🔗 Havola
+                  </button>
+                </div>
               </div>
               
               <div className="waiting-actions">
-                <button className="cancel-btn" onClick={() => {
-                  setGameState({
-                    status: 'idle',
-                    opponent: null,
-                    opponentPhoto: null,
-                    myChoice: null,
-                    opponentChoice: null,
-                    result: null,
-                    timer: 60,
-                    gameId: null
-                  });
-                  
-                  if (window.Telegram?.WebApp) {
-                    window.Telegram.WebApp.MainButton.show();
-                  }
-                }}>
-                  ❌ Bekor qilish
+                <button className="cancel-btn" onClick={restartGame}>
+                  ❌ Xonani yopish
                 </button>
-                <button className="retry-btn" onClick={startNewGame}>
-                  🔄 Qayta urinish
+                <button className="start-bot-btn" onClick={playWithBot}>
+                  🤖 Bot bilan boshlash
                 </button>
               </div>
             </div>
@@ -900,18 +1050,13 @@ function App() {
             <div className="playing-content">
               {/* Raqib ma'lumotlari */}
               <div className="opponent-info">
-                <h3>👤 Raqib:</h3>
-                <div className="opponent-card">
-                  <div className="opponent-avatar">
-                    {getProfileImage(gameState.opponentPhoto, gameState.opponent?.firstName, 50, false)}
-                  </div>
-                  <div className="opponent-details">
-                    <h4>{gameState.opponent?.firstName || 'Raqib'}</h4>
-                    <p className="opponent-status">
-                      {gameState.opponent?.isBot ? '🤖 Bot' : '👤 O\'yinchi'}
-                    </p>
-                  </div>
+                <div className="player-type-badge">
+                  {gameState.opponent?.isBot ? '🤖 Bot' : '👤 Haqiqiy O\'yinchi'}
                 </div>
+                <h3>{gameState.opponent?.firstName || 'Raqib'}</h3>
+                <p className="opponent-type">
+                  {gameState.opponent?.isRealPlayer ? 'Haqiqiy duel!' : 'Bot bilan o\'yin'}
+                </p>
               </div>
               
               {/* Taymer */}
@@ -962,7 +1107,7 @@ function App() {
                       {getChoiceEmoji(gameState.myChoice)}
                     </div>
                     <div className="choice-status">
-                      {gameState.myChoice ? '✅ Tanlandi' : '⌛ Kutmoqda'}
+                      {gameState.myChoice ? '✅ Tanlandi' : '⌛ Tanlov qiling'}
                     </div>
                   </div>
                 </div>
@@ -971,7 +1116,9 @@ function App() {
                 
                 <div className="choice-container opponent-choice">
                   <div className="choice-box opponent">
-                    <div className="choice-label">Raqib</div>
+                    <div className="choice-label">
+                      {gameState.opponent?.firstName || 'Raqib'}
+                    </div>
                     <div className="choice-emoji-large">
                       {getChoiceEmoji(gameState.opponentChoice)}
                     </div>
@@ -980,6 +1127,19 @@ function App() {
                     </div>
                   </div>
                 </div>
+              </div>
+              
+              {/* O'yin holati */}
+              <div className="game-status">
+                {gameState.myChoice && !gameState.opponentChoice && (
+                  <p>⏳ Raqib tanlov qilishini kuting...</p>
+                )}
+                {gameState.opponentChoice && !gameState.myChoice && (
+                  <p>🎯 Raqib tanlov qildi! Siz ham tanlang!</p>
+                )}
+                {gameState.myChoice && gameState.opponentChoice && (
+                  <p>⚡ Natija hisoblanmoqda...</p>
+                )}
               </div>
             </div>
           </div>
@@ -996,57 +1156,135 @@ function App() {
                  '⏰ VAQT TUGADI'}
               </h2>
               
+              <div className="opponent-type-result">
+                {gameState.opponent?.isBot ? '🤖 Bot bilan o\'yin' : '👤 Haqiqiy duel!'}
+              </div>
+              
               <div className="final-choices">
                 <div className="final-choice">
                   <div className="choice-player">Siz</div>
                   <div className="choice-emoji-final">{getChoiceEmoji(gameState.myChoice)}</div>
                   <div className="choice-name">
-                    {gameState.myChoice === 'rock' ? 'Tosh' : 
-                     gameState.myChoice === 'paper' ? 'Qog\'oz' : 'Qaychi'}
+                    {getChoiceName(gameState.myChoice)}
                   </div>
                 </div>
                 
                 <div className="vs-final">VS</div>
                 
                 <div className="final-choice">
-                  <div className="choice-player">Raqib</div>
+                  <div className="choice-player">
+                    {gameState.opponent?.firstName || 'Raqib'}
+                  </div>
                   <div className="choice-emoji-final">{getChoiceEmoji(gameState.opponentChoice)}</div>
                   <div className="choice-name">
-                    {gameState.opponentChoice === 'rock' ? 'Tosh' : 
-                     gameState.opponentChoice === 'paper' ? 'Qog\'oz' : 'Qaychi'}
+                    {getChoiceName(gameState.opponentChoice)}
                   </div>
                 </div>
               </div>
               
-              <div className="result-message">
-                {gameState.result === 'win' && 'Tabriklaymiz! Siz raqibingizni mag\'lub etdingiz! 🎉'}
-                {gameState.result === 'lose' && 'Afsuski, raqibingiz sizni mag\'lub etdi. Keyingi safar omad!'}
-                {gameState.result === 'draw' && 'Qiziq! Ikkalangiz ham teng kuchdasiz!'}
-                {gameState.result === 'timeout' && 'Vaqt tugadi. Keyingi safar tezroq harakat qiling!'}
-              </div>
-              
               <div className="result-actions">
-                <button className="play-again-btn" onClick={startNewGame}>
+                <button className="play-again-btn" onClick={startQuickGame}>
                   🔄 YANA O'YNA
                 </button>
-                <button className="menu-btn" onClick={() => {
-                  setGameState({
-                    status: 'idle',
-                    opponent: null,
-                    opponentPhoto: null,
-                    myChoice: null,
-                    opponentChoice: null,
-                    result: null,
-                    timer: 60,
-                    gameId: null
-                  });
-                  
-                  if (window.Telegram?.WebApp) {
-                    window.Telegram.WebApp.MainButton.show();
-                  }
-                }}>
+                <button className="menu-btn" onClick={restartGame}>
                   📋 Bosh menyu
                 </button>
+                <button className="room-btn" onClick={() => setShowCreateRoom(true)}>
+                  🏠 Xona Yaratish
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* XONA YARATISH MODALI */}
+        {showCreateRoom && (
+          <div className="modal-overlay">
+            <div className="modal create-room-modal">
+              <div className="modal-header">
+                <h2>🏠 Xona Yaratish</h2>
+                <button className="modal-close" onClick={() => setShowCreateRoom(false)}>✕</button>
+              </div>
+              
+              <div className="modal-content">
+                <p>Xona yaratib, do'stlaringizni taklif qiling!</p>
+                
+                <div className="room-settings">
+                  <div className="setting-item">
+                    <span className="setting-label">O'yinchilar:</span>
+                    <span className="setting-value">2 kishi</span>
+                  </div>
+                  <div className="setting-item">
+                    <span className="setting-label">Vaqt:</span>
+                    <span className="setting-value">60 soniya</span>
+                  </div>
+                  <div className="setting-item">
+                    <span className="setting-label">Koinlar:</span>
+                    <span className="setting-value">2x ko'paytirilgan</span>
+                  </div>
+                </div>
+                
+                <button className="create-room-btn" onClick={createRoom}>
+                  🏠 XONA YARATISH
+                </button>
+                
+                <div className="modal-footer">
+                  <p>🎯 Do'stlaringizga xona kodini yuboring!</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* XONAGA ULANISH MODALI */}
+        {showJoinRoom && (
+          <div className="modal-overlay">
+            <div className="modal join-room-modal">
+              <div className="modal-header">
+                <h2>🔗 Xonaga Ulanish</h2>
+                <button className="modal-close" onClick={() => setShowJoinRoom(false)}>✕</button>
+              </div>
+              
+              <div className="modal-content">
+                <div className="input-group">
+                  <label>Xona kodi:</label>
+                  <input
+                    type="text"
+                    placeholder="Masalan: ABC123"
+                    value={roomCodeInput}
+                    onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                    maxLength={6}
+                  />
+                </div>
+                
+                <button 
+                  className="join-btn"
+                  onClick={() => joinRoom(roomCodeInput)}
+                  disabled={roomCodeInput.length !== 6}
+                >
+                  🔗 XONAGA ULANISH
+                </button>
+                
+                <div className="active-rooms-list">
+                  <h4>💡 Faol xonalar:</h4>
+                  {activeRooms.slice(0, 3).map(room => (
+                    <div key={room.code} className="suggested-room">
+                      <span>{room.code}</span>
+                      <span>👑 {room.host}</span>
+                      <span>👥 {room.players}/2</span>
+                      <button 
+                        className="quick-join-btn"
+                        onClick={() => {
+                          setRoomCodeInput(room.code);
+                          joinRoom(room.code);
+                        }}
+                        disabled={room.players >= 2}
+                      >
+                        Ulanish
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -1063,13 +1301,11 @@ function App() {
               
               <div className="profile-info">
                 <div className="profile-avatar">
-                  {getProfileImage(userPhoto, user?.first_name, 80, true)}
+                  {getProfileImage(userPhoto, user?.first_name, 80)}
                 </div>
-                
                 <div className="profile-details">
-                  <h3>{user?.first_name || 'Foydalanuvchi'}</h3>
-                  <p className="username">@{user?.username || 'noma\'lum'}</p>
-                  <div className="user-id">ID: {user?.id || '000000'}</div>
+                  <h3>{user?.first_name}</h3>
+                  <p>@{user?.username || 'noma\'lum'}</p>
                 </div>
               </div>
               
@@ -1083,18 +1319,18 @@ function App() {
                 </div>
                 
                 <div className="stat-card">
-                  <div className="stat-icon">🏆</div>
+                  <div className="stat-icon">⚔️</div>
                   <div className="stat-content">
-                    <div className="stat-label">G'alaba</div>
-                    <div className="stat-value">{userStats.wins}</div>
+                    <div className="stat-label">Duel G'alaba</div>
+                    <div className="stat-value">{userStats.duelsWon}</div>
                   </div>
                 </div>
                 
                 <div className="stat-card">
-                  <div className="stat-icon">📊</div>
+                  <div className="stat-icon">🏆</div>
                   <div className="stat-content">
-                    <div className="stat-label">Reyting</div>
-                    <div className="stat-value">#{userStats.rank}</div>
+                    <div className="stat-label">Umumiy G'alaba</div>
+                    <div className="stat-value">{userStats.wins}</div>
                   </div>
                 </div>
                 
@@ -1102,17 +1338,17 @@ function App() {
                   <div className="stat-icon">🔥</div>
                   <div className="stat-content">
                     <div className="stat-label">Streak</div>
-                    <div className="stat-value">{dailyStatus.streak || 0} kun</div>
+                    <div className="stat-value">{dailyStatus.streak} kun</div>
                   </div>
                 </div>
               </div>
               
               <div className="profile-actions">
-                <button className="action-btn" onClick={() => { setShowShop(true); setShowProfile(false); }}>
-                  🛒 Do'kon
+                <button className="action-btn" onClick={startQuickGame}>
+                  ⚡ Tezkor O'yin
                 </button>
-                <button className="action-btn" onClick={() => { setShowLeaderboard(true); setShowProfile(false); }}>
-                  📊 Reyting
+                <button className="action-btn" onClick={() => setShowCreateRoom(true)}>
+                  🏠 Xona Yaratish
                 </button>
               </div>
             </div>
@@ -1123,8 +1359,10 @@ function App() {
       {/* 🦶 FOOTER */}
       <footer className="footer">
         <div className="footer-content">
-          <p className="footer-title">🎮 Telegram Mini App • Tosh-Qaychi-Qog'oz</p>
-          <p className="footer-copyright">© 2024 - Offline Demo Version</p>
+          <p className="footer-title">🎮 Tosh-Qaychi-Qog'oz • Haqiqiy Duel</p>
+          <p className="footer-info">
+            {activeRooms.length} faol xona • {friends.filter(f => f.isOnline).length} online o'yinchi
+          </p>
         </div>
       </footer>
     </div>
