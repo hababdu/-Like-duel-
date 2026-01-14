@@ -799,22 +799,6 @@ main {
   font-size: 0.9rem;
 }
 
-.cancel-btn {
-  background: var(--danger-color);
-  color: white;
-  border: none;
-  padding: 12px 30px;
-  border-radius: 8px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.3s;
-  margin-top: 20px;
-}
-
-.cancel-btn:hover {
-  background: #c0392b;
-}
-
 /* Playing ekran */
 .playing {
   padding: 20px;
@@ -1237,4 +1221,123 @@ footer {
   border-top: 5px solid var(--primary-color);
   border-radius: 50%;
   animation: spin 1s linear infinite;
+}
+/* Kutish animatsiyasi */
+.searching-animation {
+  margin: 20px 0;
+}
+
+.searching-text {
+  font-size: 2rem;
+  color: #4CAF50;
+}
+
+.searching-dot {
+  opacity: 0;
+  animation: searching 1.5s infinite;
+}
+
+.searching-dot:nth-child(1) { animation-delay: 0s; }
+.searching-dot:nth-child(2) { animation-delay: 0.5s; }
+.searching-dot:nth-child(3) { animation-delay: 1s; }
+
+@keyframes searching {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+/* Waiting stats */
+.waiting-stats {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin: 20px 0;
+}
+
+.waiting-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 10px;
+  min-width: 100px;
+}
+
+.waiting-stat .stat-icon {
+  font-size: 2rem;
+  margin-bottom: 5px;
+}
+
+.waiting-stat .stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #4CAF50;
+}
+
+.waiting-stat .stat-label {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+/* Waiting tips */
+.waiting-tips {
+  background: rgba(76, 175, 80, 0.1);
+  border-radius: 10px;
+  padding: 15px;
+  margin: 20px 0;
+  text-align: left;
+  max-width: 400px;
+}
+
+.waiting-tips h4 {
+  margin: 0 0 10px 0;
+  color: #4CAF50;
+}
+
+.waiting-tips ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.waiting-tips li {
+  margin: 5px 0;
+  font-size: 0.9rem;
+}
+
+/* Waiting actions */
+.waiting-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.cancel-btn {
+  background: #ff4757;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.cancel-btn:hover {
+  background: #ff3838;
+}
+
+.refresh-btn {
+  background: #3742fa;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.refresh-btn:hover {
+  background: #2f34d4;
 }

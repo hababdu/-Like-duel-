@@ -751,30 +751,59 @@ function App() {
         )}
         
         {/* WAITING - Raqib kutilmoqda */}
-        {gameState.status === 'waiting' && (
-          <div className="game-screen waiting">
-            <div className="loader">
-              <div className="spinner"></div>
-              <h2>Raqib qidirilmoqda...</h2>
-              <p>Kutish vaqti: {gameState.timer}s</p>
-              
-              <div className="searching">
-                <div className="dot"></div>
-                <div className="dot"></div>
-                <div className="dot"></div>
-              </div>
-              
-              <div className="waiting-info">
-                <p>Raqib topilganda sizga bildirish beriladi</p>
-                <p>💡 Maslahat: Do'kondan sovg'alar sotib oling va kiyish orqali statistikangizni oshiring!</p>
-              </div>
-              
-              <button className="cancel-btn" onClick={restartGame}>
-                Bekor qilish
-              </button>
-            </div>
-          </div>
-        )}
+        // WAITING - Raqib kutilmoqda
+{gameState.status === 'waiting' && (
+  <div className="game-screen waiting">
+    <div className="loader">
+      <div className="spinner"></div>
+      <h2>Raqib qidirilmoqda...</h2>
+      
+      <div className="searching-animation">
+        <div className="searching-text">
+          <span className="searching-dot">.</span>
+          <span className="searching-dot">.</span>
+          <span className="searching-dot">.</span>
+        </div>
+      </div>
+      
+      <div className="waiting-stats">
+        <div className="waiting-stat">
+          <span className="stat-icon">⏱️</span>
+          <span className="stat-value">{gameState.timer}s</span>
+          <span className="stat-label">qoldi</span>
+        </div>
+        
+        <div className="waiting-stat">
+          <span className="stat-icon">👥</span>
+          <span className="stat-value">?</span>
+          <span className="stat-label">o'yinchi</span>
+        </div>
+      </div>
+      
+      <div className="waiting-tips">
+        <h4>💡 Tezkor raqib topish uchun:</h4>
+        <ul>
+          <li>Do'stlaringizni taklif qiling</li>
+          <li>Faqat o'yin davomida bo'ling</li>
+          <li>Internet aloqasini tekshiring</li>
+        </ul>
+      </div>
+      
+      <div className="waiting-actions">
+        <button className="cancel-btn" onClick={restartGame}>
+          ❌ Bekor qilish
+        </button>
+        
+        <button className="refresh-btn" onClick={() => {
+          restartGame();
+          setTimeout(startNewGame, 1000);
+        }}>
+          🔄 Qayta urinish
+        </button>
+      </div>
+    </div>
+  </div>
+)}
         
         {/* PLAYING - O'yin davom etmoqda */}
         {gameState.status === 'playing' && (
