@@ -1575,3 +1575,292 @@ body {
 .text-3xl { font-size: 32px; }
 .text-4xl { font-size: 40px; }
 .text-5xl { font-size: 48px; }
+
+
+/* Bot rejimi uchun qo'shimcha CSS */
+
+/* Bot menyusi */
+.bot-menu-section {
+  background: linear-gradient(135deg, #2a2a3e 0%, #1e1e2e 100%);
+  border-radius: 20px;
+  padding: 20px;
+  margin: 20px 0;
+  border: 2px solid #4a4a6e;
+  position: relative;
+  overflow: hidden;
+}
+
+.bot-menu-section::before {
+  content: "🤖";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 40px;
+  opacity: 0.1;
+}
+
+.ai-badge {
+  background: linear-gradient(45deg, #00bcd4, #0097a7);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Bot darajasi tanlovi */
+.difficulty-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.difficulty-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  border-radius: 15px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+
+.difficulty-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.difficulty-btn.selected {
+  border-color: #31b545;
+  background: rgba(49, 181, 69, 0.1);
+}
+
+.difficulty-btn.easy {
+  border-left: 4px solid #4CAF50;
+}
+
+.difficulty-btn.medium {
+  border-left: 4px solid #2196F3;
+}
+
+.difficulty-btn.hard {
+  border-left: 4px solid #FF5722;
+}
+
+.diff-icon {
+  font-size: 28px;
+  margin-right: 15px;
+}
+
+.diff-content {
+  flex: 1;
+}
+
+.diff-title {
+  display: block;
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.diff-desc {
+  display: block;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.diff-bonus {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+/* Mashq rejimi tugmalari */
+.practice-buttons {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.practice-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: bold;
+}
+
+.practice-btn:hover {
+  transform: scale(1.05);
+}
+
+.practice-btn.rock {
+  background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+  color: white;
+}
+
+.practice-btn.paper {
+  background: linear-gradient(135deg, #4ecdc4, #6de0d7);
+  color: white;
+}
+
+.practice-btn.scissors {
+  background: linear-gradient(135deg, #45b7d1, #68c9e3);
+  color: white;
+}
+
+/* Bot statistikasi */
+.bot-stats {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stats-grid-mini {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.stat-mini {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+
+.stat-mini .stat-icon {
+  display: block;
+  font-size: 20px;
+  margin-bottom: 5px;
+}
+
+.stat-mini .stat-value {
+  display: block;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.stat-mini .stat-label {
+  display: block;
+  font-size: 10px;
+  color: #aaa;
+  margin-top: 3px;
+}
+
+/* Bot o'yin ekrani */
+.bot-game .playing-header {
+  background: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%);
+  border-bottom: 2px solid #4a4a6e;
+}
+
+.bot-badge {
+  background: linear-gradient(45deg, #00bcd4, #0097a7);
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-right: 10px;
+}
+
+.practice-badge {
+  background: linear-gradient(45deg, #FF9800, #FF5722);
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-left: 10px;
+  font-size: 12px;
+}
+
+/* Bot AI ko'rsatkichlari */
+.bot-ai-indicator {
+  background: rgba(0, 188, 212, 0.1);
+  border-radius: 15px;
+  padding: 15px;
+  margin: 15px 0;
+  border: 2px solid rgba(0, 188, 212, 0.3);
+}
+
+.ai-label {
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #00bcd4;
+}
+
+.ai-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.ai-progress {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1s linear;
+}
+
+.ai-progress.easy {
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+}
+
+.ai-progress.medium {
+  background: linear-gradient(90deg, #2196F3, #03A9F4);
+}
+
+.ai-progress.hard {
+  background: linear-gradient(90deg, #FF5722, #FF9800);
+}
+
+.ai-hint {
+  font-size: 12px;
+  color: #aaa;
+  font-style: italic;
+}
+
+/* Bot xususiyatlari */
+.bot-features {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.feature-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.feature-icon {
+  color: #00bcd4;
+}
+
+.feature-text {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Bot ketma-ket g'alaba animatsiyasi */
+@keyframes botWinStreak {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.bot-win-streak {
+  animation: botWinStreak 0.5s ease-in-out;
+  color: #FFD700;
+}
