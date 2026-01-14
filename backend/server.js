@@ -255,50 +255,64 @@ async function handleCreateGame(ws, data) {
   }));
 }
 
+// SERVER.JS ichida handleFindOpponent funksiyasini YANGILANG
+
 async function handleFindOpponent(ws, data) {
   const { userId, gameId } = data;
   
-  console.log(`🔍 Raqib qidirilmoqda: ${userId}, gameId: ${gameId}`);
+  console.log(`🔍 RAQIB QIDIRISH: User ${userId}, Game ${gameId}`);
   
   // O'yinni topish
   const game = activeGames.get(gameId);
   if (!game) {
     console.log(`❌ O'yin topilmadi: ${gameId}`);
-    ws.send(JSON.stringify({ type: 'error', message: 'O\'yin topilmadi' }));
+    ws.send(JSON.stringify({ 
+      type: 'error', 
+      message: 'O\'yin topilmadi',
+      gameId: gameId 
+    }));
     return;
   }
+  
+  console.log(`📊 Aktive o'yinlar: ${activeGames.size}`);
+  console.log(`👥 Kutayotgan o'yinchilar: ${waitingPlayers.size}`);
   
   // O'yinchini waiting ro'yxatiga qo'shish
   waitingPlayers.set(userId, { socket: ws, gameId });
   console.log(`✅ O'yinchi waiting ro'yxatiga qo'shildi: ${userId}`);
-  console.log(`📊 Waiting ro'yxati:`, Array.from(waitingPlayers.keys()));
   
-  // RAQIB QIDIRISH - faqat boshqa gameId bilan solishtirish
-  let opponent = null;
+  // Barcha kutayotgan o'yinchilarni ko'rsatish
+  console.log('📋 Waiting ro\'yxati:');
+  waitingPlayers.forEach((player, id) => {
+    console.log(`  - User ${id}: Game ${player.gameId}`);
+  });
+  
+  // RAQIB QIDIRISH - soddalashtirilgan versiya
+  let foundOpponent = null;
+  let opponentGameId = null;
+  
   for (const [opponentId, playerData] of waitingPlayers.entries()) {
-    console.log(`🔎 Tekshirilmoqda: ${opponentId} vs ${userId}`);
-    console.log(`   opponentId !== userId: ${opponentId !== userId}`);
-    console.log(`   playerData.gameId: ${playerData.gameId}`);
-    console.log(`   playerData.gameId !== gameId: ${playerData.gameId !== gameId}`);
+    // O'zimiz bilan o'ynamaymiz
+    if (opponentId === userId) continue;
     
-    if (opponentId !== userId && playerData.gameId && playerData.gameId !== gameId) {
-      opponent = { id: opponentId, socket: playerData.socket, gameId: playerData.gameId };
-      console.log(`🎯 Raqib topildi: ${opponentId}`);
-      break;
-    }
+    // Boshqa o'yinda bo'lmasin
+    if (playerData.gameId === gameId) continue;
+    
+    console.log(`🎯 Raqib topildi: ${opponentId} (game: ${playerData.gameId})`);
+    foundOpponent = opponentId;
+    opponentGameId = playerData.gameId;
+    break;
   }
   
-  if (opponent) {
-    // Raqib topildi - o'yinlarni birlashtirish
-    const opponentGame = activeGames.get(opponent.gameId);
-    
-    console.log(`🤝 O'yinlarni birlashtirish: ${gameId} va ${opponent.gameId}`);
+  if (foundOpponent) {
+    const opponentData = waitingPlayers.get(foundOpponent);
     
     // O'yin 1: Hozirgi o'yin
+    const opponentUser = await User.findOne({ telegramId: foundOpponent });
     game.player2 = {
-      id: opponent.id,
-      username: opponentGame.player1.username,
-      firstName: opponentGame.player1.firstName,
+      id: foundOpponent,
+      username: opponentUser?.username || 'opponent',
+      firstName: opponentUser?.firstName || 'Raqib',
       choice: null,
       ready: false,
       connected: true
@@ -306,23 +320,30 @@ async function handleFindOpponent(ws, data) {
     game.status = 'playing';
     
     // O'yin 2: Raqibning o'yini
-    opponentGame.player2 = {
-      id: game.player1.id,
-      username: game.player1.username,
-      firstName: game.player1.firstName,
-      choice: null,
-      ready: false,
-      connected: true
-    };
-    opponentGame.status = 'playing';
+    const opponentGame = activeGames.get(opponentGameId);
+    const currentUser = await User.findOne({ telegramId: userId });
+    
+    if (opponentGame) {
+      opponentGame.player2 = {
+        id: userId,
+        username: currentUser?.username || 'player',
+        firstName: currentUser?.firstName || 'O\'yinchi',
+        choice: null,
+        ready: false,
+        connected: true
+      };
+      opponentGame.status = 'playing';
+    }
     
     // Waiting ro'yxatidan o'chirish
     waitingPlayers.delete(userId);
-    waitingPlayers.delete(opponent.id);
+    waitingPlayers.delete(foundOpponent);
     
     // O'yinlarni yangilash
     activeGames.set(gameId, game);
-    activeGames.set(opponent.gameId, opponentGame);
+    if (opponentGame) {
+      activeGames.set(opponentGameId, opponentGame);
+    }
     
     // MongoDB'da yangilash
     try {
@@ -330,17 +351,21 @@ async function handleFindOpponent(ws, data) {
         { gameId: gameId },
         { 
           player2: game.player2,
-          status: 'playing'
+          status: 'playing',
+          updatedAt: new Date()
         }
       );
       
-      await Game.updateOne(
-        { gameId: opponent.gameId },
-        { 
-          player2: opponentGame.player2,
-          status: 'playing'
-        }
-      );
+      if (opponentGame) {
+        await Game.updateOne(
+          { gameId: opponentGameId },
+          { 
+            player2: opponentGame.player2,
+            status: 'playing',
+            updatedAt: new Date()
+          }
+        );
+      }
     } catch (err) {
       console.error('❌ MongoDB yangilash xatosi:', err);
     }
@@ -354,33 +379,55 @@ async function handleFindOpponent(ws, data) {
         username: game.player2.username,
         firstName: game.player2.firstName
       },
-      status: 'playing'
+      status: 'playing',
+      timestamp: new Date().toISOString()
     };
     
     const player2Message = {
       type: 'opponent_found',
-      gameId: opponent.gameId,
+      gameId: opponentGameId,
       opponent: {
         id: game.player1.id,
         username: game.player1.username,
         firstName: game.player1.firstName
       },
-      status: 'playing'
+      status: 'playing',
+      timestamp: new Date().toISOString()
     };
     
     console.log(`📤 Player1 (${userId}) xabari:`, player1Message);
-    console.log(`📤 Player2 (${opponent.id}) xabari:`, player2Message);
+    console.log(`📤 Player2 (${foundOpponent}) xabari:`, player2Message);
     
+    // Xabarlarni yuborish
     ws.send(JSON.stringify(player1Message));
-    if (opponent.socket && opponent.socket.readyState === WebSocket.OPEN) {
-      opponent.socket.send(JSON.stringify(player2Message));
+    
+    if (opponentData.socket && opponentData.socket.readyState === WebSocket.OPEN) {
+      opponentData.socket.send(JSON.stringify(player2Message));
+      console.log(`✅ Player2 xabari yuborildi`);
     } else {
       console.log(`❌ Player2 socket ochiq emas`);
+      
+      // Agar raqib ulanmagan bo'lsa, o'yinni bekor qilish
+      game.status = 'waiting';
+      game.player2 = null;
+      waitingPlayers.set(userId, { socket: ws, gameId });
+      activeGames.set(gameId, game);
+      
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Raqib ulanishda xato',
+        status: 'waiting'
+      }));
+      return;
     }
     
     // Taymer boshlash
     startGameTimer(gameId);
-    startGameTimer(opponent.gameId);
+    if (opponentGame) {
+      startGameTimer(opponentGameId);
+    }
+    
+    console.log(`🎮 O'yin boshlanmoqda: ${userId} vs ${foundOpponent}`);
     
   } else {
     // Raqib topilmadi
@@ -390,22 +437,10 @@ async function handleFindOpponent(ws, data) {
       type: 'waiting_for_opponent',
       gameId: gameId,
       status: 'waiting',
-      waitingPlayersCount: waitingPlayers.size
+      waitingPlayersCount: waitingPlayers.size,
+      message: 'Raqib qidirilmoqda...',
+      timestamp: new Date().toISOString()
     }));
-    
-    // Har 5 soniyada kutish holatini yangilash
-    const intervalId = setInterval(() => {
-      if (waitingPlayers.has(userId)) {
-        ws.send(JSON.stringify({
-          type: 'waiting_update',
-          gameId: gameId,
-          waitingTime: Math.floor((Date.now() - game.createdAt.getTime()) / 1000),
-          waitingPlayersCount: waitingPlayers.size
-        }));
-      } else {
-        clearInterval(intervalId);
-      }
-    }, 5000);
     
     // 60 soniyadan keyin timeout
     setTimeout(() => {
@@ -413,8 +448,9 @@ async function handleFindOpponent(ws, data) {
         console.log(`⏰ Timeout: ${userId} uchun raqib topilmadi`);
         
         ws.send(JSON.stringify({
-          type: 'matchmaking_timeout',
-          gameId: gameId
+          type: 'game_timeout',
+          gameId: gameId,
+          message: 'Raqib topilmadi'
         }));
         
         waitingPlayers.delete(userId);
@@ -429,6 +465,38 @@ async function handleFindOpponent(ws, data) {
   }
 }
 
+// Taymer funksiyasi
+function startGameTimer(gameId) {
+  setTimeout(() => {
+    const game = activeGames.get(gameId);
+    if (game && game.status === 'playing') {
+      // Agar biror o'yinchi tanlov qilmagan bo'lsa
+      if (!game.player1.choice || !game.player2.choice) {
+        console.log(`⏰ O'yin vaqti tugadi: ${gameId}`);
+        
+        game.status = 'finished';
+        game.result = 'timeout';
+        game.finishedAt = new Date();
+        
+        // O'yinchilarga xabar
+        const player1Socket = playerSockets.get(game.player1.id);
+        const player2Socket = playerSockets.get(game.player2.id);
+        
+        const timeoutMessage = {
+          type: 'game_result',
+          gameId: gameId,
+          result: 'timeout',
+          message: 'O\'yin vaqti tugadi'
+        };
+        
+        if (player1Socket) player1Socket.send(JSON.stringify(timeoutMessage));
+        if (player2Socket) player2Socket.send(JSON.stringify(timeoutMessage));
+        
+        activeGames.delete(gameId);
+      }
+    }
+  }, 60000); // 60 soniya
+}
 async function handleMakeChoice(ws, data) {
   const { userId, gameId, choice } = data;
   
