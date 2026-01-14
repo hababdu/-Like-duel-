@@ -496,7 +496,17 @@ function App() {
     
     showNotification(`🎉 +${bonusAmount} koin! (${dailyStatus.streak} kun ketma-ket)`, 'success');
   };
-
+// ✅ 17. ANIMATSIYANI YOPISH FUNKSIYASI
+const closeResultAnimation = () => {
+  setShowResultAnimation(false);
+  
+  // Animatsiyadan keyin qo'shimcha ma'lumotlar
+  if (gameState.result === 'win') {
+    showNotification(`🎉 G'alaba! ${getCoinsFromResult()} koin qo'shildi!`, 'success');
+  } else if (gameState.result === 'lose') {
+    showNotification(`💪 Keyingi o'yinda omad! ${getCoinsFromResult()} koin qo'shildi`, 'info');
+  }
+};
   // ✅ 14. YORDAMCHI FUNKSIYALAR
   const getChoiceName = (choice) => {
     switch (choice) {
@@ -800,100 +810,116 @@ function App() {
         
         {/* O'YIN TUGADI */}
         {!showBotMenu && gameState.status === 'finished' && (
-          <div className="game-screen finished-screen">
-            <div className="finished-content">
-              {/* Animatsiya qismi */}
-              {showResultAnimation && (
-                <div className="result-animation-overlay">
-                  <div className={`result-reveal ${gameState.result}`}>
-                    {gameState.result === 'win' && (
-                      <>
-                        <div className="win-animation">🎉</div>
-                        <h2 className="result-title-win">G'ALABA!</h2>
-                      </>
-                    )}
-                    {gameState.result === 'lose' && (
-                      <>
-                        <div className="lose-animation">💥</div>
-                        <h2 className="result-title-lose">MAG'LUBIYAT</h2>
-                      </>
-                    )}
-                    {gameState.result === 'draw' && (
-                      <>
-                        <div className="draw-animation">🤝</div>
-                        <h2 className="result-title-draw">DURRANG</h2>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              <div className={`result-banner ${gameState.result}`}>
-                {gameState.result === 'win' && (
-                  <>
-                    <div className="result-icon">🏆</div>
-                    <h2>G'ALABA!</h2>
-                    <p className="result-subtitle">+{getCoinsFromResult()} koin</p>
-                  </>
-                )}
-                {gameState.result === 'lose' && (
-                  <>
-                    <div className="result-icon">😔</div>
-                    <h2>MAG'LUBIYAT</h2>
-                    <p className="result-subtitle">+{getCoinsFromResult()} koin</p>
-                  </>
-                )}
-                {gameState.result === 'draw' && (
-                  <>
-                    <div className="result-icon">🤝</div>
-                    <h2>DURRANG</h2>
-                    <p className="result-subtitle">+{getCoinsFromResult()} koin</p>
-                  </>
-                )}
-                {gameState.result === 'timeout' && (
-                  <>
-                    <div className="result-icon">⏰</div>
-                    <h2>VAQT TUGADI</h2>
-                    <p className="result-subtitle">+5 koin</p>
-                  </>
-                )}
-              </div>
-              
-              <div className="final-choices">
-                <div className="final-choice you">
-                  <div className="choice-player">Siz</div>
-                  <div className="choice-emoji-final">{getChoiceEmoji(gameState.myChoice)}</div>
-                  <div className="choice-name">{getChoiceName(gameState.myChoice)}</div>
-                </div>
-                
-                <div className="vs-final">VS</div>
-                
-                <div className="final-choice opponent">
-                  <div className="choice-player">{botName}</div>
-                  <div className="choice-emoji-final">{getChoiceEmoji(gameState.opponentChoice)}</div>
-                  <div className="choice-name">{getChoiceName(gameState.opponentChoice)}</div>
-                </div>
-              </div>
-              
-              <div className="result-actions">
-                <button className="play-again-btn" onClick={() => startBotGame(botDifficulty)}>
-                  🔄 YANA O'YNA
-                </button>
-                <button className="menu-btn" onClick={restartGame}>
-                  📋 Bosh menyu
-                </button>
-              </div>
-              
-              {currentWinStreak > 1 && gameState.result === 'win' && (
-                <div className="streak-bonus-info">
-                  <span className="bonus-icon">🔥</span>
-                  <span>{currentWinStreak} ketma-ket g'alaba! Streak bonus: +{currentWinStreak * 10} koin</span>
-                </div>
-              )}
+  <div className="game-screen finished-screen">
+    <div className="finished-content">
+      {/* Animatsiya qismi */}
+      {showResultAnimation && (
+        <div className="result-animation-overlay">
+          <div className={`result-reveal ${gameState.result}`}>
+            {gameState.result === 'win' && (
+              <>
+                <div className="win-animation">🎉</div>
+                <h2 className="result-title-win">G'ALABA!</h2>
+                <div className="animation-coins">+{getCoinsFromResult()} koin</div>
+              </>
+            )}
+            {gameState.result === 'lose' && (
+              <>
+                <div className="lose-animation">💥</div>
+                <h2 className="result-title-lose">MAG'LUBIYAT</h2>
+                <div className="animation-coins">+{getCoinsFromResult()} koin</div>
+              </>
+            )}
+            {gameState.result === 'draw' && (
+              <>
+                <div className="draw-animation">🤝</div>
+                <h2 className="result-title-draw">DURRANG</h2>
+                <div className="animation-coins">+{getCoinsFromResult()} koin</div>
+              </>
+            )}
+            
+            {/* Yopish tugmasi */}
+            <button 
+              className="close-animation-btn"
+              onClick={closeResultAnimation}
+              aria-label="Animatsiyani yopish"
+            >
+              Davom etish →
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Asosiy natija ekrani (animatsiyadan keyin) */}
+      {!showResultAnimation && (
+        <>
+          <div className={`result-banner ${gameState.result}`}>
+            {gameState.result === 'win' && (
+              <>
+                <div className="result-icon">🏆</div>
+                <h2>G'ALABA!</h2>
+                <p className="result-subtitle">+{getCoinsFromResult()} koin</p>
+              </>
+            )}
+            {gameState.result === 'lose' && (
+              <>
+                <div className="result-icon">😔</div>
+                <h2>MAG'LUBIYAT</h2>
+                <p className="result-subtitle">+{getCoinsFromResult()} koin</p>
+              </>
+            )}
+            {gameState.result === 'draw' && (
+              <>
+                <div className="result-icon">🤝</div>
+                <h2>DURRANG</h2>
+                <p className="result-subtitle">+{getCoinsFromResult()} koin</p>
+              </>
+            )}
+            {gameState.result === 'timeout' && (
+              <>
+                <div className="result-icon">⏰</div>
+                <h2>VAQT TUGADI</h2>
+                <p className="result-subtitle">+5 koin</p>
+              </>
+            )}
+          </div>
+          
+          <div className="final-choices">
+            <div className="final-choice you">
+              <div className="choice-player">Siz</div>
+              <div className="choice-emoji-final">{getChoiceEmoji(gameState.myChoice)}</div>
+              <div className="choice-name">{getChoiceName(gameState.myChoice)}</div>
+            </div>
+            
+            <div className="vs-final">VS</div>
+            
+            <div className="final-choice opponent">
+              <div className="choice-player">{botName}</div>
+              <div className="choice-emoji-final">{getChoiceEmoji(gameState.opponentChoice)}</div>
+              <div className="choice-name">{getChoiceName(gameState.opponentChoice)}</div>
             </div>
           </div>
-        )}
-        
+          
+          <div className="result-actions">
+            <button className="play-again-btn" onClick={() => startBotGame(botDifficulty)}>
+              🔄 YANA O'YNA
+            </button>
+            <button className="menu-btn" onClick={restartGame}>
+              📋 Bosh menyu
+            </button>
+          </div>
+          
+          {currentWinStreak > 1 && gameState.result === 'win' && (
+            <div className="streak-bonus-info">
+              <span className="bonus-icon">🔥</span>
+              <span>{currentWinStreak} ketma-ket g'alaba! Streak bonus: +{currentWinStreak * 10} koin</span>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  </div>
+)}
         {/* MODALLAR */}
         
         {/* PROFIL MODALI */}
