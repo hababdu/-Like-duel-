@@ -8,23 +8,18 @@ function App() {
     return savedUser ? JSON.parse(savedUser) : {
       id: Date.now(),
       first_name: 'Foydalanuvchi',
-      username: 'user_' + Date.now().toString().slice(-6),
-      language_code: 'uz'
+      username: 'user_' + Date.now().toString().slice(-6)
     };
   });
   
-  const [userPhoto, setUserPhoto] = useState(localStorage.getItem('telegram_game_photo') || null);
   const [gameState, setGameState] = useState({
     status: 'idle',
     opponent: null,
-    opponentPhoto: null,
     myChoice: null,
     opponentChoice: null,
     result: null,
     timer: 60,
-    gameId: null,
-    roomCode: null,
-    playersInRoom: 0
+    gameId: null
   });
   
   const [userCoins, setUserCoins] = useState(() => {
@@ -32,8 +27,6 @@ function App() {
     return savedCoins ? parseInt(savedCoins) : 1500;
   });
   
-  const [inventory, setInventory] = useState([]);
-  const [equippedItems, setEquippedItems] = useState({});
   const [dailyStatus, setDailyStatus] = useState(() => {
     const savedDaily = localStorage.getItem('telegram_game_daily');
     return savedDaily ? JSON.parse(savedDaily) : { 
@@ -44,7 +37,6 @@ function App() {
     };
   });
   
-  const [showShop, setShowShop] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [showBotMenu, setShowBotMenu] = useState(true);
@@ -64,26 +56,19 @@ function App() {
     };
   });
   
-  const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   
   // ✅ BOT REJIMI STATE'LARI
   const [botGameMode, setBotGameMode] = useState(false);
   const [botDifficulty, setBotDifficulty] = useState('medium');
-  const [botHistory, setBotHistory] = useState([]);
   const [botName, setBotName] = useState('');
   const [botLevel, setBotLevel] = useState(1);
-  const [botAICounter, setBotAICounter] = useState(1);
-  const [botPracticeMode, setBotPracticeMode] = useState(false);
   const [botStreak, setBotStreak] = useState(0);
   const [currentWinStreak, setCurrentWinStreak] = useState(0);
-  const [gameResult, setGameResult] = useState(null);
-  const [coinsEarned, setCoinsEarned] = useState(0);
   
   const timerRef = useRef(null);
   const notificationTimerRef = useRef(null);
   const isInitialized = useRef(false);
-  const botDecisionTimeoutRef = useRef(null);
 
   // ✅ 2. DASTLABKI SOZLASH
   useEffect(() => {
@@ -91,10 +76,7 @@ function App() {
     isInitialized.current = true;
     
     const initApp = async () => {
-      setIsLoading(true);
-      
       try {
-        // Telegram WebApp tekshirish
         if (window.Telegram?.WebApp) {
           const tg = window.Telegram.WebApp;
           tg.ready();
@@ -105,28 +87,14 @@ function App() {
             const newUser = {
               id: userData.id || Date.now(),
               first_name: userData.first_name || 'Foydalanuvchi',
-              username: userData.username || `user_${Date.now()}`,
-              language_code: userData.language_code || 'uz',
-              photo_url: userData.photo_url || null
+              username: userData.username || `user_${Date.now()}`
             };
             setUser(newUser);
-            if (userData.photo_url) setUserPhoto(userData.photo_url);
           }
         }
-        
-        // Bot tarixini yuklash
-        try {
-          const savedBotHistory = localStorage.getItem('telegram_game_bot_history');
-          if (savedBotHistory) {
-            const parsed = JSON.parse(savedBotHistory);
-            if (Array.isArray(parsed)) setBotHistory(parsed);
-          }
-        } catch (e) {}
-        
       } catch (error) {
         console.error('Init xatosi:', error);
       } finally {
-        setIsLoading(false);
         showNotification('🎮 Bot bilan o\'ynash uchun darajani tanlang!', 'success');
       }
     };
@@ -137,7 +105,6 @@ function App() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current);
-      if (botDecisionTimeoutRef.current) clearTimeout(botDecisionTimeoutRef.current);
     };
   }, []);
 
@@ -157,10 +124,6 @@ function App() {
   useEffect(() => {
     localStorage.setItem('telegram_game_daily', JSON.stringify(dailyStatus));
   }, [dailyStatus]);
-
-  useEffect(() => {
-    localStorage.setItem('telegram_game_bot_history', JSON.stringify(botHistory));
-  }, [botHistory]);
 
   // ✅ 4. BOT O'YINI BOSHLASH
   const startBotGame = (difficulty = 'medium') => {
@@ -194,11 +157,6 @@ function App() {
       timerRef.current = null;
     }
     
-    if (botDecisionTimeoutRef.current) {
-      clearTimeout(botDecisionTimeoutRef.current);
-      botDecisionTimeoutRef.current = null;
-    }
-    
     // Bot obyekti yaratish
     const bot = {
       id: 999999 + Math.floor(Math.random() * 1000),
@@ -216,18 +174,12 @@ function App() {
     setGameState({
       status: 'playing',
       opponent: bot,
-      opponentPhoto: null,
       myChoice: null,
       opponentChoice: null,
       result: null,
       timer: 60,
-      gameId: `bot_game_${Date.now()}`,
-      roomCode: null,
-      playersInRoom: 0
+      gameId: `bot_game_${Date.now()}`
     });
-    
-    setGameResult(null);
-    setCoinsEarned(0);
     
     showNotification(`🤖 ${randomBotName} bilan o'ynaysiz!`, 'info');
     
@@ -265,13 +217,7 @@ function App() {
       return;
     }
     
-    // Haptic feedback
-    if (window.Telegram?.WebApp?.HapticFeedback) {
-      try {
-        window.Telegram.WebApp.HapticFeedback.selectionChanged();
-      } catch (e) {}
-    }
-    
+    // Yangi tanlovni o'rnatish
     setGameState(prev => ({
       ...prev,
       myChoice: choice
@@ -279,7 +225,7 @@ function App() {
     
     showNotification(`✅ ${getChoiceName(choice)} tanlandi`, 'info');
     
-    // Bot tanlov qilish
+    // 500ms dan keyin bot tanlov qiladi
     setTimeout(() => {
       makeBotChoice(choice);
     }, 500);
@@ -287,31 +233,39 @@ function App() {
 
   // ✅ 7. BOT TANLOVI
   const makeBotChoice = (playerChoice) => {
-    if (gameState.status !== 'playing' || gameState.opponentChoice) {
+    if (gameState.status !== 'playing') {
       return;
     }
     
     let botChoice;
     
     // Bot darajasiga qarab tanlov
-    switch (botDifficulty) {
-      case 'easy':
-        botChoice = getEasyBotChoice();
-        break;
-      case 'medium':
-        botChoice = getMediumBotChoice(playerChoice);
-        break;
-      case 'hard':
-        botChoice = getHardBotChoice(playerChoice);
-        break;
-      default:
+    if (botDifficulty === 'easy') {
+      // Oson bot - faqat random tanlaydi
+      botChoice = getRandomChoice();
+    } else if (botDifficulty === 'medium') {
+      // O'rta bot - 60% ehtimollik bilan qarshi tanlaydi
+      if (Math.random() < 0.6) {
+        botChoice = getCounterChoice(playerChoice);
+      } else {
         botChoice = getRandomChoice();
+      }
+    } else {
+      // Qiyin bot - 80% ehtimollik bilan qarshi tanlaydi
+      if (Math.random() < 0.8) {
+        botChoice = getCounterChoice(playerChoice);
+      } else {
+        botChoice = getRandomChoice();
+      }
     }
     
+    // Bot tanlovini o'rnatish
     setGameState(prev => ({
       ...prev,
       opponentChoice: botChoice
     }));
+    
+    showNotification(`🤖 Bot ${getChoiceName(botChoice)} tanladi`, 'info');
     
     // 1 soniyadan keyin natijani hisoblash
     setTimeout(() => {
@@ -319,112 +273,96 @@ function App() {
     }, 1000);
   };
 
-  // ✅ 8. OSON BOT TANLOVI
-  const getEasyBotChoice = () => {
-    const choices = ['rock', 'paper', 'scissors'];
-    return choices[Math.floor(Math.random() * choices.length)];
-  };
-
-  // ✅ 9. O'RTA BOT TANLOVI
-  const getMediumBotChoice = (playerChoice) => {
-    const choices = ['rock', 'paper', 'scissors'];
-    
-    // 60% ehtimollik bilan foydalanuvchi tanloviga qarshi tanlaydi
-    if (Math.random() < 0.6 && playerChoice) {
-      const counterMap = {
-        'rock': 'paper',
-        'paper': 'scissors',
-        'scissors': 'rock'
-      };
-      return counterMap[playerChoice] || getRandomChoice();
+  // ✅ 8. QARSHI TANLOV OLISH
+  const getCounterChoice = (playerChoice) => {
+    switch(playerChoice) {
+      case 'rock': return 'paper';
+      case 'paper': return 'scissors';
+      case 'scissors': return 'rock';
+      default: return getRandomChoice();
     }
-    
-    return choices[Math.floor(Math.random() * choices.length)];
   };
 
-  // ✅ 10. QIYIN BOT TANLOVI
-  const getHardBotChoice = (playerChoice) => {
-    const choices = ['rock', 'paper', 'scissors'];
-    
-    // 80% ehtimollik bilan foydalanuvchi tanloviga qarshi tanlaydi
-    if (Math.random() < 0.8 && playerChoice) {
-      const counterMap = {
-        'rock': 'paper',
-        'paper': 'scissors',
-        'scissors': 'rock'
-      };
-      return counterMap[playerChoice] || getRandomChoice();
-    }
-    
-    return choices[Math.floor(Math.random() * choices.length)];
-  };
-
-  // ✅ 11. RANDOM TANLOV
+  // ✅ 9. RANDOM TANLOV
   const getRandomChoice = () => {
     const choices = ['rock', 'paper', 'scissors'];
-    return choices[Math.floor(Math.random() * choices.length)];
+    return choices[Math.floor(Math.random() * 3)];
   };
 
-  // ✅ 12. NATIJANI HISOBLASH
-  const calculateResult = (playerChoice, opponentChoice) => {
-    if (!playerChoice || !opponentChoice) return;
+  // ✅ 10. NATIJANI HISOBLASH
+  const calculateResult = (playerChoice, botChoice) => {
+    console.log('Natija hisoblanmoqda:', playerChoice, 'vs', botChoice);
     
-    console.log('Hisoblash:', playerChoice, opponentChoice);
+    if (!playerChoice || !botChoice) {
+      console.log('Tanlovlar to\'liq emas');
+      return;
+    }
     
-    const rules = {
-      rock: { beats: 'scissors', loses: 'paper' },
-      paper: { beats: 'rock', loses: 'scissors' },
-      scissors: { beats: 'paper', loses: 'rock' }
+    // O'yin qoidalari
+    const winConditions = {
+      'rock': 'scissors',    // Tosh qaychini yengadi
+      'paper': 'rock',       // Qog'oz toshni yengadi
+      'scissors': 'paper'    // Qaychi qog'ozni yengadi
     };
     
     let result;
-    let coins = 0;
+    let coinsEarned = 0;
+    
+    // Ko'paytiruvchini aniqlash
     const multiplier = botDifficulty === 'easy' ? 1 : 
                       botDifficulty === 'medium' ? 1.5 : 2;
     
-    if (playerChoice === opponentChoice) {
+    // Natijani aniqlash
+    if (playerChoice === botChoice) {
       result = 'draw';
-      coins = Math.floor(20 * multiplier);
+      coinsEarned = Math.floor(20 * multiplier);
       setCurrentWinStreak(0);
       setBotStreak(prev => prev + 1);
-    } else if (rules[playerChoice].beats === opponentChoice) {
+    } else if (winConditions[playerChoice] === botChoice) {
       result = 'win';
       const baseCoins = Math.floor(50 * multiplier);
       const streakBonus = currentWinStreak * 10;
-      coins = baseCoins + streakBonus;
+      coinsEarned = baseCoins + streakBonus;
       
+      // Ketma-ket g'alaba
       const newStreak = currentWinStreak + 1;
       setCurrentWinStreak(newStreak);
       setBotStreak(0);
       
+      // Max streak yangilash
       if (newStreak > userStats.maxWinStreak) {
         setUserStats(prev => ({ ...prev, maxWinStreak: newStreak }));
       }
     } else {
       result = 'lose';
-      coins = Math.floor(10 * multiplier);
+      coinsEarned = Math.floor(10 * multiplier);
       setCurrentWinStreak(0);
       
+      // Bot streak
       const newBotStreak = botStreak + 1;
       setBotStreak(newBotStreak);
       
+      // Agar bot ketma-ket 3 marta yutsa, darajasi oshsin
       if (newBotStreak >= 3) {
         setTimeout(() => {
-          setBotLevel(prev => prev < 10 ? prev + 1 : prev);
-          showNotification(`🤖 Bot darajasi oshdi: ${botLevel} → ${botLevel + 1}`, 'success');
+          setBotLevel(prev => {
+            if (prev < 10) {
+              showNotification(`🤖 Bot darajasi oshdi: ${prev} → ${prev + 1}`, 'success');
+              return prev + 1;
+            }
+            return prev;
+          });
         }, 1500);
       }
     }
+    
+    console.log('Natija:', result, 'Koin:', coinsEarned);
     
     // Taymerni to'xtatish
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    
-    // Natijani saqlash
-    setGameResult(result);
-    setCoinsEarned(coins);
     
     // O'yin natijasini yangilash
     setGameState(prev => ({
@@ -435,24 +373,9 @@ function App() {
     }));
     
     // Koinlarni yangilash
-    setUserCoins(prev => prev + coins);
-    
-    // Bot tarixini yangilash
-    const newHistoryEntry = {
-      timestamp: Date.now(),
-      botDifficulty: botDifficulty,
-      botChoice: opponentChoice,
-      playerChoice: playerChoice,
-      result: result,
-      botName: botName,
-      botLevel: botLevel,
-      coins: coins
-    };
-    
-    setBotHistory(prev => {
-      const updated = [...prev, newHistoryEntry];
-      if (updated.length > 50) updated.shift();
-      return updated;
+    setUserCoins(prev => {
+      const newCoins = prev + coinsEarned;
+      return newCoins;
     });
     
     // Statistika yangilash
@@ -460,7 +383,7 @@ function App() {
       const newStats = { 
         ...prev, 
         totalGames: prev.totalGames + 1,
-        totalCoinsEarned: prev.totalCoinsEarned + coins,
+        totalCoinsEarned: prev.totalCoinsEarned + coinsEarned,
         botGamesPlayed: prev.botGamesPlayed + 1
       };
       
@@ -473,6 +396,7 @@ function App() {
         newStats.draws += 1;
       }
       
+      // G'alaba foizi
       newStats.winRate = newStats.totalGames > 0 
         ? Math.round((newStats.wins / newStats.totalGames) * 100) 
         : 0;
@@ -482,9 +406,9 @@ function App() {
     
     // Natija haqida xabar
     const resultMessages = {
-      win: `🏆 G'alaba! ${botName}ni mag'lub etdingiz! +${coins} koin`,
-      lose: `😔 Mag'lubiyat! ${botName}ga yutqazdingiz. +${coins} koin`,
-      draw: `🤝 Durrang! ${botName} bilan teng. +${coins} koin`
+      win: `🏆 G'alaba! ${botName}ni mag'lub etdingiz! +${coinsEarned} koin`,
+      lose: `😔 Mag'lubiyat! ${botName}ga yutqazdingiz. +${coinsEarned} koin`,
+      draw: `🤝 Durrang! ${botName} bilan teng. +${coinsEarned} koin`
     };
     
     showNotification(resultMessages[result], result === 'win' ? 'success' : 'info');
@@ -497,10 +421,9 @@ function App() {
     }
   };
 
-  // ✅ 13. O'YINNI TUGATISH (VAQT TUGAGANDA)
+  // ✅ 11. O'YINNI TUGATISH (VAQT TUGAGANDA)
   const finishGameWithTimeout = () => {
-    setGameResult('timeout');
-    setCoinsEarned(5);
+    const coins = 5;
     
     setGameState(prev => ({
       ...prev,
@@ -509,43 +432,34 @@ function App() {
       timer: 0
     }));
     
-    setUserCoins(prev => prev + 5);
+    setUserCoins(prev => prev + coins);
+    setCurrentWinStreak(0);
     
     showNotification('⏰ Vaqt tugadi! +5 koin', 'info');
   };
 
-  // ✅ 14. YANGI O'YIN
+  // ✅ 12. YANGI O'YIN
   const restartGame = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
     
-    if (botDecisionTimeoutRef.current) {
-      clearTimeout(botDecisionTimeoutRef.current);
-      botDecisionTimeoutRef.current = null;
-    }
-    
     setGameState({
       status: 'idle',
       opponent: null,
-      opponentPhoto: null,
       myChoice: null,
       opponentChoice: null,
       result: null,
       timer: 60,
-      gameId: null,
-      roomCode: null,
-      playersInRoom: 0
+      gameId: null
     });
     
-    setGameResult(null);
-    setCoinsEarned(0);
     setShowBotMenu(true);
     setBotGameMode(false);
   };
 
-  // ✅ 15. KUNLIK BONUS
+  // ✅ 13. KUNLIK BONUS
   const claimDailyBonus = () => {
     if (!dailyStatus.available) {
       showNotification(`🎁 Kunlik bonus ${dailyStatus.nextIn || 24} soatdan keyin`, 'info');
@@ -572,7 +486,7 @@ function App() {
     showNotification(`🎉 +${bonusAmount} koin! (${dailyStatus.streak} kun ketma-ket)`, 'success');
   };
 
-  // ✅ 16. YORDAMCHI FUNKSIYALAR
+  // ✅ 14. YORDAMCHI FUNKSIYALAR
   const getChoiceName = (choice) => {
     switch (choice) {
       case 'rock': return 'Tosh';
@@ -591,14 +505,12 @@ function App() {
     }
   };
 
-  const getProfileImage = (photoUrl, firstName, size = 40) => {
+  const getProfileImage = (firstName, size = 40) => {
     const style = {
       width: `${size}px`,
       height: `${size}px`,
       borderRadius: '50%',
-      objectFit: 'cover',
-      border: '3px solid #31b545',
-      backgroundColor: '#2a2a2a',
+      backgroundColor: '#31b545',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -606,24 +518,6 @@ function App() {
       fontWeight: 'bold',
       color: '#ffffff'
     };
-    
-    if (photoUrl) {
-      return (
-        <img 
-          src={photoUrl} 
-          alt={firstName}
-          style={style}
-          onError={(e) => {
-            e.target.style.display = 'none';
-            e.target.parentElement.innerHTML = `
-              <div style="${Object.entries(style).map(([k, v]) => `${k}: ${v}`).join(';')}">
-                ${firstName?.[0]?.toUpperCase() || 'U'}
-              </div>
-            `;
-          }}
-        />
-      );
-    }
     
     return (
       <div style={style}>
@@ -644,38 +538,7 @@ function App() {
     }, duration);
   };
 
-  // ✅ 17. BOT STATISTIKASI
-  const getBotStats = () => {
-    const totalGames = botHistory.length;
-    const wins = botHistory.filter(h => h.result === 'win').length;
-    const losses = botHistory.filter(h => h.result === 'lose').length;
-    const draws = botHistory.filter(h => h.result === 'draw').length;
-    
-    return {
-      totalGames,
-      wins,
-      losses,
-      draws,
-      winRate: totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0,
-      currentStreak: currentWinStreak,
-      botStreak: botStreak
-    };
-  };
-
-  // ✅ 18. YUKLANMOQDA KOMPONENTI
-  if (isLoading) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-content">
-          <div className="spinner"></div>
-          <h2>🎮 Tosh-Qaychi-Qog'oz</h2>
-          <p>Yuklanmoqda...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ✅ 19. ASOSIY RENDER
+  // ✅ 15. ASOSIY RENDER
   return (
     <div className="app">
       {/* 🔔 XABAR KO'RSATISH */}
@@ -683,12 +546,6 @@ function App() {
         <div className={`notification ${notification.type}`}>
           <div className="notification-content">
             {notification.message}
-            <button 
-              className="notification-close"
-              onClick={() => setNotification(null)}
-            >
-              ✕
-            </button>
           </div>
         </div>
       )}
@@ -731,7 +588,7 @@ function App() {
             onClick={() => setShowProfile(true)}
             aria-label="Profil"
           >
-            {getProfileImage(userPhoto, user?.first_name, 40)}
+            {getProfileImage(user?.first_name, 40)}
           </button>
         </div>
       </header>
@@ -743,7 +600,7 @@ function App() {
           <div className="game-screen idle-screen">
             <div className="welcome-section">
               <div className="welcome-avatar">
-                {getProfileImage(userPhoto, user?.first_name, 80)}
+                {getProfileImage(user?.first_name, 80)}
                 {currentWinStreak > 0 && (
                   <div className="streak-badge">🔥 {currentWinStreak}</div>
                 )}
@@ -821,40 +678,11 @@ function App() {
                   <span className="diff-bonus">×2</span>
                 </button>
               </div>
-              
-              <div className="bot-stats">
-                <h4>📊 Statistikangiz:</h4>
-                <div className="stats-grid-mini">
-                  <div className="stat-mini">
-                    <span className="stat-icon">🎮</span>
-                    <span className="stat-value">{userStats.totalGames}</span>
-                    <span className="stat-label">O'yin</span>
-                  </div>
-                  <div className="stat-mini">
-                    <span className="stat-icon">🏆</span>
-                    <span className="stat-value">{userStats.wins}</span>
-                    <span className="stat-label">G'alaba</span>
-                  </div>
-                  <div className="stat-mini">
-                    <span className="stat-icon">🔥</span>
-                    <span className="stat-value">{currentWinStreak}</span>
-                    <span className="stat-label">Streak</span>
-                  </div>
-                  <div className="stat-mini">
-                    <span className="stat-icon">🤖</span>
-                    <span className="stat-value">{botHistory.length}</span>
-                    <span className="stat-label">Bot o'yin</span>
-                  </div>
-                </div>
-              </div>
             </div>
             
             <div className="bottom-actions">
               <button className="action-btn small" onClick={() => setShowHowToPlay(true)}>
                 ❓ Qoidalar
-              </button>
-              <button className="action-btn small" onClick={() => setShowShop(true)}>
-                🛒 Do'kon
               </button>
             </div>
           </div>
@@ -957,24 +785,6 @@ function App() {
                 <p>🔮 Natija hisoblanmoqda...</p>
               )}
             </div>
-            
-            <div className="game-info">
-              <div className="info-item">
-                <span className="info-label">Sizning streak:</span>
-                <span className="info-value">{currentWinStreak}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Bot streak:</span>
-                <span className="info-value">{botStreak}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Ko'paytiruvchi:</span>
-                <span className="info-value">
-                  {botDifficulty === 'easy' ? '×1' : 
-                   botDifficulty === 'medium' ? '×1.5' : '×2'}
-                </span>
-              </div>
-            </div>
           </div>
         )}
         
@@ -982,33 +792,33 @@ function App() {
         {!showBotMenu && gameState.status === 'finished' && (
           <div className="game-screen finished-screen">
             <div className="finished-content">
-              <div className={`result-banner ${gameResult}`}>
-                {gameResult === 'win' && (
+              <div className={`result-banner ${gameState.result}`}>
+                {gameState.result === 'win' && (
                   <>
                     <div className="result-icon">🏆</div>
                     <h2>G'ALABA!</h2>
-                    <p className="result-subtitle">+{coinsEarned} koin</p>
+                    <p className="result-subtitle">+{getCoinsFromResult()} koin</p>
                   </>
                 )}
-                {gameResult === 'lose' && (
+                {gameState.result === 'lose' && (
                   <>
                     <div className="result-icon">😔</div>
                     <h2>MAG'LUBIYAT</h2>
-                    <p className="result-subtitle">+{coinsEarned} koin</p>
+                    <p className="result-subtitle">+{getCoinsFromResult()} koin</p>
                   </>
                 )}
-                {gameResult === 'draw' && (
+                {gameState.result === 'draw' && (
                   <>
                     <div className="result-icon">🤝</div>
                     <h2>DURRANG</h2>
-                    <p className="result-subtitle">+{coinsEarned} koin</p>
+                    <p className="result-subtitle">+{getCoinsFromResult()} koin</p>
                   </>
                 )}
-                {gameResult === 'timeout' && (
+                {gameState.result === 'timeout' && (
                   <>
                     <div className="result-icon">⏰</div>
                     <h2>VAQT TUGADI</h2>
-                    <p className="result-subtitle">+{coinsEarned} koin</p>
+                    <p className="result-subtitle">+5 koin</p>
                   </>
                 )}
               </div>
@@ -1029,28 +839,6 @@ function App() {
                 </div>
               </div>
               
-              <div className="result-details">
-                <div className="detail-item">
-                  <span className="detail-label">Bot darajasi:</span>
-                  <span className="detail-value">{botDifficulty} (Daraja: {botLevel})</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Sizning streak:</span>
-                  <span className="detail-value">{currentWinStreak}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Bot streak:</span>
-                  <span className="detail-value">{botStreak}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Ko'paytiruvchi:</span>
-                  <span className="detail-value">
-                    {botDifficulty === 'easy' ? '×1' : 
-                     botDifficulty === 'medium' ? '×1.5' : '×2'}
-                  </span>
-                </div>
-              </div>
-              
               <div className="result-actions">
                 <button className="play-again-btn" onClick={() => startBotGame(botDifficulty)}>
                   🔄 YANA O'YNA
@@ -1060,7 +848,7 @@ function App() {
                 </button>
               </div>
               
-              {currentWinStreak > 1 && gameResult === 'win' && (
+              {currentWinStreak > 1 && gameState.result === 'win' && (
                 <div className="streak-bonus-info">
                   <span className="bonus-icon">🔥</span>
                   <span>{currentWinStreak} ketma-ket g'alaba! Streak bonus: +{currentWinStreak * 10} koin</span>
@@ -1084,12 +872,11 @@ function App() {
               <div className="modal-content">
                 <div className="profile-header">
                   <div className="profile-avatar-large">
-                    {getProfileImage(userPhoto, user?.first_name, 80)}
+                    {getProfileImage(user?.first_name, 80)}
                   </div>
                   <div className="profile-info">
                     <h3>{user?.first_name}</h3>
                     <p className="username">@{user?.username}</p>
-                    <div className="user-id">ID: {user?.id}</div>
                   </div>
                 </div>
                 
@@ -1144,17 +931,11 @@ function App() {
                     <span>Durrang:</span>
                     <span>{userStats.draws}</span>
                   </div>
-                  <div className="detail-row">
-                    <span>Jami koin:</span>
-                    <span>{userStats.totalCoinsEarned.toLocaleString()}</span>
-                  </div>
                 </div>
                 
-                <div className="profile-actions">
-                  <button className="action-btn full" onClick={() => { setShowProfile(false); setShowBotMenu(true); }}>
-                    🤖 Bot bilan o'ynash
-                  </button>
-                </div>
+                <button className="action-btn full" onClick={() => { setShowProfile(false); setShowBotMenu(true); }}>
+                  🤖 Bot bilan o'ynash
+                </button>
               </div>
             </div>
           </div>
@@ -1222,12 +1003,6 @@ function App() {
                   </div>
                 </div>
                 
-                <div className="streak-info">
-                  <h4>🔥 Ketma-ket g'alaba:</h4>
-                  <p>Har bir ketma-ket g'alaba uchun +10 koin bonus!</p>
-                  <p>5 ketma-ket g'alaba = +50 koin bonus!</p>
-                </div>
-                
                 <button className="action-btn full" onClick={() => { setShowHowToPlay(false); setShowBotMenu(true); }}>
                   🤖 Bot bilan o'ynash
                 </button>
@@ -1241,15 +1016,25 @@ function App() {
       <footer className="footer">
         <div className="footer-content">
           <p className="footer-title">🎮 Tosh-Qaychi-Qog'oz • AI Botlar bilan</p>
-          <div className="footer-stats">
-            <span className="footer-stat">🤖 3 xil bot darajasi</span>
-            <span className="footer-stat">🔥 Streak bonuslar</span>
-            <span className="footer-stat">🎮 {userStats.totalGames} o'yin</span>
-          </div>
         </div>
       </footer>
     </div>
   );
+
+  // ✅ 16. KOINLARNI HISOBLASH FUNKSIYASI
+  function getCoinsFromResult() {
+    const multiplier = botDifficulty === 'easy' ? 1 : 
+                      botDifficulty === 'medium' ? 1.5 : 2;
+    
+    if (gameState.result === 'win') {
+      return Math.floor(50 * multiplier) + (currentWinStreak * 10);
+    } else if (gameState.result === 'lose') {
+      return Math.floor(10 * multiplier);
+    } else if (gameState.result === 'draw') {
+      return Math.floor(20 * multiplier);
+    }
+    return 0;
+  }
 }
 
 export default App;
