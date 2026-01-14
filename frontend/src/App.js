@@ -168,7 +168,7 @@ function App() {
     }
     
     const backendUrl = window.location.hostname.includes('localhost') 
-      ? 'ws://localhost:10000'
+      ? 'https://telegram-bot-server-2-matj.onrender.com'
       : `wss://${window.location.hostname}`;
     
     console.log(`🔌 WebSocket ulanmoqda: ${backendUrl}`);
