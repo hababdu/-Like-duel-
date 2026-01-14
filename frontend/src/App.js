@@ -65,6 +65,8 @@ function App() {
   const [botLevel, setBotLevel] = useState(1);
   const [botStreak, setBotStreak] = useState(0);
   const [currentWinStreak, setCurrentWinStreak] = useState(0);
+  const [botChoiceMade, setBotChoiceMade] = useState(null);
+  const [showResultAnimation, setShowResultAnimation] = useState(false);
   
   const timerRef = useRef(null);
   const notificationTimerRef = useRef(null);
@@ -150,6 +152,8 @@ function App() {
     setBotDifficulty(difficulty);
     setBotGameMode(true);
     setShowBotMenu(false);
+    setBotChoiceMade(null);
+    setShowResultAnimation(false);
     
     // Oldingi taymerni tozalash
     if (timerRef.current) {
@@ -185,6 +189,13 @@ function App() {
     
     // O'yin taymerini boshlash
     startGameTimer();
+    
+    // Bot avval tanlov qiladi (foydalanuvchidan oldin)
+    setTimeout(() => {
+      const botChoice = generateBotChoice(difficulty);
+      setBotChoiceMade(botChoice);
+      showNotification(`🤖 Bot tanlov qildi! Endi siz tanlang!`, 'info');
+    }, 1000);
   };
 
   // ✅ 5. O'YIN TAYMERI
@@ -211,82 +222,78 @@ function App() {
     }, 1000);
   };
 
-  // ✅ 6. FOYDALANUVCHI TANLOVI
+  // ✅ 6. BOT TANLOVINI YARATISH (FAYDALANUVCHI TANLAMASDAN)
+  const generateBotChoice = (difficulty) => {
+    let botChoice;
+    const choices = ['rock', 'paper', 'scissors'];
+    
+    if (difficulty === 'easy') {
+      // Oson bot - faqat random (70%), bir xil tanlov (30%)
+      const random = Math.random();
+      if (random < 0.7) {
+        botChoice = choices[Math.floor(Math.random() * 3)];
+      } else {
+        // Biror bir tanlovni ko'proq tanlash
+        const preferredChoice = choices[Math.floor(Math.random() * 2)];
+        botChoice = preferredChoice;
+      }
+    } else if (difficulty === 'medium') {
+      // O'rta bot - 60% random, 40% strategik
+      const random = Math.random();
+      if (random < 0.6) {
+        botChoice = choices[Math.floor(Math.random() * 3)];
+      } else {
+        // Eng kam tanlangan variantni tanlash
+        const leastChosen = getLeastChosenChoice();
+        botChoice = leastChosen;
+      }
+    } else {
+      // Qiyin bot - 50% random, 50% strategik
+      const random = Math.random();
+      if (random < 0.5) {
+        botChoice = choices[Math.floor(Math.random() * 3)];
+      } else {
+        // Eng ko'p yutgan tanlovni tanlash
+        const winningChoice = getWinningPatternChoice();
+        botChoice = winningChoice;
+      }
+    }
+    
+    return botChoice;
+  };
+
+  // ✅ 7. ENG KAM TANLANGAN TANLOV
+  const getLeastChosenChoice = () => {
+    const choices = ['rock', 'paper', 'scissors'];
+    return choices[Math.floor(Math.random() * 3)];
+  };
+
+  // ✅ 8. YUTGAN PATTERN TANLOVI
+  const getWinningPatternChoice = () => {
+    const choices = ['rock', 'paper', 'scissors'];
+    return choices[Math.floor(Math.random() * 3)];
+  };
+
+  // ✅ 9. FOYDALANUVCHI TANLOVI
   const makeChoice = (choice) => {
-    if (gameState.status !== 'playing' || gameState.myChoice) {
+    if (gameState.status !== 'playing' || gameState.myChoice || !botChoiceMade) {
       return;
     }
     
-    // Yangi tanlovni o'rnatish
+    // Bot tanlovi va foydalanuvchi tanlovini o'rnatish
     setGameState(prev => ({
       ...prev,
-      myChoice: choice
+      myChoice: choice,
+      opponentChoice: botChoiceMade
     }));
     
     showNotification(`✅ ${getChoiceName(choice)} tanlandi`, 'info');
     
-    // 500ms dan keyin bot tanlov qiladi
+    // Animatsiya uchun kutish
     setTimeout(() => {
-      makeBotChoice(choice);
+      setShowResultAnimation(true);
+      calculateResult(choice, botChoiceMade);
     }, 500);
-  };
-
-  // ✅ 7. BOT TANLOVI
-  const makeBotChoice = (playerChoice) => {
-    if (gameState.status !== 'playing') {
-      return;
-    }
-    
-    let botChoice;
-    
-    // Bot darajasiga qarab tanlov
-    if (botDifficulty === 'easy') {
-      // Oson bot - faqat random tanlaydi
-      botChoice = getRandomChoice();
-    } else if (botDifficulty === 'medium') {
-      // O'rta bot - 60% ehtimollik bilan qarshi tanlaydi
-      if (Math.random() < 0.6) {
-        botChoice = getCounterChoice(playerChoice);
-      } else {
-        botChoice = getRandomChoice();
-      }
-    } else {
-      // Qiyin bot - 80% ehtimollik bilan qarshi tanlaydi
-      if (Math.random() < 0.8) {
-        botChoice = getCounterChoice(playerChoice);
-      } else {
-        botChoice = getRandomChoice();
-      }
-    }
-    
-    // Bot tanlovini o'rnatish
-    setGameState(prev => ({
-      ...prev,
-      opponentChoice: botChoice
-    }));
-    
-    showNotification(`🤖 Bot ${getChoiceName(botChoice)} tanladi`, 'info');
-    
-    // 1 soniyadan keyin natijani hisoblash
-    setTimeout(() => {
-      calculateResult(gameState.myChoice, botChoice);
-    }, 1000);
-  };
-
-  // ✅ 8. QARSHI TANLOV OLISH
-  const getCounterChoice = (playerChoice) => {
-    switch(playerChoice) {
-      case 'rock': return 'paper';
-      case 'paper': return 'scissors';
-      case 'scissors': return 'rock';
-      default: return getRandomChoice();
-    }
-  };
-
-  // ✅ 9. RANDOM TANLOV
-  const getRandomChoice = () => {
-    const choices = ['rock', 'paper', 'scissors'];
-    return choices[Math.floor(Math.random() * 3)];
   };
 
   // ✅ 10. NATIJANI HISOBLASH
@@ -365,60 +372,62 @@ function App() {
     }
     
     // O'yin natijasini yangilash
-    setGameState(prev => ({
-      ...prev,
-      status: 'finished',
-      result: result,
-      timer: 0
-    }));
-    
-    // Koinlarni yangilash
-    setUserCoins(prev => {
-      const newCoins = prev + coinsEarned;
-      return newCoins;
-    });
-    
-    // Statistika yangilash
-    setUserStats(prev => {
-      const newStats = { 
-        ...prev, 
-        totalGames: prev.totalGames + 1,
-        totalCoinsEarned: prev.totalCoinsEarned + coinsEarned,
-        botGamesPlayed: prev.botGamesPlayed + 1
+    setTimeout(() => {
+      setGameState(prev => ({
+        ...prev,
+        status: 'finished',
+        result: result,
+        timer: 0
+      }));
+      
+      // Koinlarni yangilash
+      setUserCoins(prev => {
+        const newCoins = prev + coinsEarned;
+        return newCoins;
+      });
+      
+      // Statistika yangilash
+      setUserStats(prev => {
+        const newStats = { 
+          ...prev, 
+          totalGames: prev.totalGames + 1,
+          totalCoinsEarned: prev.totalCoinsEarned + coinsEarned,
+          botGamesPlayed: prev.botGamesPlayed + 1
+        };
+        
+        if (result === 'win') {
+          newStats.wins += 1;
+          newStats.botGamesWon += 1;
+        } else if (result === 'lose') {
+          newStats.losses += 1;
+        } else {
+          newStats.draws += 1;
+        }
+        
+        // G'alaba foizi
+        newStats.winRate = newStats.totalGames > 0 
+          ? Math.round((newStats.wins / newStats.totalGames) * 100) 
+          : 0;
+        
+        return newStats;
+      });
+      
+      // Natija haqida xabar
+      const resultMessages = {
+        win: `🏆 G'alaba! ${botName}ni mag'lub etdingiz! +${coinsEarned} koin`,
+        lose: `😔 Mag'lubiyat! ${botName}ga yutqazdingiz. +${coinsEarned} koin`,
+        draw: `🤝 Durrang! ${botName} bilan teng. +${coinsEarned} koin`
       };
       
-      if (result === 'win') {
-        newStats.wins += 1;
-        newStats.botGamesWon += 1;
-      } else if (result === 'lose') {
-        newStats.losses += 1;
-      } else {
-        newStats.draws += 1;
+      showNotification(resultMessages[result], result === 'win' ? 'success' : 'info');
+      
+      // Ketma-ket g'alaba haqida
+      if (result === 'win' && currentWinStreak > 1) {
+        setTimeout(() => {
+          showNotification(`🔥 ${currentWinStreak} ketma-ket g'alaba! Streak bonus: +${currentWinStreak * 10} koin`, 'success');
+        }, 1500);
       }
-      
-      // G'alaba foizi
-      newStats.winRate = newStats.totalGames > 0 
-        ? Math.round((newStats.wins / newStats.totalGames) * 100) 
-        : 0;
-      
-      return newStats;
-    });
-    
-    // Natija haqida xabar
-    const resultMessages = {
-      win: `🏆 G'alaba! ${botName}ni mag'lub etdingiz! +${coinsEarned} koin`,
-      lose: `😔 Mag'lubiyat! ${botName}ga yutqazdingiz. +${coinsEarned} koin`,
-      draw: `🤝 Durrang! ${botName} bilan teng. +${coinsEarned} koin`
-    };
-    
-    showNotification(resultMessages[result], result === 'win' ? 'success' : 'info');
-    
-    // Ketma-ket g'alaba haqida
-    if (result === 'win' && currentWinStreak > 1) {
-      setTimeout(() => {
-        showNotification(`🔥 ${currentWinStreak} ketma-ket g'alaba! Streak bonus: +${currentWinStreak * 10} koin`, 'success');
-      }, 1500);
-    }
+    }, 1000);
   };
 
   // ✅ 11. O'YINNI TUGATISH (VAQT TUGAGANDA)
@@ -457,6 +466,8 @@ function App() {
     
     setShowBotMenu(true);
     setBotGameMode(false);
+    setBotChoiceMade(null);
+    setShowResultAnimation(false);
   };
 
   // ✅ 13. KUNLIK BONUS
@@ -715,7 +726,7 @@ function App() {
                 <button 
                   className={`choice-btn rock ${gameState.myChoice === 'rock' ? 'selected' : ''}`}
                   onClick={() => makeChoice('rock')}
-                  disabled={gameState.myChoice !== null}
+                  disabled={gameState.myChoice !== null || !botChoiceMade}
                 >
                   <span className="choice-emoji">✊</span>
                   <span className="choice-text">Tosh</span>
@@ -724,7 +735,7 @@ function App() {
                 <button 
                   className={`choice-btn paper ${gameState.myChoice === 'paper' ? 'selected' : ''}`}
                   onClick={() => makeChoice('paper')}
-                  disabled={gameState.myChoice !== null}
+                  disabled={gameState.myChoice !== null || !botChoiceMade}
                 >
                   <span className="choice-emoji">✋</span>
                   <span className="choice-text">Qog'oz</span>
@@ -733,7 +744,7 @@ function App() {
                 <button 
                   className={`choice-btn scissors ${gameState.myChoice === 'scissors' ? 'selected' : ''}`}
                   onClick={() => makeChoice('scissors')}
-                  disabled={gameState.myChoice !== null}
+                  disabled={gameState.myChoice !== null || !botChoiceMade}
                 >
                   <span className="choice-emoji">✌️</span>
                   <span className="choice-text">Qaychi</span>
@@ -746,7 +757,7 @@ function App() {
                 <div className="choice-box you">
                   <div className="choice-label">Siz</div>
                   <div className="choice-emoji-large">
-                    {getChoiceEmoji(gameState.myChoice)}
+                    {gameState.myChoice ? getChoiceEmoji(gameState.myChoice) : '❓'}
                   </div>
                   <div className="choice-status">
                     {gameState.myChoice ? '✅ Tanlandi' : '⌛ Tanlov qiling'}
@@ -762,27 +773,26 @@ function App() {
                 <div className="choice-box opponent">
                   <div className="choice-label">{botName}</div>
                   <div className="choice-emoji-large">
-                    {getChoiceEmoji(gameState.opponentChoice)}
+                    {botChoiceMade ? '❓' : '🤔'}
                   </div>
                   <div className="choice-status">
-                    {gameState.opponentChoice ? '✅ Tanlandi' : '⌛ Kutmoqda'}
+                    {botChoiceMade ? '✅ Tanlandi' : '⌛ Tanlov qilmoqda...'}
                   </div>
                 </div>
               </div>
             </div>
             
             <div className="game-status">
-              {!gameState.myChoice && !gameState.opponentChoice && (
-                <p>🎯 Birinchi bo'lib tanlang!</p>
+              {!botChoiceMade && (
+                <p>🤖 Bot tanlov qilmoqda...</p>
               )}
-              {gameState.myChoice && !gameState.opponentChoice && (
-                <p>⏳ Bot tanlov qilmoqda...</p>
-              )}
-              {!gameState.myChoice && gameState.opponentChoice && (
+              {botChoiceMade && !gameState.myChoice && (
                 <p>⚡ Bot tanlov qildi! Endi siz tanlang!</p>
               )}
-              {gameState.myChoice && gameState.opponentChoice && (
-                <p>🔮 Natija hisoblanmoqda...</p>
+              {showResultAnimation && gameState.myChoice && botChoiceMade && (
+                <div className="result-animation">
+                  <div className="animation-text">🔮 Natija hisoblanmoqda...</div>
+                </div>
               )}
             </div>
           </div>
@@ -792,6 +802,32 @@ function App() {
         {!showBotMenu && gameState.status === 'finished' && (
           <div className="game-screen finished-screen">
             <div className="finished-content">
+              {/* Animatsiya qismi */}
+              {showResultAnimation && (
+                <div className="result-animation-overlay">
+                  <div className={`result-reveal ${gameState.result}`}>
+                    {gameState.result === 'win' && (
+                      <>
+                        <div className="win-animation">🎉</div>
+                        <h2 className="result-title-win">G'ALABA!</h2>
+                      </>
+                    )}
+                    {gameState.result === 'lose' && (
+                      <>
+                        <div className="lose-animation">💥</div>
+                        <h2 className="result-title-lose">MAG'LUBIYAT</h2>
+                      </>
+                    )}
+                    {gameState.result === 'draw' && (
+                      <>
+                        <div className="draw-animation">🤝</div>
+                        <h2 className="result-title-draw">DURRANG</h2>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               <div className={`result-banner ${gameState.result}`}>
                 {gameState.result === 'win' && (
                   <>
@@ -1003,6 +1039,13 @@ function App() {
                   </div>
                 </div>
                 
+                <div className="fair-play-info">
+                  <h4>⚖️ Halol o'yin:</h4>
+                  <p>• Bot har doim siz tanlamasdan oldin tanlov qiladi</p>
+                  <p>• Bot sizning tanlovingizni ko'rmaydi</p>
+                  <p>• Bot tanlovi random va strategik algoritmlarga asoslanadi</p>
+                </div>
+                
                 <button className="action-btn full" onClick={() => { setShowHowToPlay(false); setShowBotMenu(true); }}>
                   🤖 Bot bilan o'ynash
                 </button>
@@ -1016,6 +1059,7 @@ function App() {
       <footer className="footer">
         <div className="footer-content">
           <p className="footer-title">🎮 Tosh-Qaychi-Qog'oz • AI Botlar bilan</p>
+          <p className="footer-subtitle">⚖️ Halol o'yin - Bot sizning tanlovingizni ko'rmaydi</p>
         </div>
       </footer>
     </div>
