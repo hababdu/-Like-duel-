@@ -1,18 +1,38 @@
-/* App.css */
-
+/* ==============================================
+   RESET & BASE STYLES
+============================================== */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(135deg, #1e3c72, #2a5298);
-  color: white;
-  min-height: 100vh;
+:root {
+  --bg: #0f172a;
+  --bg-dark: #020617;
+  --text: #e2e8f0;
+  --text-light: #94a3b8;
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --card: #1e293b;
+  --card-hover: #334155;
+  --border: #334155;
 }
 
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', sans-serif;
+  background: linear-gradient(135deg, var(--bg) 0%, var(--bg-dark) 100%);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ==============================================
+   LAYOUT
+============================================== */
 .app-container {
   max-width: 420px;
   margin: 0 auto;
@@ -22,232 +42,381 @@ body {
   flex-direction: column;
 }
 
-/* Header / umumiy stillar */
-h1, h2 {
-  text-align: center;
-  margin-bottom: 1.2rem;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+/* Header */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  margin-bottom: 20px;
 }
 
-button {
-  cursor: pointer;
-  border: none;
+.logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(90deg, #a78bfa, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.coins-display {
+  background: rgba(255, 215, 0, 0.15);
+  color: #ffd700;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+/* Notification */
+.notification {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  padding: 12px 24px;
   border-radius: 12px;
-  padding: 14px 24px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+  animation: slideIn 0.4s ease-out, fadeOut 0.4s ease-out 2.8s forwards;
+  pointer-events: none;
+}
+
+.notification.success  { background: var(--success); color: white; }
+.notification.error    { background: var(--error);   color: white; }
+.notification.warning  { background: var(--warning); color: white; }
+.notification.info     { background: var(--primary); color: white; }
+
+@keyframes slideIn {
+  from { transform: translate(-50%, -120%); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; transform: translate(-50%, -30%); }
+}
+
+/* ==============================================
+   BUTTONS (kichik, professional)
+============================================== */
+button {
+  border: none;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.22s ease;
+}
+
+/* Asosiy tanlov tugmalari (✊ ✋ ✌️) */
+.choice-btn {
+  width: 100%;
+  height: 78px;
+  background: var(--card);
+  border: 2px solid transparent;
+  border-radius: 16px;
+  color: white;
+  font-size: 2.1rem;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.choice-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--choice-color);
+  opacity: 0.12;
+  transition: opacity 0.3s ease;
+}
+
+.choice-btn:hover::before {
+  opacity: 0.22;
+}
+
+.choice-btn:active {
+  transform: scale(0.94);
+}
+
+.choice-btn span {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-light);
+  opacity: 0.9;
+}
+
+/* Mode tanlash tugmalari */
+.mode-btn {
+  width: 100%;
+  padding: 18px 24px;
+  background: var(--card);
+  border-radius: 16px;
+  color: var(--text);
   font-size: 1.1rem;
   font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Menu screen */
-.menu {
-  flex: 1;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  text-align: center;
-}
-
-.mode-buttons {
-  display: flex;
-  flex-direction: column;
   gap: 16px;
-  width: 100%;
-  max-width: 320px;
-  margin-top: 2rem;
+  border: 2px solid transparent;
+  transition: all 0.25s ease;
 }
 
-.mode-buttons button {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.2);
-}
-
-.mode-buttons button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.25);
+.mode-btn:hover {
+  background: var(--card-hover);
   transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
 }
 
-/* Matchmaking (kutish ekrani) */
-.waiting-screen {
-  flex: 1;
+.mode-btn.multiplayer { border-color: #8b5cf6; }
+.mode-btn.bot         { border-color: #f97316; }
+
+.mode-btn .icon {
+  font-size: 1.8rem;
+}
+
+/* Difficulty tugmalari */
+.difficulty-buttons {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
+  gap: 12px;
+  margin: 32px 0 24px;
 }
 
-.spinner {
-  width: 60px;
-  height: 60px;
-  border: 6px solid rgba(255,255,255,0.2);
-  border-top: 6px solid #00d4ff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 2rem 0;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.waiting-screen button {
-  margin-top: 2rem;
-  background: rgba(255, 68, 68, 0.8);
+.diff-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  border-radius: 12px;
   color: white;
+  transition: all 0.25s ease;
 }
 
-.waiting-screen button:hover {
-  background: rgba(255, 68, 68, 1);
+.diff-btn.easy  { background: var(--success); }
+.diff-btn.medium { background: var(--primary); }
+.diff-btn.hard  { background: var(--error); }
+
+.diff-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
 }
 
-/* Game screen */
+/* Back tugmasi */
+.back-btn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background: transparent;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-light);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.back-btn:hover {
+  background: var(--card);
+  color: var(--text);
+}
+
+/* ==============================================
+   GAME SCREEN
+============================================== */
 .game-screen {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 1rem 0;
+  gap: 24px;
 }
 
-.vs-header {
+.timer-bar {
+  height: 10px;
+  background: var(--card);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.timer-progress {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #a78bfa);
+  transition: width 1s linear;
+}
+
+.timer-bar span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+.versus-container {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin: 2rem 0;
-  font-size: 1.4rem;
-  font-weight: bold;
+  justify-content: center;
+  gap: 20px;
+  margin: 20px 0;
 }
 
-.vs-header .player {
+.player-side {
   text-align: center;
   flex: 1;
 }
 
-.vs-header .player div:first-child {
+.label {
   font-size: 0.9rem;
-  opacity: 0.8;
+  color: var(--text-light);
   margin-bottom: 8px;
+  font-weight: 500;
 }
 
-.vs-header .player div:last-child {
-  font-size: 5rem;
+.choice-display {
+  font-size: 5.5rem;
   line-height: 1;
-}
-
-.vs-header .vs {
-  font-size: 2.5rem;
-  margin: 0 1rem;
-  opacity: 0.7;
-}
-
-.choices {
+  min-height: 110px;
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 1.5rem;
-  margin: 2rem 0;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 20px;
+  border: 2px solid var(--border);
+  transition: all 0.3s ease;
 }
 
-.choices button {
-  font-size: 4.5rem;
-  width: 100px;
-  height: 100px;
-  background: rgba(255,255,255,0.12);
+.choice-display.big {
+  font-size: 7.2rem;
+  min-height: 140px;
+}
+
+.vs {
+  font-size: 2.2rem;
+  font-weight: bold;
+  color: var(--primary);
+  opacity: 0.9;
+}
+
+/* Result overlay */
+.result-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.92);
   backdrop-filter: blur(8px);
-  border: 2px solid rgba(255,255,255,0.3);
-  transition: all 0.25s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  z-index: 10;
+  animation: fadeIn 0.4s ease;
 }
 
-.choices button:hover {
-  transform: scale(1.15);
-  background: rgba(255,255,255,0.25);
-  border-color: #00d4ff;
+.result-overlay h2 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -1px;
 }
 
-.countdown, .time-left {
-  text-align: center;
-  font-size: 1.6rem;
-  margin: 1.5rem 0;
-  color: #00ffea;
-  text-shadow: 0 0 10px #00ffea80;
+.result-overlay.win  h2 { color: var(--success); }
+.result-overlay.lose h2 { color: var(--error);   }
+.result-overlay.draw h2 { color: var(--warning); }
+
+.result-choices {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  font-size: 4.5rem;
 }
 
-.back-btn {
-  background: rgba(255,255,255,0.1);
+.result-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.result-actions button {
+  padding: 14px 28px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  border: 2px solid var(--border);
+}
+
+.result-actions button:first-child {
+  background: var(--primary);
   color: white;
-  border: 1px solid rgba(255,255,255,0.3);
-  margin: 1rem auto;
-  width: 80%;
-  max-width: 300px;
+  border: none;
 }
 
-.back-btn:hover {
-  background: rgba(255,255,255,0.2);
+.result-actions button:first-child:hover {
+  background: var(--primary-dark);
 }
 
-/* Result screen */
-.result-screen {
+/* Waiting screen */
+.waiting-screen {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.spinner {
+  width: 56px;
+  height: 56px;
+  border: 5px solid var(--border);
+  border-top: 5px solid var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Menu screen */
+.menu-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
   text-align: center;
 }
 
-.result-screen h1 {
-  font-size: 3rem;
-  margin-bottom: 1.5rem;
+.menu-screen h1 {
+  font-size: 2.1rem;
+  font-weight: 800;
+  margin-bottom: 12px;
 }
 
-.final-choices {
-  display: flex;
-  justify-content: center;
-  gap: 4rem;
-  font-size: 5rem;
-  margin: 2rem 0;
+/* Footer */
+footer {
+  text-align: center;
+  padding: 20px 0;
+  color: var(--text-light);
+  font-size: 0.82rem;
+  margin-top: auto;
 }
 
-.result-screen button {
-  margin-top: 3rem;
-  background: #00d4ff;
-  color: #0f1c3a;
-  font-weight: bold;
-  width: 80%;
-  max-width: 320px;
-}
-
-.result-screen button:hover {
-  background: #00b8e0;
-  transform: translateY(-3px);
-}
-
-/* Umumiy yordamchi stillar */
-.toast {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0,0,0,0.8);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 12px;
-  z-index: 1000;
-  animation: fadeInOut 2.8s forwards;
-}
-
-@keyframes fadeInOut {
-  0%   { opacity: 0; transform: translate(-50%, -20px); }
-  10%  { opacity: 1; transform: translate(-50%, 0); }
-  90%  { opacity: 1; transform: translate(-50%, 0); }
-  100% { opacity: 0; transform: translate(-50%, -20px); }
+/* Responsive tweaks */
+@media (max-width: 380px) {
+  .choice-display       { font-size: 4.6rem; min-height: 90px; }
+  .choice-display.big   { font-size: 6.2rem; min-height: 120px; }
+  .result-choices       { font-size: 4rem; gap: 24px; }
 }
