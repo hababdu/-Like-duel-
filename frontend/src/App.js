@@ -96,7 +96,9 @@ function App() {
   const [difficulty, setDifficulty]     = useState('medium');
 
   // Multiplayer
-  const [ws, setWs]                     = useRef(null);
+// ✅ to‘g‘ri
+const ws = useRef(null);
+
   const [gameId, setGameId]             = useState(null);
   const [opponent, setOpponent]         = useState(null);
   const [myChoice, setMyChoice]         = useState(null);
