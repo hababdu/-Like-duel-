@@ -103,6 +103,7 @@ function App() {
   const [myChoice, setMyChoice]         = useState(null);
   const [opponentChoice, setOpponentChoice] = useState(null);
   const [multiResult, setMultiResult]   = useState(null);
+  const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   
   // Bot rejimi
   const [bot, setBot]                   = useState(null);
@@ -122,43 +123,112 @@ function App() {
       const tg = window.Telegram.WebApp;
       tg.ready();
       tg.expand();
-      tg.MainButton.setText("O'ynash").show();
+      
+      // ✅ O'ynash tugmasi yangilash
+      tg.MainButton.setText("Menyu").show();
+      tg.MainButton.onClick(() => {
+        setMode('menu');
+        setGameMode(null);
+        setMyChoice(null);
+        setOpponentChoice(null);
+        setMultiResult(null);
+        setWaitingForOpponent(false);
+      });
+      
       const initData = tg.initDataUnsafe;
       if (initData?.user) {
-        setUser(initData.user);
-        setCoins(prev => prev + (initData.user.id % 500));
-        connectWebSocket(initData.user);
+        const userData = {
+          id: initData.user.id,
+          username: initData.user.username,
+          first_name: initData.user.first_name,
+          last_name: initData.user.last_name
+        };
+        setUser(userData);
+        setCoins(1500 + (initData.user.id % 500));
+        connectWebSocket(userData);
+      } else {
+        // Telegram bo'lmasa ham test uchun
+        const testUser = {
+          id: Math.floor(Math.random() * 1000000),
+          username: 'test_user',
+          first_name: 'Test',
+          last_name: 'User'
+        };
+        setUser(testUser);
+        setCoins(1500);
       }
+    } else {
+      // Telegram Web App bo'lmasa
+      const testUser = {
+        id: Math.floor(Math.random() * 1000000),
+        username: 'test_user',
+        first_name: 'Test',
+        last_name: 'User'
+      };
+      setUser(testUser);
+      setCoins(1500);
     }
   }, []);
 
+  // ✅ WebSocket ulanishini yaxshilash
   const connectWebSocket = (tgUser) => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
-    
-    socket.onopen = () => {
-      socket.send(JSON.stringify({
-        type: 'register',
-        userId: tgUser.id,
-        username: tgUser.username,
-        firstName: tgUser.first_name
-      }));
-    };
-    
-    socket.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        handleWsMessage(data);
-      } catch (err) {
-        console.error("WS parse xatosi", err);
+    try {
+      // Agar backend yo'q bo'lsa, test rejimiga o'tkazish
+      if (!window.location.host || window.location.host.includes('localhost')) {
+        console.log("Test rejimi: WebSocket server yo'q");
+        showNotif("Test rejimi. Offline ishlaydi", 'info');
+        return;
       }
-    };
-    
-    socket.onclose = () => {
-      setTimeout(() => connectWebSocket(tgUser), 4000);
-    };
-    
-    ws.current = socket;
+      
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      console.log("WebSocket ga ulanish:", wsUrl);
+      
+      const socket = new WebSocket(wsUrl);
+      
+      socket.onopen = () => {
+        console.log("WebSocket ulandi");
+        showNotif("Serverga ulandi", 'success');
+        
+        // Registratsiya xabarini yuborish
+        socket.send(JSON.stringify({
+          type: 'register',
+          userId: tgUser.id,
+          username: tgUser.username || `user_${tgUser.id}`,
+          firstName: tgUser.first_name || 'Player'
+        }));
+      };
+      
+      socket.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          console.log("WS kelgan xabar:", data);
+          handleWsMessage(data);
+        } catch (err) {
+          console.error("WS parse xatosi", err);
+          showNotif("Server javobi xato", 'error');
+        }
+      };
+      
+      socket.onerror = (error) => {
+        console.error("WebSocket xatosi:", error);
+        showNotif("Serverga ulanishda xato", 'error');
+      };
+      
+      socket.onclose = (event) => {
+        console.log("WebSocket yopildi:", event.code, event.reason);
+        if (event.code !== 1000) {
+          setTimeout(() => {
+            if (tgUser) connectWebSocket(tgUser);
+          }, 5000);
+        }
+      };
+      
+      ws.current = socket;
+    } catch (error) {
+      console.error("WebSocket ulanish xatosi:", error);
+      showNotif("Serverga ulana olmadi. Bot bilan o'ynang", 'error');
+    }
   };
 
   const handleWsMessage = (data) => {
@@ -166,7 +236,12 @@ function App() {
       case 'game_created':
         setGameId(data.gameId);
         setMode('multiplayer');
-        setNotification({ text: 'Raqib qidirlmoqda...', type: 'info' });
+        setGameMode('multiplayer');
+        setWaitingForOpponent(true);
+        setNotification({ 
+          text: 'Raqib qidirlmoqda... Oʻyin ID: ' + data.gameId.slice(0, 8), 
+          type: 'info' 
+        });
         break;
         
       case 'opponent_found':
@@ -174,16 +249,22 @@ function App() {
         setMyChoice(null);
         setOpponentChoice(null);
         setMultiResult(null);
+        setWaitingForOpponent(false);
         setTimer(60);
         startTimer();
-        setNotification({ text: `${data.opponent.firstName || data.opponent.username} topildi!`, type: 'success' });
+        setNotification({ 
+          text: `Raqib topildi: ${data.opponent.firstName || data.opponent.username || 'Nomalum'}`,
+          type: 'success' 
+        });
         break;
         
       case 'opponent_choice_made':
-        setNotification({ text: 'Raqib tanlov qildi!', type: 'info' });
+        if (!opponentChoice) {
+          setNotification({ text: 'Raqib tanlov qildi!', type: 'info' });
+        }
         break;
         
-      // ✅ 2️⃣ Multiplayer result kelganda crashni to'xtatish
+      // ✅ Multiplayer result kelganda crashni to'xtatish
       case 'game_result': {
         clearInterval(timerRef.current);
 
@@ -213,7 +294,15 @@ function App() {
             ? 'success'
             : 'error';
 
-        setNotification({ text: msg, type });
+        // Coins ni yangilash
+        if (data.result !== 'draw') {
+          const coinsChange = data.winnerId === myId ? 100 : -50;
+          setCoins(prev => Math.max(0, prev + coinsChange));
+        } else {
+          setCoins(prev => prev + 25);
+        }
+
+        setNotification({ text: msg + (data.result !== 'draw' ? ` (${data.winnerId === myId ? '+100' : '-50'})` : ' (+25)'), type });
         break;
       }
         
@@ -224,7 +313,10 @@ function App() {
         break;
         
       case 'error':
-        setNotification({ text: data.message, type: 'error' });
+        setNotification({ text: data.message || 'Server xatosi', type: 'error' });
+        if (data.message?.includes('topilmadi')) {
+          setWaitingForOpponent(false);
+        }
         break;
         
       default:
@@ -258,14 +350,70 @@ function App() {
     notifTimeout.current = setTimeout(() => setNotification(null), 3200);
   };
 
+  // ✅ Do'stlar bilan o'ynash tugmasi ishlashi uchun
   const startMultiplayer = () => {
-    if (!user) return showNotif("Telegram ma'lumotlari yuklanmadi", 'error');
-    ws.current?.send(JSON.stringify({
+    console.log("Multiplayer boshlash", user);
+    
+    if (!user) {
+      showNotif("Foydalanuvchi ma'lumotlari yuklanmadi", 'error');
+      return;
+    }
+    
+    // WebSocket ochiqligini tekshirish
+    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
+      showNotif("Serverga ulanmoqda...", 'info');
+      
+      // Qayta ulanishni urinish
+      connectWebSocket(user);
+      
+      // Kichik kutish va keyin qayta urinish
+      setTimeout(() => {
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          sendCreateGame();
+        } else {
+          // Agar server yo'q bo'lsa, lokal multiplayer rejimiga o'tkazish
+          showNotif("Serverga ulanib bo'lmadi. Test rejimiga o'tildi", 'warning');
+          startLocalMultiplayer();
+        }
+      }, 1500);
+      return;
+    }
+    
+    sendCreateGame();
+  };
+
+  const sendCreateGame = () => {
+    showNotif("O'yin yaratilmoqda...", 'info');
+    
+    ws.current.send(JSON.stringify({
       type: 'create_game',
       userId: user.id,
       username: user.username || `user_${user.id}`,
-      firstName: user.first_name || 'Player'
+      firstName: user.first_name || 'Player',
+      coins: coins
     }));
+  };
+
+  // ✅ Lokal multiplayer rejimi (agar server yo'q bo'lsa)
+  const startLocalMultiplayer = () => {
+    const testOpponent = {
+      id: Math.floor(Math.random() * 1000000),
+      username: 'local_player',
+      firstName: 'Local',
+      coins: 1500
+    };
+    
+    setGameMode('multiplayer');
+    setMode('multiplayer');
+    setOpponent(testOpponent);
+    setMyChoice(null);
+    setOpponentChoice(null);
+    setMultiResult(null);
+    setWaitingForOpponent(false);
+    setTimer(60);
+    startTimer();
+    
+    showNotif("Lokal test rejimi. Raqib: " + testOpponent.firstName, 'success');
   };
 
   const startBotGame = (diff) => {
@@ -315,15 +463,77 @@ function App() {
     );
   };
 
+  // ✅ Multiplayer uchun tanlov qilish (test rejimi bilan)
   const handleMultiChoice = (choice) => {
     if (myChoice || multiResult) return;
     setMyChoice(choice);
-    ws.current?.send(JSON.stringify({
-      type: 'make_choice',
-      userId: user?.id,
-      gameId,
-      choice
-    }));
+    
+    // Agar WebSocket ochiq bo'lsa, serverga yuborish
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({
+        type: 'make_choice',
+        userId: user?.id,
+        gameId,
+        choice
+      }));
+    } else {
+      // Test rejimi: raqibni random tanlov qilish
+      showNotif("Test rejimi: raqib tanlov qilmoqda...", 'info');
+      
+      setTimeout(() => {
+        const oppChoices = ['rock', 'paper', 'scissors'];
+        const randomChoice = oppChoices[Math.floor(Math.random() * 3)];
+        setOpponentChoice(randomChoice);
+        
+        // Natijani aniqlash
+        let result;
+        if (choice === randomChoice) {
+          result = 'draw';
+        } else if (
+          (choice === 'rock' && randomChoice === 'scissors') ||
+          (choice === 'paper' && randomChoice === 'rock') ||
+          (choice === 'scissors' && randomChoice === 'paper')
+        ) {
+          result = 'win';
+        } else {
+          result = 'lose';
+        }
+        
+        // Coins ni yangilash
+        let coinsChange;
+        if (result === 'win') {
+          coinsChange = 100;
+          setCoins(prev => prev + coinsChange);
+        } else if (result === 'lose') {
+          coinsChange = -50;
+          setCoins(prev => Math.max(0, prev + coinsChange));
+        } else {
+          coinsChange = 25;
+          setCoins(prev => prev + coinsChange);
+        }
+        
+        setMultiResult(result);
+        
+        const msg = result === 'win' ? 'G‘alaba!' :
+                   result === 'lose' ? 'Mag‘lubiyat' : 'Durang';
+        
+        showNotif(`${msg} (${coinsChange > 0 ? '+' : ''}${coinsChange})`, 
+                 result === 'win' ? 'success' : result === 'lose' ? 'error' : 'warning');
+      }, 1500);
+    }
+  };
+
+  // ✅ O'yinni qayta boshlash
+  const restartMultiplayer = () => {
+    setMyChoice(null);
+    setOpponentChoice(null);
+    setMultiResult(null);
+    setOpponent(null);
+    setGameId(null);
+    setWaitingForOpponent(false);
+    
+    // Yangi o'yin boshlash
+    startMultiplayer();
   };
 
   return (
@@ -335,7 +545,7 @@ function App() {
       )}
       
       <header>
-        <div className="logo">✊ Qaychi Qog‘oz ✌️</div>
+        <div className="logo">✊ Qaychi Qog'oz ✌️</div>
         <div className="coins-display">
           <span>🪙 {coins.toLocaleString()}</span>
         </div>
@@ -347,19 +557,26 @@ function App() {
           <div className="mode-selection">
             <button className="mode-btn multiplayer" onClick={startMultiplayer}>
               <div className="icon">👥</div>
-              <div>Do'st bilan o'ynash</div>
+              <div>Do'stlar bilan o'ynash</div>
+              <small>Multiplayer</small>
             </button>
             <button className="mode-btn bot" onClick={() => setMode('bot-select')}>
               <div className="icon">🤖</div>
               <div>Bot bilan o'ynash</div>
+              <small>Offline</small>
             </button>
+          </div>
+          
+          <div className="user-info">
+            <p>👤 {user?.first_name || user?.username || 'Mehmon'}</p>
+            <p>ID: {user?.id?.toString().slice(0, 8)}...</p>
           </div>
         </main>
       )}
       
       {mode === 'bot-select' && (
         <main className="difficulty-screen">
-          <h2>Darajani tanlang</h2>
+          <h2>Bot darajasini tanlang</h2>
           <div className="difficulty-buttons">
             {['easy', 'medium', 'hard'].map(lvl => (
               <button
@@ -367,12 +584,15 @@ function App() {
                 className={`diff-btn ${lvl}`}
                 onClick={() => startBotGame(lvl)}
               >
-                {lvl === 'easy' ? 'Oson' : lvl === 'medium' ? 'O‘rta' : 'Qiyin'}
+                {lvl === 'easy' ? '👶 Oson' : lvl === 'medium' ? '😐 Oʻrta' : '🔥 Qiyin'}
+                <small>
+                  {lvl === 'easy' ? '+50/-10' : lvl === 'medium' ? '+75/-10' : '+110/-10'}
+                </small>
               </button>
             ))}
           </div>
           <button className="back-btn" onClick={() => setMode('menu')}>
-            ← Orqaga
+            ← Menyuga qaytish
           </button>
         </main>
       )}
@@ -388,22 +608,19 @@ function App() {
             <div className="player-side">
               <div className="label">SIZ</div>
               <div className="choice-display">
-                {/* ✅ 4️⃣ Bot natijasida ham himoya */}
                 {SAFE_CHOICES?.[playerChoice]?.emoji || '❓'}
               </div>
             </div>
             <div className="vs">VS</div>
             <div className="player-side">
-              <div className="label">BOT</div>
+              <div className="label">BOT ({difficulty})</div>
               <div className="choice-display">
-                {/* ✅ 4️⃣ Bot natijasida ham himoya */}
                 {SAFE_CHOICES?.[botChoice]?.emoji || '🤔'}
               </div>
             </div>
           </div>
           
           {!playerChoice && botResult === null && (
-            // ✅ 3️⃣ Bot tugmalarini himoyalash
             <div className="choice-buttons">
               {Object.entries(SAFE_CHOICES).map(([key, val]) => (
                 <button
@@ -422,22 +639,21 @@ function App() {
           {botResult && (
             <div className={`result-overlay ${botResult}`}>
               <h2>
-                {botResult === 'win' ? 'G‘ALABA!' :
-                 botResult === 'lose' ? 'MAG‘LUBIYAT' :
-                 'DURRANG'}
+                {botResult === 'win' ? '🎉 G‘ALABA!' :
+                 botResult === 'lose' ? '😞 MAG‘LUBIYAT' :
+                 '🤝 DURRANG'}
               </h2>
               <div className="result-choices">
-                {/* ✅ 4️⃣ Bot natijasida ham himoya */}
                 <div>{SAFE_CHOICES?.[playerChoice]?.emoji || '❓'}</div>
                 <div>VS</div>
                 <div>{SAFE_CHOICES?.[botChoice]?.emoji || '❓'}</div>
               </div>
               <div className="result-actions">
-                <button onClick={() => startBotGame(difficulty)}>
-                  Yana o'ynash
+                <button className="play-again-btn" onClick={() => startBotGame(difficulty)}>
+                  ♻️ Yana o'ynash
                 </button>
-                <button onClick={() => setMode('menu')}>
-                  Menyuga qaytish
+                <button className="menu-btn" onClick={() => setMode('menu')}>
+                  🏠 Menyuga qaytish
                 </button>
               </div>
             </div>
@@ -452,35 +668,70 @@ function App() {
             <span>{timer}s</span>
           </div>
           
-          {!opponent ? (
+          {waitingForOpponent ? (
             <div className="waiting-screen">
               <div className="spinner" />
               <h3>Raqib qidirlmoqda...</h3>
-              {gameId && <p>O'yin ID: {gameId.slice(0, 8)}...</p>}
+              {gameId && (
+                <>
+                  <p>O'yin ID: <code>{gameId.slice(0, 8)}...</code></p>
+                  <p>Do'stingizga ushbu ID ni yuboring</p>
+                </>
+              )}
+              <button 
+                className="cancel-btn" 
+                onClick={() => {
+                  setMode('menu');
+                  setWaitingForOpponent(false);
+                }}
+              >
+                ❌ Bekor qilish
+              </button>
+            </div>
+          ) : !opponent ? (
+            <div className="waiting-screen">
+              <h3>Multiplayer</h3>
+              <p>O'yinni boshlash uchun pastdagi tugmani bosing</p>
+              <button className="start-multiplayer-btn" onClick={startMultiplayer}>
+                🎮 O'yinni boshlash
+              </button>
+              <button 
+                className="back-btn" 
+                onClick={() => setMode('menu')}
+              >
+                ← Menyuga qaytish
+              </button>
             </div>
           ) : (
             <>
               <div className="opponent-info">
-                Raqib: {opponent.firstName || opponent.username || '???'}
+                <span className="opponent-name">
+                  👤 Raqib: {opponent.firstName || opponent.username || 'Noma\'lum'}
+                </span>
+                {opponent.coins && (
+                  <span className="opponent-coins">🪙 {opponent.coins}</span>
+                )}
               </div>
+              
               <div className="versus-container">
                 <div className="player-side">
                   <div className="label">SIZ</div>
-                  <div className="choice-display big">
+                  <div className={`choice-display big ${myChoice ? 'selected' : ''}`}>
                     {SAFE_CHOICES?.[myChoice]?.emoji || '❓'}
+                    {myChoice && <small>{SAFE_CHOICES[myChoice]?.name}</small>}
                   </div>
                 </div>
                 <div className="vs">VS</div>
                 <div className="player-side">
                   <div className="label">RAQIB</div>
-                  <div className="choice-display big">
+                  <div className={`choice-display big ${opponentChoice ? 'selected' : ''}`}>
                     {SAFE_CHOICES?.[opponentChoice]?.emoji || '❓'}
+                    {opponentChoice && <small>{SAFE_CHOICES[opponentChoice]?.name}</small>}
                   </div>
                 </div>
               </div>
               
-              {!myChoice && multiResult === null && (
-                // ✅ 3️⃣ Multiplayer tugmalarini himoyalash
+              {!myChoice && !multiResult && (
                 <div className="choice-buttons">
                   {Object.entries(SAFE_CHOICES).map(([key, val]) => (
                     <button
@@ -499,19 +750,30 @@ function App() {
               {multiResult && (
                 <div className={`result-overlay ${multiResult}`}>
                   <h2>
-                    {multiResult === 'draw' ? 'DURRANG' :
-                     multiResult === 'timeout' ? 'VAQT TUGADI' :
-                     (multiResult === 'player1_win' && opponent?.id !== user?.id) ||
-                     (multiResult === 'player2_win' && opponent?.id === user?.id) ? 'G‘ALABA!' : 'MAG‘LUBIYAT'}
+                    {multiResult === 'draw' ? '🤝 DURRANG' :
+                     multiResult === 'timeout' ? '⏰ VAQT TUGADI' :
+                     multiResult === 'win' ? '🎉 G‘ALABA!' : '😞 MAG‘LUBIYAT'}
                   </h2>
+                  <div className="result-choices">
+                    <div>{SAFE_CHOICES?.[myChoice]?.emoji || '❓'}</div>
+                    <div>VS</div>
+                    <div>{SAFE_CHOICES?.[opponentChoice]?.emoji || '❓'}</div>
+                  </div>
                   <div className="result-actions">
-                    <button onClick={() => setMode('menu')}>
-                      Menyuga qaytish
+                    <button className="play-again-btn" onClick={restartMultiplayer}>
+                      🔄 Yangi o'yin
                     </button>
-                    <button onClick={startMultiplayer}>
-                      Yangi o'yin
+                    <button className="menu-btn" onClick={() => setMode('menu')}>
+                      🏠 Menyuga qaytish
                     </button>
                   </div>
+                </div>
+              )}
+              
+              {myChoice && !opponentChoice && !multiResult && (
+                <div className="waiting-for-opponent">
+                  <div className="small-spinner"></div>
+                  <p>Raqib tanlov qilishni kutmoqda...</p>
                 </div>
               )}
             </>
@@ -520,7 +782,14 @@ function App() {
       )}
       
       <footer>
-        <p>Telegram o‘yini • {new Date().getFullYear()}</p>
+        <p>Telegram o'yini • {new Date().getFullYear()}</p>
+        <small>
+          {ws.current && ws.current.readyState === WebSocket.OPEN 
+            ? '🟢 Onlayn' 
+            : ws.current 
+            ? '🔴 Offline' 
+            : '⚪ Test rejimi'}
+        </small>
       </footer>
     </div>
   );
