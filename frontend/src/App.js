@@ -713,16 +713,7 @@ const closeResultAnimation = () => {
         {!showBotMenu && gameState.status === 'playing' && (
           <div className="game-screen playing-screen">
             <div className="playing-header">
-              <div className="opponent-info">
-                <div className="opponent-type">
-                  <span className="bot-badge">🤖</span>
-                  {botDifficulty.toUpperCase()} BOT
-                </div>
-                <h2>{botName}</h2>
-                <p className="opponent-stats">
-                  Daraja: {botLevel} • Streak: {botStreak} • {gameState.timer}s qoldi
-                </p>
-              </div>
+              
               
               <div className="game-timer">
                 <div className="timer-icon">⏰</div>
@@ -739,7 +730,6 @@ const closeResultAnimation = () => {
                   disabled={gameState.myChoice !== null || !botChoiceMade}
                 >
                   <span className="choice-emoji">✊</span>
-                  <span className="choice-text">Tosh</span>
                 </button>
                 
                 <button 
@@ -748,7 +738,6 @@ const closeResultAnimation = () => {
                   disabled={gameState.myChoice !== null || !botChoiceMade}
                 >
                   <span className="choice-emoji">✋</span>
-                  <span className="choice-text">Qog'oz</span>
                 </button>
                 
                 <button 
@@ -757,7 +746,6 @@ const closeResultAnimation = () => {
                   disabled={gameState.myChoice !== null || !botChoiceMade}
                 >
                   <span className="choice-emoji">✌️</span>
-                  <span className="choice-text">Qaychi</span>
                 </button>
               </div>
             </div>

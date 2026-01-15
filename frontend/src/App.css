@@ -308,7 +308,6 @@ body {
 
 .welcome-section {
   text-align: center;
-  padding: 24px 0;
 }
 
 .welcome-avatar {
@@ -348,8 +347,7 @@ body {
 
 .stat-card-mini {
   flex: 1;
-  max-width: 100px;
-  padding: 16px;
+  max-width: 70px;
   background: var(--bg-card);
   border-radius: var(--radius-lg);
   text-align: center;
@@ -359,7 +357,6 @@ body {
 .stat-card-mini .stat-icon {
   font-size: 24px;
   display: block;
-  margin-bottom: 8px;
 }
 
 .stat-card-mini .stat-value {
@@ -718,8 +715,9 @@ body {
 
 .choice-btn {
   flex: 1;
-  max-width: 120px;
-  padding: 24px 12px;
+  width: 70px;
+  height: 70px;
+  padding: 12px;
   border: 2px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-card);
