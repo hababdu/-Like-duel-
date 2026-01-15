@@ -18,6 +18,11 @@ class RPSBot {
   choose(last = null) {
     const opts = ['rock', 'paper', 'scissors'];
 
+    // Himoya: agar stats yoki history buzilgan bo'lsa
+    if (!this.stats || !this.history) {
+      return opts[Math.floor(Math.random() * 3)];
+    }
+
     if (this.difficulty === 'easy') {
       return opts[Math.floor(Math.random() * 3)];
     }
@@ -51,20 +56,30 @@ class RPSBot {
   }
 
   getMostFrequent() {
+    if (!this.stats || typeof this.stats !== 'object') {
+      return null;
+    }
+
     const values = Object.values(this.stats);
+    if (values.length === 0) return null;
+
     const max = Math.max(...values);
-    for (const [k, v] of Object.entries(this.stats)) {
-      if (v === max) return k;
+
+    for (const [key, count] of Object.entries(this.stats)) {
+      if (count === max) {
+        return key;
+      }
     }
     return null;
   }
 
   remember(choice) {
-    if (choice && CHOICES[choice]) {
-      this.history.push(choice);
-      this.stats[choice]++;
-      if (this.history.length > 25) this.history.shift();
-    }
+    if (!choice || !CHOICES[choice]) return;
+
+    this.history.push(choice);
+    this.stats[choice] = (this.stats[choice] || 0) + 1;
+
+    if (this.history.length > 25) this.history.shift();
   }
 
   reset() {
@@ -74,11 +89,10 @@ class RPSBot {
 }
 
 function App() {
-  // ─── Asosiy holatlar ────────────────────────────────────────────────
   const [user, setUser]                 = useState(null);
   const [coins, setCoins]               = useState(1500);
-  const [mode, setMode]                 = useState('menu');           // menu | bot-select | playing-bot | multiplayer | result
-  const [gameMode, setGameMode]         = useState(null);             // 'bot' | 'multiplayer'
+  const [mode, setMode]                 = useState('menu');
+  const [gameMode, setGameMode]         = useState(null);
   const [difficulty, setDifficulty]     = useState('medium');
 
   // Multiplayer
@@ -101,7 +115,7 @@ function App() {
   const [notification, setNotification] = useState(null);
   const notifTimeout                    = useRef(null);
 
-  // ─── Telegram Web App integratsiyasi ────────────────────────────────
+  // Telegram Web App
   useEffect(() => {
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -112,13 +126,12 @@ function App() {
       const initData = tg.initDataUnsafe;
       if (initData?.user) {
         setUser(initData.user);
-        setCoins(prev => prev + (initData.user.id % 500)); // demo bonus
+        setCoins(prev => prev + (initData.user.id % 500));
         connectWebSocket(initData.user);
       }
     }
   }, []);
 
-  // ─── WebSocket ulanish ──────────────────────────────────────────────
   const connectWebSocket = (tgUser) => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
@@ -200,7 +213,6 @@ function App() {
     }
   };
 
-  // ─── Timer ──────────────────────────────────────────────────────────
   const startTimer = () => {
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -221,14 +233,12 @@ function App() {
     }, 1000);
   };
 
-  // ─── Notification ───────────────────────────────────────────────────
   const showNotif = (text, type = 'info') => {
     if (notifTimeout.current) clearTimeout(notifTimeout.current);
     setNotification({ text, type });
     notifTimeout.current = setTimeout(() => setNotification(null), 3200);
   };
 
-  // ─── Multiplayer o'yin boshlash ─────────────────────────────────────
   const startMultiplayer = () => {
     if (!user) return showNotif("Telegram ma'lumotlari yuklanmadi", 'error');
     ws.current?.send(JSON.stringify({
@@ -239,29 +249,29 @@ function App() {
     }));
   };
 
-  // ─── Bot o'yin boshlash ─────────────────────────────────────────────
   const startBotGame = (diff) => {
     setGameMode('bot');
     setDifficulty(diff);
     setMode('playing-bot');
 
     const newBot = new RPSBot(diff);
+    
     setBot(newBot);
     setPlayerChoice(null);
     setBotChoice(null);
     setBotResult(null);
     setTimer(60);
 
-    // Birinchi bot tanlovi (ko'rinmaydi)
-    setBotChoice(newBot.choose());
+    // Birinchi bot tanlovi (o'yin boshida ko'rinmaydi)
+    const initialBotChoice = newBot.choose();
+    setBotChoice(initialBotChoice);
 
     startTimer();
     showNotif(`${diff.toUpperCase()} darajadagi bot bilan o'yin boshlandi!`, 'success');
   };
 
-  // ─── Botda tanlov qilish ────────────────────────────────────────────
   const handleBotMove = (choice) => {
-    if (playerChoice || botResult) return;
+    if (playerChoice || botResult || !bot) return;
 
     setPlayerChoice(choice);
     clearInterval(timerRef.current);
@@ -272,8 +282,8 @@ function App() {
     let res;
     if (choice === currentBot) res = 'draw';
     else if (
-      (choice === 'rock' && currentBot === 'scissors') ||
-      (choice === 'paper' && currentBot === 'rock') ||
+      (choice === 'rock'     && currentBot === 'scissors') ||
+      (choice === 'paper'    && currentBot === 'rock')     ||
       (choice === 'scissors' && currentBot === 'paper')
     ) res = 'win';
     else res = 'lose';
@@ -293,7 +303,6 @@ function App() {
     );
   };
 
-  // ─── Multiplayerda tanlov qilish ────────────────────────────────────
   const handleMultiChoice = (choice) => {
     if (myChoice || multiResult) return;
 
@@ -306,17 +315,14 @@ function App() {
     }));
   };
 
-  // ─── Render ─────────────────────────────────────────────────────────
   return (
     <div className="app-container">
-      {/* Notification */}
       {notification && (
         <div className={`notification ${notification.type}`}>
           {notification.text}
         </div>
       )}
 
-      {/* Header */}
       <header>
         <div className="logo">✊ Qaychi Qog‘oz ✌️</div>
         <div className="coins-display">
@@ -324,17 +330,14 @@ function App() {
         </div>
       </header>
 
-      {/* Menu */}
       {mode === 'menu' && (
         <main className="menu-screen">
           <h1>Salom{user ? `, ${user.first_name}` : ''}!</h1>
-
           <div className="mode-selection">
             <button className="mode-btn multiplayer" onClick={startMultiplayer}>
               <div className="icon">👥</div>
               <div>Do'st bilan o'ynash</div>
             </button>
-
             <button className="mode-btn bot" onClick={() => setMode('bot-select')}>
               <div className="icon">🤖</div>
               <div>Bot bilan o'ynash</div>
@@ -343,7 +346,6 @@ function App() {
         </main>
       )}
 
-      {/* Bot daraja tanlash */}
       {mode === 'bot-select' && (
         <main className="difficulty-screen">
           <h2>Darajani tanlang</h2>
@@ -364,7 +366,6 @@ function App() {
         </main>
       )}
 
-      {/* Bot o'yini */}
       {mode === 'playing-bot' && (
         <main className="game-screen">
           <div className="timer-bar">
@@ -376,7 +377,7 @@ function App() {
             <div className="player-side">
               <div className="label">SIZ</div>
               <div className="choice-display">
-                {playerChoice ? CHOICES[playerChoice].emoji : '?'}
+                {playerChoice ? CHOICES[playerChoice]?.emoji : '?'}
               </div>
             </div>
 
@@ -385,7 +386,7 @@ function App() {
             <div className="player-side">
               <div className="label">BOT</div>
               <div className="choice-display">
-                {botChoice ? CHOICES[botChoice].emoji : '🤔'}
+                {botChoice ? CHOICES[botChoice]?.emoji : '🤔'}
               </div>
             </div>
           </div>
@@ -433,7 +434,6 @@ function App() {
         </main>
       )}
 
-      {/* Multiplayer o'yini */}
       {mode === 'multiplayer' && (
         <main className="game-screen">
           <div className="timer-bar">
@@ -457,7 +457,7 @@ function App() {
                 <div className="player-side">
                   <div className="label">SIZ</div>
                   <div className="choice-display big">
-                    {myChoice ? CHOICES[myChoice].emoji : '?'}
+                    {myChoice ? CHOICES[myChoice]?.emoji : '?'}
                   </div>
                 </div>
 
@@ -466,7 +466,7 @@ function App() {
                 <div className="player-side">
                   <div className="label">RAQIB</div>
                   <div className="choice-display big">
-                    {opponentChoice ? CHOICES[opponentChoice].emoji : '❓'}
+                    {opponentChoice ? CHOICES[opponentChoice]?.emoji : '❓'}
                   </div>
                 </div>
               </div>
@@ -511,7 +511,6 @@ function App() {
         </main>
       )}
 
-      {/* Footer */}
       <footer>
         <p>Telegram o‘yini • {new Date().getFullYear()}</p>
       </footer>
