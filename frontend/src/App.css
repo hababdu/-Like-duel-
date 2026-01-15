@@ -648,9 +648,7 @@ body {
 }
 
 /* ✅ 8. PLAYING EKRANI */
-.playing-screen {
-  padding: 20px 0;
-}
+
 
 .playing-header {
   text-align: center;
@@ -681,15 +679,14 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 16px;
 }
 
 .timer-icon {
-  font-size: 24px;
+  font-size: 54px;
 }
 
 .timer-value {
-  font-size: 24px;
+  font-size: 54px;
   font-weight: 700;
   background: linear-gradient(135deg, var(--warning), var(--danger));
   -webkit-background-clip: text;
@@ -881,10 +878,6 @@ body {
   border: 2px solid var(--warning);
 }
 
-.result-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
-}
 
 .final-choices {
   display: flex;
