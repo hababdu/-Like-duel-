@@ -39,7 +39,7 @@ function App() {
 
   // WebSocket
   useEffect(() => {
-    const socket = new WebSocket('wss://your-domain.com/ws'); // ← o'zgartiring!
+    const socket = new WebSocket('https://telegram-bot-server-2-matj.onrender.com//ws'); // ← o'zgartiring!
 
     socket.onopen = () => {
       console.log('WS connected');
