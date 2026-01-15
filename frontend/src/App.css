@@ -296,7 +296,7 @@ body {
 }
 
 .game-screen {
-  min-height: calc(100vh - 140px);
+  min-height: 70dvh;
 }
 
 /* ✅ 6. IDLE EKRANI */
@@ -711,7 +711,6 @@ body {
 }
 
 .choice-btn {
-  flex: 1;
   width: 70px;
   height: 70px;
   padding: 12px;
@@ -1474,7 +1473,7 @@ body {
   }
   
   .main-content {
-    padding: 16px;
+    padding: 0 16px;
   }
   
   .choice-buttons {
