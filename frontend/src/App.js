@@ -10,7 +10,8 @@ function App() {
     return saved ? JSON.parse(saved) : {
       id: Date.now(),
       first_name: 'Habibullo',
-      username: `user_${Date.now().toString().slice(-6)}`
+      username: `user_${Date.now().toString().slice(-6)}`,
+      photo_url: null
     };
   });
 
@@ -29,7 +30,7 @@ function App() {
     };
   });
 
-  const [mode, setMode] = useState('menu'); // menu | playing | finished
+  const [mode, setMode] = useState('menu'); // menu | playing
   const [difficulty, setDifficulty] = useState('medium');
   const [bot, setBot] = useState(null);
 
@@ -42,7 +43,7 @@ function App() {
   });
 
   const [currentStreak, setCurrentStreak] = useState(0);
-  const [showResultOverlay, setShowResultOverlay] = useState(false);
+  const [animateReveal, setAnimateReveal] = useState(false);
 
   const timerRef = useRef(null);
   const [notification, setNotification] = useState(null);
@@ -55,12 +56,29 @@ function App() {
     localStorage.setItem('rps_stats', JSON.stringify(stats));
   }, [user, coins, stats]);
 
-  // Telegram WebApp integratsiyasi
+  // Telegram WebApp integratsiyasi va user rasm olish
   useEffect(() => {
     if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+
+      const u = tg.initDataUnsafe?.user;
+      if (u?.id) {
+        setUser(prev => ({
+          ...prev,
+          id: u.id,
+          first_name: u.first_name || 'Habibullo',
+          username: u.username || `user_${u.id}`,
+          photo_url: u.photo_url || null // Telegramdan rasm olish
+        }));
+      }
     }
+
+    return () => {
+      clearInterval(timerRef.current);
+      clearTimeout(notifRef.current);
+    };
   }, []);
 
   const notify = (msg, type = 'info') => {
@@ -84,6 +102,12 @@ function App() {
     setDifficulty(diff);
     setBot({ name: botName, diff });
     setMode('playing');
+    resetGameState();
+
+    notify(`🤖 ${botName} bilan o‘yin boshlandi!`, 'success');
+  };
+
+  const resetGameState = () => {
     setGame({
       status: 'choosing',
       playerChoice: null,
@@ -91,12 +115,10 @@ function App() {
       result: null,
       secondsLeft: 60
     });
-    setShowResultOverlay(false);
-
-    notify(`🤖 ${botName} bilan o‘yin boshlandi!`, 'success');
+    setAnimateReveal(false);
 
     setTimeout(() => {
-      const botPick = getBotChoice(diff);
+      const botPick = getBotChoice(difficulty);
       setGame(prev => ({ ...prev, botChoice: botPick, status: 'player-turn' }));
       notify('Bot tanladi! Endi siz tanlang!', 'info');
       startTimer();
@@ -132,8 +154,10 @@ function App() {
   const handleTimeout = () => {
     setGame(prev => ({ ...prev, result: 'timeout', status: 'finished' }));
     setCoins(c => c + 5);
-    setShowResultOverlay(true);
+    setAnimateReveal(true);
     notify('⏰ Vaqt tugadi! +5 coin', 'warning');
+
+    setTimeout(resetGameState, 3000); // Avtomatik yangi o'yin
   };
 
   // ────────────────────────────────────────────────
@@ -145,7 +169,7 @@ function App() {
     clearInterval(timerRef.current);
 
     setTimeout(() => {
-      setShowResultOverlay(true);
+      setAnimateReveal(true);
       calculateResult(choice, game.botChoice);
     }, 700);
   };
@@ -177,6 +201,8 @@ function App() {
 
     updateStats(outcome, reward);
     notify(getResultMessage(outcome, reward), outcome === 'win' ? 'success' : 'neutral');
+
+    setTimeout(resetGameState, 3500); // Animatsiya tugagach avtomatik yangi o'yin
   };
 
   const updateStats = (outcome, reward) => {
@@ -187,7 +213,7 @@ function App() {
         totalCoinsEarned: prev.totalCoinsEarned + reward,
         botGamesPlayed: prev.botGamesPlayed + 1
       };
-      if (outcome === 'win') { next.wins += 1; }
+      if (outcome === 'win') { next.wins += 1; next.botGamesWon += 1; }
       if (outcome === 'lose') { next.losses += 1; }
       if (outcome === 'draw') { next.draws += 1; }
       next.winRate = Math.round((next.wins / next.totalGames) * 100) || 0;
@@ -206,17 +232,13 @@ function App() {
   };
 
   // ────────────────────────────────────────────────
-  // NATIJA OYNASINI YOPISH
+  // MENYUGA QAYTISH
   // ────────────────────────────────────────────────
-  const closeResult = () => {
-    setShowResultOverlay(false);
+  const backToMenu = () => {
+    clearInterval(timerRef.current);
     setMode('menu');
-    notify('Yangi o‘yin uchun tayyormisiz?', 'info');
-  };
-
-  const playAgain = () => {
-    setShowResultOverlay(false);
-    startGame(difficulty);
+    setBot(null);
+    setAnimateReveal(false);
   };
 
   const emoji = (ch) => ({ rock: '✊', paper: '✋', scissors: '✌️' }[ch] || '❓');
@@ -244,7 +266,9 @@ function App() {
           <div className="coins">
             <span>🪙</span> {coins.toLocaleString()}
           </div>
-          <div className="avatar-btn">{user.first_name[0]}</div>
+          <div className="avatar-btn" style={{ backgroundImage: user.photo_url ? `url(${user.photo_url})` : 'none' }}>
+            {!user.photo_url && user.first_name[0]}
+          </div>
         </div>
       </header>
 
@@ -253,7 +277,9 @@ function App() {
         {mode === 'menu' && (
           <div className="menu-screen">
             <div className="welcome">
-              <div className="big-avatar">{user.first_name[0]}</div>
+              <div className="big-avatar" style={{ backgroundImage: user.photo_url ? `url(${user.photo_url})` : 'none' }}>
+                {!user.photo_url && user.first_name[0]}
+              </div>
               <h2>Salom, {user.first_name}!</h2>
             </div>
 
@@ -290,14 +316,18 @@ function App() {
             <div className="versus">
               <div className="player you">
                 <div className="label">SIZ</div>
-                <div className="choice-big">{game.playerChoice ? emoji(game.playerChoice) : '?'}</div>
+                <div className={`choice-big ${game.playerChoice ? 'revealed' : ''}`}>
+                  {game.playerChoice ? emoji(game.playerChoice) : '?'}
+                </div>
               </div>
 
               <div className="vs-circle">VS</div>
 
               <div className="player bot">
                 <div className="label">{bot?.name}</div>
-                <div className="choice-big">{game.botChoice ? '❓' : '🤔'}</div>
+                <div className={`choice-big ${animateReveal ? 'revealed' : ''}`}>
+                  {animateReveal ? emoji(game.botChoice) : (game.botChoice ? '❓' : '🤔')}
+                </div>
               </div>
             </div>
 
@@ -313,39 +343,27 @@ function App() {
               <div className="status-text">Bot tanlov qilmoqda...</div>
             )}
 
-            {/* NATIJA OVERLAY */}
-            {showResultOverlay && (
-              <div className={`result-overlay ${game.result}`}>
-                <div className="result-card">
-                  <div className="result-icon">
-                    {game.result === 'win' ? '🏆' : game.result === 'lose' ? '😔' : game.result === 'draw' ? '🤝' : '⏰'}
-                  </div>
-                  <h2 className={`result-title ${game.result}`}>
-                    {game.result === 'win' ? 'G‘ALABA!' :
-                     game.result === 'lose' ? 'MAG‘LUBIYAT' :
-                     game.result === 'draw' ? 'DURRANG' : 'VAQT TUGADI'}
-                  </h2>
-                  <p className="result-coins">
-                    +{game.result === 'timeout' ? 5 : (game.result === 'win' ? 60 : game.result === 'draw' ? 25 : 12) * (difficulty === 'easy' ? 1 : difficulty === 'medium' ? 1.5 : 2)} coin
-                  </p>
-
-                  <div className="final-choices">
-                    <div>{emoji(game.playerChoice)}</div>
-                    <span className="vs-small">VS</span>
-                    <div>{emoji(game.botChoice)}</div>
-                  </div>
-
-                  <div className="result-actions">
-                    <button className="btn primary" onClick={playAgain}>
-                      🔄 Yana o‘ynash
-                    </button>
-                    <button className="btn secondary" onClick={closeResult}>
-                      Menyuga qaytish
-                    </button>
-                  </div>
+            {game.status === 'finished' && (
+              <div className={`result-display ${game.result}`}>
+                <div className="result-icon">
+                  {game.result === 'win' ? '🏆' : game.result === 'lose' ? '😔' : game.result === 'draw' ? '🤝' : '⏰'}
                 </div>
+                <h2 className={`result-title ${game.result}`}>
+                  {game.result === 'win' ? 'G‘ALABA!' :
+                   game.result === 'lose' ? 'MAG‘LUBIYAT' :
+                   game.result === 'draw' ? 'DURRANG' : 'VAQT TUGADI'}
+                </h2>
+                <p className="result-coins">
+                  +{game.result === 'timeout' ? 5 : (game.result === 'win' ? 60 : game.result === 'draw' ? 25 : 12) * (difficulty === 'easy' ? 1 : difficulty === 'medium' ? 1.5 : 2)} coin
+                </p>
               </div>
             )}
+
+            <div className="game-actions">
+              <button className="btn secondary" onClick={backToMenu}>
+                Menyuga qaytish
+              </button>
+            </div>
           </div>
         )}
       </main>
