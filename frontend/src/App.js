@@ -39,7 +39,7 @@ function App() {
 
   // WebSocket
   useEffect(() => {
-    const socket = new WebSocket('https://telegram-bot-server-2-matj.onrender.com//ws'); // ← o'zgartiring!
+    const socket = new WebSocket('wss://your-domain.com/ws'); // ← o'zgartiring!
 
     socket.onopen = () => {
       console.log('WS connected');
@@ -50,7 +50,7 @@ function App() {
         socket.send(JSON.stringify({
           type: 'register',
           userId: user.id,
-          firstName: user.first_name,
+          firstName: user.first_name || 'NoName',
           username: user.username || '',
           photoUrl: user.photo_url || ''
         }));
@@ -116,6 +116,11 @@ function App() {
   }, [user]);
 
   const startMultiplayer = () => {
+    if (!user || !user.id) {
+      alert("Foydalanuvchi ma'lumotlari hali yuklanmadi. Iltimos biroz kuting yoki sahifani yangilang.");
+      return;
+    }
+
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       alert("Server bilan aloqa yo'q");
       return;
@@ -127,7 +132,7 @@ function App() {
     ws.send(JSON.stringify({
       type: 'join_multiplayer',
       userId: user.id,
-      firstName: user.first_name,
+      firstName: user.first_name || 'NoName',
       username: user.username || ''
     }));
   };
@@ -160,7 +165,7 @@ function App() {
           <h1>Tosh-Qaychi-Qog'oz</h1>
           <div className="mode-buttons">
             <button onClick={() => setGameMode('bot')}>Bot bilan o'ynash</button>
-            <button onClick={startMultiplayer}>Real o'yinchilar bilan</button>
+            <button disabled={!user || !ws} onClick={startMultiplayer}>Real o'yinchilar bilan</button>
           </div>
         </div>
       )}
