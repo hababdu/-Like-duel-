@@ -3,7 +3,7 @@ import './App.css';
 
 function App() {
   // ────────────────────────────────────────────────
-  // USER & PERSISTENT DATA
+  // STATE'LAR
   // ────────────────────────────────────────────────
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('rps_user');
@@ -29,17 +29,8 @@ function App() {
     };
   });
 
-  const [daily, setDaily] = useState(() => {
-    const saved = localStorage.getItem('rps_daily');
-    const def = { streak: 1, lastClaim: null, available: true };
-    return saved ? JSON.parse(saved) : def;
-  });
-
-  // ────────────────────────────────────────────────
-  // GAME STATE
-  // ────────────────────────────────────────────────
   const [mode, setMode] = useState('menu'); // menu | playing | finished
-  const [difficulty, setDifficulty] = useState('medium'); // easy | medium | hard
+  const [difficulty, setDifficulty] = useState('medium');
   const [bot, setBot] = useState(null);
 
   const [game, setGame] = useState({
@@ -51,82 +42,47 @@ function App() {
   });
 
   const [currentStreak, setCurrentStreak] = useState(0);
-  const [botStreak, setBotStreak] = useState(0);
-
-  const [showResult, setShowResult] = useState(false);
-  const [notification, setNotification] = useState(null);
+  const [showResultOverlay, setShowResultOverlay] = useState(false);
 
   const timerRef = useRef(null);
+  const [notification, setNotification] = useState(null);
   const notifRef = useRef(null);
 
-  // ────────────────────────────────────────────────
-  // PERSISTENCE
-  // ────────────────────────────────────────────────
+  // LocalStorage saqlash
   useEffect(() => {
     localStorage.setItem('rps_user', JSON.stringify(user));
-  }, [user]);
-
-  useEffect(() => {
     localStorage.setItem('rps_coins', coins);
-  }, [coins]);
-
-  useEffect(() => {
     localStorage.setItem('rps_stats', JSON.stringify(stats));
-  }, [stats]);
+  }, [user, coins, stats]);
 
-  useEffect(() => {
-    localStorage.setItem('rps_daily', JSON.stringify(daily));
-  }, [daily]);
-
-  // ────────────────────────────────────────────────
-  // TELEGRAM WEB APP INIT (agar kerak bo‘lsa)
-  // ────────────────────────────────────────────────
+  // Telegram WebApp integratsiyasi
   useEffect(() => {
     if (window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-
-      const u = tg.initDataUnsafe?.user;
-      if (u?.id) {
-        setUser({
-          id: u.id,
-          first_name: u.first_name || 'Foydalanuvchi',
-          username: u.username || `user_${u.id}`
-        });
-      }
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
     }
-
-    return () => {
-      clearInterval(timerRef.current);
-      clearTimeout(notifRef.current);
-    };
   }, []);
 
-  // ────────────────────────────────────────────────
-  // NOTIFICATION HELPER
-  // ────────────────────────────────────────────────
-  const notify = (msg, type = 'info', ms = 2600) => {
+  const notify = (msg, type = 'info') => {
     setNotification({ text: msg, type });
     clearTimeout(notifRef.current);
-    notifRef.current = setTimeout(() => setNotification(null), ms);
+    notifRef.current = setTimeout(() => setNotification(null), 2800);
   };
 
   // ────────────────────────────────────────────────
-  // BOT LOGIC
+  // O'YIN BOSHLASH
   // ────────────────────────────────────────────────
   const startGame = (diff) => {
-    const names = {
-      easy:   ['Yosh Bot', 'Boshlang‘ich', 'Osonchi'],
-      medium: ['Tajribali Bot', 'O‘rta Pro', 'Strateg'],
-      hard:   ['Master Bot', 'AI Lord', 'Qiyinchi']
+    const botNames = {
+      easy: ['Oson Bot', 'Yoshchi', 'Boshlang‘ich'],
+      medium: ['O‘rta Pro', 'Strateg Bot', 'Tajribali'],
+      hard: ['Master Bot', 'Qiyinchi', 'AI Lord']
     };
-
-    const selectedNames = names[diff] || names.medium;
-    const botName = selectedNames[Math.floor(Math.random() * selectedNames.length)];
+    const nameList = botNames[diff] || botNames.medium;
+    const botName = nameList[Math.floor(Math.random() * nameList.length)];
 
     setDifficulty(diff);
-    setBot({ name: botName, difficulty: diff });
+    setBot({ name: botName, diff });
     setMode('playing');
     setGame({
       status: 'choosing',
@@ -135,55 +91,35 @@ function App() {
       result: null,
       secondsLeft: 60
     });
-    setShowResult(false);
-    setCurrentStreak(0); // yangi o‘yin → streak reset (xohlasangiz saqlashingiz mumkin)
+    setShowResultOverlay(false);
 
-    notify(`🤖 ${botName} bilan o‘yin boshlandi!`, 'info');
+    notify(`🤖 ${botName} bilan o‘yin boshlandi!`, 'success');
 
-    // Bot tanlov qiladi (foydalanuvchidan oldin)
     setTimeout(() => {
       const botPick = getBotChoice(diff);
       setGame(prev => ({ ...prev, botChoice: botPick, status: 'player-turn' }));
-      notify('Bot tanladi! Endi siz tanlang!', 'success', 2200);
+      notify('Bot tanladi! Endi siz tanlang!', 'info');
       startTimer();
-    }, 1200);
+    }, 1500);
   };
 
   const getBotChoice = (diff) => {
     const opts = ['rock', 'paper', 'scissors'];
-
-    if (diff === 'easy') {
-      return opts[Math.floor(Math.random() * 3)];
-    }
-
-    if (diff === 'medium') {
-      // 60% random, 40% oldingi tanlovga qarshi
-      return Math.random() < 0.6
-        ? opts[Math.floor(Math.random() * 3)]
-        : getCounterChoice(game.playerChoice || opts[Math.floor(Math.random() * 3)]);
-    }
-
-    // hard → yuqori ehtimollik bilan yengishga harakat
-    if (game.playerChoice) {
-      return getCounterChoice(game.playerChoice);
-    }
-    return opts[Math.floor(Math.random() * 3)];
+    if (diff === 'easy') return opts[Math.floor(Math.random() * 3)];
+    if (diff === 'medium') return Math.random() < 0.6 ? opts[Math.floor(Math.random() * 3)] : getCounter(game.playerChoice || opts[0]);
+    return getCounter(game.playerChoice || opts[0]);
   };
 
-  const getCounterChoice = (choice) => {
-    const map = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
-    return map[choice];
-  };
+  const getCounter = (choice) => ({ rock: 'paper', paper: 'scissors', scissors: 'rock' }[choice]);
 
   // ────────────────────────────────────────────────
   // TIMER
   // ────────────────────────────────────────────────
   const startTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-
+    clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setGame(prev => {
-        if (prev.secondsLeft <= 1) {
+        if (prev.secondsLeft <= 0) {
           clearInterval(timerRef.current);
           handleTimeout();
           return { ...prev, secondsLeft: 0 };
@@ -196,131 +132,94 @@ function App() {
   const handleTimeout = () => {
     setGame(prev => ({ ...prev, result: 'timeout', status: 'finished' }));
     setCoins(c => c + 5);
+    setShowResultOverlay(true);
     notify('⏰ Vaqt tugadi! +5 coin', 'warning');
   };
 
   // ────────────────────────────────────────────────
-  // PLAYER MOVE
+  // O'YINCHI TANLOVI
   // ────────────────────────────────────────────────
   const makeMove = (choice) => {
     if (game.playerChoice || game.status !== 'player-turn') return;
-
     setGame(prev => ({ ...prev, playerChoice: choice }));
+    clearInterval(timerRef.current);
 
     setTimeout(() => {
-      setShowResult(true);
+      setShowResultOverlay(true);
       calculateResult(choice, game.botChoice);
-    }, 600);
+    }, 700);
   };
 
   const calculateResult = (p, b) => {
-    if (!p || !b) return;
-
-    let outcome;
-    let reward = 0;
-
+    let outcome, reward;
     const mult = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 1.5 : 2;
 
     if (p === b) {
       outcome = 'draw';
       reward = Math.floor(25 * mult);
       setCurrentStreak(0);
-      setBotStreak(s => s + 1);
     } else if (
       (p === 'rock' && b === 'scissors') ||
       (p === 'paper' && b === 'rock') ||
       (p === 'scissors' && b === 'paper')
     ) {
       outcome = 'win';
-      const base = Math.floor(60 * mult);
-      const streakBonus = currentStreak * 12;
-      reward = base + streakBonus;
-      const newStreak = currentStreak + 1;
-      setCurrentStreak(newStreak);
-      setBotStreak(0);
-      if (newStreak > stats.maxStreak) {
-        setStats(s => ({ ...s, maxStreak: newStreak }));
-      }
+      reward = Math.floor(60 * mult) + (currentStreak * 15);
+      setCurrentStreak(prev => prev + 1);
     } else {
       outcome = 'lose';
       reward = Math.floor(12 * mult);
       setCurrentStreak(0);
-      setBotStreak(s => s + 1);
     }
 
     setGame(prev => ({ ...prev, result: outcome, status: 'finished' }));
     setCoins(c => c + reward);
 
+    updateStats(outcome, reward);
+    notify(getResultMessage(outcome, reward), outcome === 'win' ? 'success' : 'neutral');
+  };
+
+  const updateStats = (outcome, reward) => {
     setStats(prev => {
       const next = {
         ...prev,
         totalGames: prev.totalGames + 1,
-        botGamesPlayed: prev.botGamesPlayed + 1,
-        totalCoinsEarned: prev.totalCoinsEarned + reward
+        totalCoinsEarned: prev.totalCoinsEarned + reward,
+        botGamesPlayed: prev.botGamesPlayed + 1
       };
-
-      if (outcome === 'win') {
-        next.wins += 1;
-        next.botGamesWon += 1;
-      } else if (outcome === 'lose') {
-        next.losses += 1;
-      } else {
-        next.draws += 1;
-      }
-
-      next.winRate = next.totalGames > 0
-        ? Math.round((next.wins / next.totalGames) * 100)
-        : 0;
-
+      if (outcome === 'win') { next.wins += 1; }
+      if (outcome === 'lose') { next.losses += 1; }
+      if (outcome === 'draw') { next.draws += 1; }
+      next.winRate = Math.round((next.wins / next.totalGames) * 100) || 0;
+      if (currentStreak > prev.maxStreak) next.maxStreak = currentStreak;
       return next;
     });
+  };
 
-    const msg = {
-      win: `🏆 G‘alaba! +${reward} coin`,
-      lose: `😔 Yutqazdingiz... +${reward} coin`,
-      draw: `🤝 Durang! +${reward} coin`
-    }[outcome];
-
-    notify(msg, outcome === 'win' ? 'success' : 'neutral', 4000);
-
-    if (outcome === 'win' && currentStreak + 1 > 1) {
-      setTimeout(() => {
-        notify(`🔥 ${currentStreak + 1} ketma-ket! +${(currentStreak + 1) * 12} bonus`, 'success');
-      }, 1800);
-    }
+  const getResultMessage = (res, coins) => {
+    return {
+      win: `🏆 G‘alaba! +${coins} coin`,
+      lose: `😔 Mag‘lubiyat! +${coins} coin`,
+      draw: `🤝 Durang! +${coins} coin`,
+      timeout: `⏰ Vaqt tugadi! +5 coin`
+    }[res];
   };
 
   // ────────────────────────────────────────────────
-  // DAILY BONUS
+  // NATIJA OYNASINI YOPISH
   // ────────────────────────────────────────────────
-  const claimDaily = () => {
-    if (!daily.available) {
-      notify('Kunlik bonus hali ochilmagan', 'warning');
-      return;
-    }
-
-    const base = 120;
-    const streakBonus = daily.streak * 30;
-    const total = base + streakBonus;
-
-    setCoins(c => c + total);
-    setStats(s => ({ ...s, totalCoinsEarned: s.totalCoinsEarned + total }));
-
-    const nextStreak = daily.streak + 1;
-    setDaily({
-      streak: nextStreak,
-      lastClaim: Date.now(),
-      available: false
-    });
-
-    notify(`🎁 +${total} coin! (${nextStreak}-kun ketma-ket)`, 'success', 4200);
+  const closeResult = () => {
+    setShowResultOverlay(false);
+    setMode('menu');
+    notify('Yangi o‘yin uchun tayyormisiz?', 'info');
   };
 
-  // ────────────────────────────────────────────────
-  // RENDER HELPERS
-  // ────────────────────────────────────────────────
+  const playAgain = () => {
+    setShowResultOverlay(false);
+    startGame(difficulty);
+  };
+
   const emoji = (ch) => ({ rock: '✊', paper: '✋', scissors: '✌️' }[ch] || '❓');
-  const name  = (ch) => ({ rock: 'Tosh', paper: 'Qog‘oz', scissors: 'Qaychi' }[ch] || '—');
 
   // ────────────────────────────────────────────────
   // RENDER
@@ -328,14 +227,14 @@ function App() {
   return (
     <div className="app">
 
-      {/* NOTIFICATION */}
+      {/* Notification */}
       {notification && (
         <div className={`toast ${notification.type}`}>
           {notification.text}
         </div>
       )}
 
-      {/* HEADER */}
+      {/* Header */}
       <header className="header">
         <div className="logo">
           <span className="emoji">✊✌️✋</span>
@@ -345,9 +244,7 @@ function App() {
           <div className="coins">
             <span>🪙</span> {coins.toLocaleString()}
           </div>
-          <button className="avatar-btn" onClick={() => { /* profil modal */ }}>
-            {user.first_name[0].toUpperCase()}
-          </button>
+          <div className="avatar-btn">{user.first_name[0]}</div>
         </div>
       </header>
 
@@ -356,20 +253,11 @@ function App() {
         {mode === 'menu' && (
           <div className="menu-screen">
             <div className="welcome">
-              <div className="big-avatar">{user.first_name[0].toUpperCase()}</div>
+              <div className="big-avatar">{user.first_name[0]}</div>
               <h2>Salom, {user.first_name}!</h2>
             </div>
 
-            <div className="daily-area">
-              <button
-                className={`daily-btn ${daily.available ? 'active' : 'disabled'}`}
-                onClick={claimDaily}
-              >
-                {daily.available ? `Kunlik bonus olish (+${120 + daily.streak * 30})` : `${daily.streak} kunlik streak`}
-              </button>
-            </div>
-
-            <h3 className="section-title">Bot bilan o‘ynash</h3>
+            <h3 className="section-title">Bot darajasini tanlang</h3>
             <div className="difficulty-grid">
               {[
                 { key: 'easy',   title: 'Oson',   mult: 1,   color: '#86efac' },
@@ -395,28 +283,21 @@ function App() {
           <div className="game-screen">
 
             <div className="timer-bar">
-              <div
-                className="timer-progress"
-                style={{ width: `${(game.secondsLeft / 60) * 100}%` }}
-              />
+              <div className="timer-progress" style={{ width: `${(game.secondsLeft / 60) * 100}%` }} />
               <span className="timer-text">{game.secondsLeft}s</span>
             </div>
 
             <div className="versus">
               <div className="player you">
                 <div className="label">SIZ</div>
-                <div className="choice-big">
-                  {game.playerChoice ? emoji(game.playerChoice) : '?'}
-                </div>
+                <div className="choice-big">{game.playerChoice ? emoji(game.playerChoice) : '?'}</div>
               </div>
 
               <div className="vs-circle">VS</div>
 
               <div className="player bot">
-                <div className="label">{bot?.name || 'Bot'}</div>
-                <div className="choice-big">
-                  {game.botChoice ? '❓' : '🤔'}
-                </div>
+                <div className="label">{bot?.name}</div>
+                <div className="choice-big">{game.botChoice ? '❓' : '🤔'}</div>
               </div>
             </div>
 
@@ -428,25 +309,50 @@ function App() {
               </div>
             )}
 
-            {showResult && game.result && (
+            {game.status === 'choosing' && (
+              <div className="status-text">Bot tanlov qilmoqda...</div>
+            )}
+
+            {/* NATIJA OVERLAY */}
+            {showResultOverlay && (
               <div className={`result-overlay ${game.result}`}>
-                <div className="result-content">
-                  {game.result === 'win'    && <h2 className="win">G‘ALABA!</h2>}
-                  {game.result === 'lose'   && <h2 className="lose">MAG‘LUBIYAT</h2>}
-                  {game.result === 'draw'   && <h2 className="draw">DURRANG</h2>}
-                  {game.result === 'timeout'&& <h2 className="timeout">VAQT TUGADI</h2>}
+                <div className="result-card">
+                  <div className="result-icon">
+                    {game.result === 'win' ? '🏆' : game.result === 'lose' ? '😔' : game.result === 'draw' ? '🤝' : '⏰'}
+                  </div>
+                  <h2 className={`result-title ${game.result}`}>
+                    {game.result === 'win' ? 'G‘ALABA!' :
+                     game.result === 'lose' ? 'MAG‘LUBIYAT' :
+                     game.result === 'draw' ? 'DURRANG' : 'VAQT TUGADI'}
+                  </h2>
+                  <p className="result-coins">
+                    +{game.result === 'timeout' ? 5 : (game.result === 'win' ? 60 : game.result === 'draw' ? 25 : 12) * (difficulty === 'easy' ? 1 : difficulty === 'medium' ? 1.5 : 2)} coin
+                  </p>
+
+                  <div className="final-choices">
+                    <div>{emoji(game.playerChoice)}</div>
+                    <span className="vs-small">VS</span>
+                    <div>{emoji(game.botChoice)}</div>
+                  </div>
+
+                  <div className="result-actions">
+                    <button className="btn primary" onClick={playAgain}>
+                      🔄 Yana o‘ynash
+                    </button>
+                    <button className="btn secondary" onClick={closeResult}>
+                      Menyuga qaytish
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
           </div>
         )}
-
       </main>
 
       <footer className="footer">
-        <p>AI bilan halol o‘yin • Bot tanlovingizni ko‘rmaydi</p>
+        <p>AI bilan halol o‘yin • Bot sizning tanlovingizni ko‘rmaydi</p>
       </footer>
-
     </div>
   );
 }
