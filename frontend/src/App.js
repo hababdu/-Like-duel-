@@ -1,527 +1,452 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './App.css';
 
-// Tanlovlar uchun ma'lumotlar
-const CHOICES = {
-  rock: { emoji: '✊', name: 'Tosh', color: '#64748b' },
-  paper: { emoji: '✋', name: 'Qog‘oz', color: '#3b82f6' },
-  scissors: { emoji: '✌️', name: 'Qaychi', color: '#10b981' }
-};
-
-// ✅ 1️⃣ CHOICES uchun global himoya
-const SAFE_CHOICES = {
-  rock: CHOICES.rock,
-  paper: CHOICES.paper,
-  scissors: CHOICES.scissors
-};
-
-class RPSBot {
-  constructor(difficulty = 'medium') {
-    this.difficulty = difficulty;
-    this.history = [];
-    this.stats = { rock: 0, paper: 0, scissors: 0 };
-  }
-  
-  choose(last = null) {
-    const opts = ['rock', 'paper', 'scissors'];
-    // Himoya: agar stats yoki history buzilgan bo'lsa
-    if (!this.stats || !this.history) {
-      return opts[Math.floor(Math.random() * 3)];
-    }
-    
-    if (this.difficulty === 'easy') {
-      return opts[Math.floor(Math.random() * 3)];
-    }
-    
-    if (!last && this.history.length > 0) {
-      last = this.history[this.history.length - 1];
-    }
-    
-    if (this.difficulty === 'medium') {
-      if (last && Math.random() < 0.68) {
-        return this.beats(last);
-      }
-      return opts[Math.floor(Math.random() * 3)];
-    }
-    
-    // hard
-    const most = this.getMostFrequent();
-    if (most && Math.random() < 0.82) {
-      return this.beats(most);
-    }
-    if (last) {
-      return this.beats(last);
-    }
-    return opts[Math.floor(Math.random() * 3)];
-  }
-  
-  beats(choice) {
-    if (choice === 'rock') return 'paper';
-    if (choice === 'paper') return 'scissors';
-    return 'rock';
-  }
-  
-  getMostFrequent() {
-    if (!this.stats || typeof this.stats !== 'object') {
-      return null;
-    }
-    const values = Object.values(this.stats);
-    if (values.length === 0) return null;
-    const max = Math.max(...values);
-    for (const [key, count] of Object.entries(this.stats)) {
-      if (count === max) {
-        return key;
-      }
-    }
-    return null;
-  }
-  
-  remember(choice) {
-    if (!choice || !SAFE_CHOICES[choice]) return;
-    this.history.push(choice);
-    this.stats[choice] = (this.stats[choice] || 0) + 1;
-    if (this.history.length > 25) this.history.shift();
-  }
-  
-  reset() {
-    this.history = [];
-    this.stats = { rock: 0, paper: 0, scissors: 0 };
-  }
-}
-
 function App() {
-  const [user, setUser]                 = useState(null);
-  const [coins, setCoins]               = useState(1500);
-  const [mode, setMode]                 = useState('menu');
-  const [gameMode, setGameMode]         = useState(null);
-  const [difficulty, setDifficulty]     = useState('medium');
-  
-  // Multiplayer
-  const ws = useRef(null);
-  const [gameId, setGameId]             = useState(null);
-  const [opponent, setOpponent]         = useState(null);
-  const [myChoice, setMyChoice]         = useState(null);
-  const [opponentChoice, setOpponentChoice] = useState(null);
-  const [multiResult, setMultiResult]   = useState(null);
-  
-  // Bot rejimi
-  const [bot, setBot]                   = useState(null);
-  const [botChoice, setBotChoice]       = useState(null);
-  const [playerChoice, setPlayerChoice] = useState(null);
-  const [botResult, setBotResult]       = useState(null);
-  
-  // Umumiy
-  const [timer, setTimer]               = useState(60);
-  const timerRef                        = useRef(null);
-  const [notification, setNotification] = useState(null);
-  const notifTimeout                    = useRef(null);
+  // ────────────────────────────────────────────────
+  // USER & PERSISTENT DATA
+  // ────────────────────────────────────────────────
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('rps_user');
+    return saved ? JSON.parse(saved) : {
+      id: Date.now(),
+      first_name: 'Habibullo',
+      username: `user_${Date.now().toString().slice(-6)}`
+    };
+  });
 
-  // Telegram Web App
+  const [coins, setCoins] = useState(() => {
+    const saved = localStorage.getItem('rps_coins');
+    return saved ? Number(saved) : 1500;
+  });
+
+  const [stats, setStats] = useState(() => {
+    const saved = localStorage.getItem('rps_stats');
+    return saved ? JSON.parse(saved) : {
+      wins: 0, losses: 0, draws: 0,
+      totalGames: 0, maxStreak: 0,
+      totalCoinsEarned: 1500,
+      botGamesPlayed: 0, botGamesWon: 0
+    };
+  });
+
+  const [daily, setDaily] = useState(() => {
+    const saved = localStorage.getItem('rps_daily');
+    const def = { streak: 1, lastClaim: null, available: true };
+    return saved ? JSON.parse(saved) : def;
+  });
+
+  // ────────────────────────────────────────────────
+  // GAME STATE
+  // ────────────────────────────────────────────────
+  const [mode, setMode] = useState('menu'); // menu | playing | finished
+  const [difficulty, setDifficulty] = useState('medium'); // easy | medium | hard
+  const [bot, setBot] = useState(null);
+
+  const [game, setGame] = useState({
+    status: 'waiting',
+    playerChoice: null,
+    botChoice: null,
+    result: null,
+    secondsLeft: 60
+  });
+
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [botStreak, setBotStreak] = useState(0);
+
+  const [showResult, setShowResult] = useState(false);
+  const [notification, setNotification] = useState(null);
+
+  const timerRef = useRef(null);
+  const notifRef = useRef(null);
+
+  // ────────────────────────────────────────────────
+  // PERSISTENCE
+  // ────────────────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem('rps_user', JSON.stringify(user));
+  }, [user]);
+
+  useEffect(() => {
+    localStorage.setItem('rps_coins', coins);
+  }, [coins]);
+
+  useEffect(() => {
+    localStorage.setItem('rps_stats', JSON.stringify(stats));
+  }, [stats]);
+
+  useEffect(() => {
+    localStorage.setItem('rps_daily', JSON.stringify(daily));
+  }, [daily]);
+
+  // ────────────────────────────────────────────────
+  // TELEGRAM WEB APP INIT (agar kerak bo‘lsa)
+  // ────────────────────────────────────────────────
   useEffect(() => {
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
       tg.expand();
-      tg.MainButton.setText("O'ynash").show();
-      const initData = tg.initDataUnsafe;
-      if (initData?.user) {
-        setUser(initData.user);
-        setCoins(prev => prev + (initData.user.id % 500));
-        connectWebSocket(initData.user);
+
+      const u = tg.initDataUnsafe?.user;
+      if (u?.id) {
+        setUser({
+          id: u.id,
+          first_name: u.first_name || 'Foydalanuvchi',
+          username: u.username || `user_${u.id}`
+        });
       }
     }
+
+    return () => {
+      clearInterval(timerRef.current);
+      clearTimeout(notifRef.current);
+    };
   }, []);
 
-  const connectWebSocket = (tgUser) => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
-    
-    socket.onopen = () => {
-      socket.send(JSON.stringify({
-        type: 'register',
-        userId: tgUser.id,
-        username: tgUser.username,
-        firstName: tgUser.first_name
-      }));
-    };
-    
-    socket.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        handleWsMessage(data);
-      } catch (err) {
-        console.error("WS parse xatosi", err);
-      }
-    };
-    
-    socket.onclose = () => {
-      setTimeout(() => connectWebSocket(tgUser), 4000);
-    };
-    
-    ws.current = socket;
+  // ────────────────────────────────────────────────
+  // NOTIFICATION HELPER
+  // ────────────────────────────────────────────────
+  const notify = (msg, type = 'info', ms = 2600) => {
+    setNotification({ text: msg, type });
+    clearTimeout(notifRef.current);
+    notifRef.current = setTimeout(() => setNotification(null), ms);
   };
 
-  const handleWsMessage = (data) => {
-    switch (data.type) {
-      case 'game_created':
-        setGameId(data.gameId);
-        setMode('multiplayer');
-        setNotification({ text: 'Raqib qidirlmoqda...', type: 'info' });
-        break;
-        
-      case 'opponent_found':
-        setOpponent(data.opponent);
-        setMyChoice(null);
-        setOpponentChoice(null);
-        setMultiResult(null);
-        setTimer(60);
-        startTimer();
-        setNotification({ text: `${data.opponent.firstName || data.opponent.username} topildi!`, type: 'success' });
-        break;
-        
-      case 'opponent_choice_made':
-        setNotification({ text: 'Raqib tanlov qildi!', type: 'info' });
-        break;
-        
-      // ✅ 2️⃣ Multiplayer result kelganda crashni to'xtatish
-      case 'game_result': {
-        clearInterval(timerRef.current);
+  // ────────────────────────────────────────────────
+  // BOT LOGIC
+  // ────────────────────────────────────────────────
+  const startGame = (diff) => {
+    const names = {
+      easy:   ['Yosh Bot', 'Boshlang‘ich', 'Osonchi'],
+      medium: ['Tajribali Bot', 'O‘rta Pro', 'Strateg'],
+      hard:   ['Master Bot', 'AI Lord', 'Qiyinchi']
+    };
 
-        const myId = user?.id;
-        const p1 = data?.players?.player1;
-        const p2 = data?.players?.player2;
-        const myIsP1 = p1?.id === myId;
+    const selectedNames = names[diff] || names.medium;
+    const botName = selectedNames[Math.floor(Math.random() * selectedNames.length)];
 
-        const myChoiceSafe = myIsP1 ? data?.choices?.player1 : data?.choices?.player2;
-        const oppChoiceSafe = myIsP1 ? data?.choices?.player2 : data?.choices?.player1;
+    setDifficulty(diff);
+    setBot({ name: botName, difficulty: diff });
+    setMode('playing');
+    setGame({
+      status: 'choosing',
+      playerChoice: null,
+      botChoice: null,
+      result: null,
+      secondsLeft: 60
+    });
+    setShowResult(false);
+    setCurrentStreak(0); // yangi o‘yin → streak reset (xohlasangiz saqlashingiz mumkin)
 
-        setMyChoice(SAFE_CHOICES[myChoiceSafe] ? myChoiceSafe : null);
-        setOpponentChoice(SAFE_CHOICES[oppChoiceSafe] ? oppChoiceSafe : null);
+    notify(`🤖 ${botName} bilan o‘yin boshlandi!`, 'info');
 
-        setMultiResult(data?.result || 'draw');
+    // Bot tanlov qiladi (foydalanuvchidan oldin)
+    setTimeout(() => {
+      const botPick = getBotChoice(diff);
+      setGame(prev => ({ ...prev, botChoice: botPick, status: 'player-turn' }));
+      notify('Bot tanladi! Endi siz tanlang!', 'success', 2200);
+      startTimer();
+    }, 1200);
+  };
 
-        let msg = data.result === 'draw'
-          ? 'Durang'
-          : data.winnerId === myId
-          ? 'G‘alaba!'
-          : 'Mag‘lubiyat';
+  const getBotChoice = (diff) => {
+    const opts = ['rock', 'paper', 'scissors'];
 
-        let type =
-          data.result === 'draw'
-            ? 'warning'
-            : data.winnerId === myId
-            ? 'success'
-            : 'error';
-
-        setNotification({ text: msg, type });
-        break;
-      }
-        
-      case 'game_timeout':
-        clearInterval(timerRef.current);
-        setMultiResult('timeout');
-        setNotification({ text: 'Vaqt tugadi', type: 'warning' });
-        break;
-        
-      case 'error':
-        setNotification({ text: data.message, type: 'error' });
-        break;
-        
-      default:
-        console.log('Noma\'lum WS xabar:', data);
+    if (diff === 'easy') {
+      return opts[Math.floor(Math.random() * 3)];
     }
+
+    if (diff === 'medium') {
+      // 60% random, 40% oldingi tanlovga qarshi
+      return Math.random() < 0.6
+        ? opts[Math.floor(Math.random() * 3)]
+        : getCounterChoice(game.playerChoice || opts[Math.floor(Math.random() * 3)]);
+    }
+
+    // hard → yuqori ehtimollik bilan yengishga harakat
+    if (game.playerChoice) {
+      return getCounterChoice(game.playerChoice);
+    }
+    return opts[Math.floor(Math.random() * 3)];
   };
 
+  const getCounterChoice = (choice) => {
+    const map = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
+    return map[choice];
+  };
+
+  // ────────────────────────────────────────────────
+  // TIMER
+  // ────────────────────────────────────────────────
   const startTimer = () => {
-    clearInterval(timerRef.current);
+    if (timerRef.current) clearInterval(timerRef.current);
+
     timerRef.current = setInterval(() => {
-      setTimer(t => {
-        if (t <= 1) {
+      setGame(prev => {
+        if (prev.secondsLeft <= 1) {
           clearInterval(timerRef.current);
-          if (gameMode === 'multiplayer') {
-            ws.current?.send(JSON.stringify({
-              type: 'timeout',
-              gameId,
-              userId: user?.id
-            }));
-          }
-          return 0;
+          handleTimeout();
+          return { ...prev, secondsLeft: 0 };
         }
-        return t - 1;
+        return { ...prev, secondsLeft: prev.secondsLeft - 1 };
       });
     }, 1000);
   };
 
-  const showNotif = (text, type = 'info') => {
-    if (notifTimeout.current) clearTimeout(notifTimeout.current);
-    setNotification({ text, type });
-    notifTimeout.current = setTimeout(() => setNotification(null), 3200);
+  const handleTimeout = () => {
+    setGame(prev => ({ ...prev, result: 'timeout', status: 'finished' }));
+    setCoins(c => c + 5);
+    notify('⏰ Vaqt tugadi! +5 coin', 'warning');
   };
 
-  const startMultiplayer = () => {
-    if (!user) return showNotif("Telegram ma'lumotlari yuklanmadi", 'error');
-    ws.current?.send(JSON.stringify({
-      type: 'create_game',
-      userId: user.id,
-      username: user.username || `user_${user.id}`,
-      firstName: user.first_name || 'Player'
-    }));
+  // ────────────────────────────────────────────────
+  // PLAYER MOVE
+  // ────────────────────────────────────────────────
+  const makeMove = (choice) => {
+    if (game.playerChoice || game.status !== 'player-turn') return;
+
+    setGame(prev => ({ ...prev, playerChoice: choice }));
+
+    setTimeout(() => {
+      setShowResult(true);
+      calculateResult(choice, game.botChoice);
+    }, 600);
   };
 
-  const startBotGame = (diff) => {
-    setGameMode('bot');
-    setDifficulty(diff);
-    setMode('playing-bot');
-    const newBot = new RPSBot(diff);
-    
-    setBot(newBot);
-    setPlayerChoice(null);
-    setBotChoice(null);
-    setBotResult(null);
-    setTimer(60);
-    
-    // Birinchi bot tanlovi (o'yin boshida ko'rinmaydi)
-    const initialBotChoice = newBot.choose();
-    setBotChoice(initialBotChoice);
-    startTimer();
-    showNotif(`${diff.toUpperCase()} darajadagi bot bilan o'yin boshlandi!`, 'success');
+  const calculateResult = (p, b) => {
+    if (!p || !b) return;
+
+    let outcome;
+    let reward = 0;
+
+    const mult = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 1.5 : 2;
+
+    if (p === b) {
+      outcome = 'draw';
+      reward = Math.floor(25 * mult);
+      setCurrentStreak(0);
+      setBotStreak(s => s + 1);
+    } else if (
+      (p === 'rock' && b === 'scissors') ||
+      (p === 'paper' && b === 'rock') ||
+      (p === 'scissors' && b === 'paper')
+    ) {
+      outcome = 'win';
+      const base = Math.floor(60 * mult);
+      const streakBonus = currentStreak * 12;
+      reward = base + streakBonus;
+      const newStreak = currentStreak + 1;
+      setCurrentStreak(newStreak);
+      setBotStreak(0);
+      if (newStreak > stats.maxStreak) {
+        setStats(s => ({ ...s, maxStreak: newStreak }));
+      }
+    } else {
+      outcome = 'lose';
+      reward = Math.floor(12 * mult);
+      setCurrentStreak(0);
+      setBotStreak(s => s + 1);
+    }
+
+    setGame(prev => ({ ...prev, result: outcome, status: 'finished' }));
+    setCoins(c => c + reward);
+
+    setStats(prev => {
+      const next = {
+        ...prev,
+        totalGames: prev.totalGames + 1,
+        botGamesPlayed: prev.botGamesPlayed + 1,
+        totalCoinsEarned: prev.totalCoinsEarned + reward
+      };
+
+      if (outcome === 'win') {
+        next.wins += 1;
+        next.botGamesWon += 1;
+      } else if (outcome === 'lose') {
+        next.losses += 1;
+      } else {
+        next.draws += 1;
+      }
+
+      next.winRate = next.totalGames > 0
+        ? Math.round((next.wins / next.totalGames) * 100)
+        : 0;
+
+      return next;
+    });
+
+    const msg = {
+      win: `🏆 G‘alaba! +${reward} coin`,
+      lose: `😔 Yutqazdingiz... +${reward} coin`,
+      draw: `🤝 Durang! +${reward} coin`
+    }[outcome];
+
+    notify(msg, outcome === 'win' ? 'success' : 'neutral', 4000);
+
+    if (outcome === 'win' && currentStreak + 1 > 1) {
+      setTimeout(() => {
+        notify(`🔥 ${currentStreak + 1} ketma-ket! +${(currentStreak + 1) * 12} bonus`, 'success');
+      }, 1800);
+    }
   };
 
-  const handleBotMove = (choice) => {
-    if (playerChoice || botResult || !bot) return;
-    setPlayerChoice(choice);
-    clearInterval(timerRef.current);
-    bot.remember(choice);
-    const currentBot = botChoice;
-    let res;
-    if (choice === currentBot) res = 'draw';
-    else if (
-      (choice === 'rock'     && currentBot === 'scissors') ||
-      (choice === 'paper'    && currentBot === 'rock')     ||
-      (choice === 'scissors' && currentBot === 'paper')
-    ) res = 'win';
-    else res = 'lose';
-    
-    setBotResult(res);
-    let change = res === 'win' ? (difficulty === 'easy' ? 50 : difficulty === 'medium' ? 75 : 110) :
-                 res === 'draw' ? 20 : -10;
-    setCoins(c => Math.max(0, c + change));
-    
-    showNotif(
-      res === 'win' ? `G‘alaba! +${change}` :
-      res === 'draw' ? `Durang +${change}` :
-      `Mag‘lubiyat ${change < 0 ? change : ''}`,
-      res === 'win' ? 'success' : res === 'draw' ? 'warning' : 'error'
-    );
+  // ────────────────────────────────────────────────
+  // DAILY BONUS
+  // ────────────────────────────────────────────────
+  const claimDaily = () => {
+    if (!daily.available) {
+      notify('Kunlik bonus hali ochilmagan', 'warning');
+      return;
+    }
+
+    const base = 120;
+    const streakBonus = daily.streak * 30;
+    const total = base + streakBonus;
+
+    setCoins(c => c + total);
+    setStats(s => ({ ...s, totalCoinsEarned: s.totalCoinsEarned + total }));
+
+    const nextStreak = daily.streak + 1;
+    setDaily({
+      streak: nextStreak,
+      lastClaim: Date.now(),
+      available: false
+    });
+
+    notify(`🎁 +${total} coin! (${nextStreak}-kun ketma-ket)`, 'success', 4200);
   };
 
-  const handleMultiChoice = (choice) => {
-    if (myChoice || multiResult) return;
-    setMyChoice(choice);
-    ws.current?.send(JSON.stringify({
-      type: 'make_choice',
-      userId: user?.id,
-      gameId,
-      choice
-    }));
-  };
+  // ────────────────────────────────────────────────
+  // RENDER HELPERS
+  // ────────────────────────────────────────────────
+  const emoji = (ch) => ({ rock: '✊', paper: '✋', scissors: '✌️' }[ch] || '❓');
+  const name  = (ch) => ({ rock: 'Tosh', paper: 'Qog‘oz', scissors: 'Qaychi' }[ch] || '—');
 
+  // ────────────────────────────────────────────────
+  // RENDER
+  // ────────────────────────────────────────────────
   return (
-    <div className="app-container">
+    <div className="app">
+
+      {/* NOTIFICATION */}
       {notification && (
-        <div className={`notification ${notification.type}`}>
+        <div className={`toast ${notification.type}`}>
           {notification.text}
         </div>
       )}
-      
-      <header>
-        <div className="logo">✊ Qaychi Qog‘oz ✌️</div>
-        <div className="coins-display">
-          <span>🪙 {coins.toLocaleString()}</span>
+
+      {/* HEADER */}
+      <header className="header">
+        <div className="logo">
+          <span className="emoji">✊✌️✋</span>
+          <h1>Tosh-Qaychi-Qog‘oz</h1>
+        </div>
+        <div className="user-info">
+          <div className="coins">
+            <span>🪙</span> {coins.toLocaleString()}
+          </div>
+          <button className="avatar-btn" onClick={() => { /* profil modal */ }}>
+            {user.first_name[0].toUpperCase()}
+          </button>
         </div>
       </header>
-      
-      {mode === 'menu' && (
-        <main className="menu-screen">
-          <h1>Salom{user ? `, ${user.first_name}` : ''}!</h1>
-          <div className="mode-selection">
-            <button className="mode-btn multiplayer" onClick={startMultiplayer}>
-              <div className="icon">👥</div>
-              <div>Do'st bilan o'ynash</div>
-            </button>
-            <button className="mode-btn bot" onClick={() => setMode('bot-select')}>
-              <div className="icon">🤖</div>
-              <div>Bot bilan o'ynash</div>
-            </button>
-          </div>
-        </main>
-      )}
-      
-      {mode === 'bot-select' && (
-        <main className="difficulty-screen">
-          <h2>Darajani tanlang</h2>
-          <div className="difficulty-buttons">
-            {['easy', 'medium', 'hard'].map(lvl => (
+
+      <main className="content">
+
+        {mode === 'menu' && (
+          <div className="menu-screen">
+            <div className="welcome">
+              <div className="big-avatar">{user.first_name[0].toUpperCase()}</div>
+              <h2>Salom, {user.first_name}!</h2>
+            </div>
+
+            <div className="daily-area">
               <button
-                key={lvl}
-                className={`diff-btn ${lvl}`}
-                onClick={() => startBotGame(lvl)}
+                className={`daily-btn ${daily.available ? 'active' : 'disabled'}`}
+                onClick={claimDaily}
               >
-                {lvl === 'easy' ? 'Oson' : lvl === 'medium' ? 'O‘rta' : 'Qiyin'}
+                {daily.available ? `Kunlik bonus olish (+${120 + daily.streak * 30})` : `${daily.streak} kunlik streak`}
               </button>
-            ))}
-          </div>
-          <button className="back-btn" onClick={() => setMode('menu')}>
-            ← Orqaga
-          </button>
-        </main>
-      )}
-      
-      {mode === 'playing-bot' && (
-        <main className="game-screen">
-          <div className="timer-bar">
-            <div className="timer-progress" style={{ width: `${(timer / 60) * 100}%` }} />
-            <span>{timer}s</span>
-          </div>
-          
-          <div className="versus-container">
-            <div className="player-side">
-              <div className="label">SIZ</div>
-              <div className="choice-display">
-                {/* ✅ 4️⃣ Bot natijasida ham himoya */}
-                {SAFE_CHOICES?.[playerChoice]?.emoji || '❓'}
-              </div>
             </div>
-            <div className="vs">VS</div>
-            <div className="player-side">
-              <div className="label">BOT</div>
-              <div className="choice-display">
-                {/* ✅ 4️⃣ Bot natijasida ham himoya */}
-                {SAFE_CHOICES?.[botChoice]?.emoji || '🤔'}
-              </div>
-            </div>
-          </div>
-          
-          {!playerChoice && botResult === null && (
-            // ✅ 3️⃣ Bot tugmalarini himoyalash
-            <div className="choice-buttons">
-              {Object.entries(SAFE_CHOICES).map(([key, val]) => (
+
+            <h3 className="section-title">Bot bilan o‘ynash</h3>
+            <div className="difficulty-grid">
+              {[
+                { key: 'easy',   title: 'Oson',   mult: 1,   color: '#86efac' },
+                { key: 'medium', title: 'O‘rta',  mult: 1.5, color: '#fbbf24' },
+                { key: 'hard',   title: 'Qiyin',  mult: 2,   color: '#f87171' }
+              ].map(d => (
                 <button
-                  key={key}
-                  className="choice-btn"
-                  style={{ '--choice-color': val.color }}
-                  onClick={() => handleBotMove(key)}
+                  key={d.key}
+                  className="difficulty-card"
+                  style={{ '--accent': d.color }}
+                  onClick={() => startGame(d.key)}
                 >
-                  {val.emoji}
-                  <span>{val.name}</span>
+                  <div className="diff-title">{d.title}</div>
+                  <div className="diff-mult">×{d.mult}</div>
+                  <div className="diff-reward">G‘alaba ≈ +{Math.round(60 * d.mult)} coin</div>
                 </button>
               ))}
             </div>
-          )}
-          
-          {botResult && (
-            <div className={`result-overlay ${botResult}`}>
-              <h2>
-                {botResult === 'win' ? 'G‘ALABA!' :
-                 botResult === 'lose' ? 'MAG‘LUBIYAT' :
-                 'DURRANG'}
-              </h2>
-              <div className="result-choices">
-                {/* ✅ 4️⃣ Bot natijasida ham himoya */}
-                <div>{SAFE_CHOICES?.[playerChoice]?.emoji || '❓'}</div>
-                <div>VS</div>
-                <div>{SAFE_CHOICES?.[botChoice]?.emoji || '❓'}</div>
-              </div>
-              <div className="result-actions">
-                <button onClick={() => startBotGame(difficulty)}>
-                  Yana o'ynash
-                </button>
-                <button onClick={() => setMode('menu')}>
-                  Menyuga qaytish
-                </button>
-              </div>
-            </div>
-          )}
-        </main>
-      )}
-      
-      {mode === 'multiplayer' && (
-        <main className="game-screen">
-          <div className="timer-bar">
-            <div className="timer-progress" style={{ width: `${(timer / 60) * 100}%` }} />
-            <span>{timer}s</span>
           </div>
-          
-          {!opponent ? (
-            <div className="waiting-screen">
-              <div className="spinner" />
-              <h3>Raqib qidirlmoqda...</h3>
-              {gameId && <p>O'yin ID: {gameId.slice(0, 8)}...</p>}
+        )}
+
+        {mode === 'playing' && (
+          <div className="game-screen">
+
+            <div className="timer-bar">
+              <div
+                className="timer-progress"
+                style={{ width: `${(game.secondsLeft / 60) * 100}%` }}
+              />
+              <span className="timer-text">{game.secondsLeft}s</span>
             </div>
-          ) : (
-            <>
-              <div className="opponent-info">
-                Raqib: {opponent.firstName || opponent.username || '???'}
-              </div>
-              <div className="versus-container">
-                <div className="player-side">
-                  <div className="label">SIZ</div>
-                  <div className="choice-display big">
-                    {SAFE_CHOICES?.[myChoice]?.emoji || '❓'}
-                  </div>
-                </div>
-                <div className="vs">VS</div>
-                <div className="player-side">
-                  <div className="label">RAQIB</div>
-                  <div className="choice-display big">
-                    {SAFE_CHOICES?.[opponentChoice]?.emoji || '❓'}
-                  </div>
+
+            <div className="versus">
+              <div className="player you">
+                <div className="label">SIZ</div>
+                <div className="choice-big">
+                  {game.playerChoice ? emoji(game.playerChoice) : '?'}
                 </div>
               </div>
-              
-              {!myChoice && multiResult === null && (
-                // ✅ 3️⃣ Multiplayer tugmalarini himoyalash
-                <div className="choice-buttons">
-                  {Object.entries(SAFE_CHOICES).map(([key, val]) => (
-                    <button
-                      key={key}
-                      className="choice-btn"
-                      style={{ '--choice-color': val.color }}
-                      onClick={() => handleMultiChoice(key)}
-                    >
-                      {val.emoji}
-                      <span>{val.name}</span>
-                    </button>
-                  ))}
+
+              <div className="vs-circle">VS</div>
+
+              <div className="player bot">
+                <div className="label">{bot?.name || 'Bot'}</div>
+                <div className="choice-big">
+                  {game.botChoice ? '❓' : '🤔'}
                 </div>
-              )}
-              
-              {multiResult && (
-                <div className={`result-overlay ${multiResult}`}>
-                  <h2>
-                    {multiResult === 'draw' ? 'DURRANG' :
-                     multiResult === 'timeout' ? 'VAQT TUGADI' :
-                     (multiResult === 'player1_win' && opponent?.id !== user?.id) ||
-                     (multiResult === 'player2_win' && opponent?.id === user?.id) ? 'G‘ALABA!' : 'MAG‘LUBIYAT'}
-                  </h2>
-                  <div className="result-actions">
-                    <button onClick={() => setMode('menu')}>
-                      Menyuga qaytish
-                    </button>
-                    <button onClick={startMultiplayer}>
-                      Yangi o'yin
-                    </button>
-                  </div>
+              </div>
+            </div>
+
+            {game.status === 'player-turn' && !game.playerChoice && (
+              <div className="choices">
+                <button className="choice rock"    onClick={() => makeMove('rock')}>✊</button>
+                <button className="choice paper"   onClick={() => makeMove('paper')}>✋</button>
+                <button className="choice scissors" onClick={() => makeMove('scissors')}>✌️</button>
+              </div>
+            )}
+
+            {showResult && game.result && (
+              <div className={`result-overlay ${game.result}`}>
+                <div className="result-content">
+                  {game.result === 'win'    && <h2 className="win">G‘ALABA!</h2>}
+                  {game.result === 'lose'   && <h2 className="lose">MAG‘LUBIYAT</h2>}
+                  {game.result === 'draw'   && <h2 className="draw">DURRANG</h2>}
+                  {game.result === 'timeout'&& <h2 className="timeout">VAQT TUGADI</h2>}
                 </div>
-              )}
-            </>
-          )}
-        </main>
-      )}
-      
-      <footer>
-        <p>Telegram o‘yini • {new Date().getFullYear()}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+      </main>
+
+      <footer className="footer">
+        <p>AI bilan halol o‘yin • Bot tanlovingizni ko‘rmaydi</p>
       </footer>
+
     </div>
   );
 }
