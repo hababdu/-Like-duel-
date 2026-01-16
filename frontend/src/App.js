@@ -78,7 +78,7 @@ function App() {
   const [gameMode, setGameMode] = useState(null);
   const [difficulty, setDifficulty] = useState('medium');
   // Multiplayer
-  const [ws, setWs] = useRef(null);
+  const ws = useRef(null);
   const [gameId, setGameId] = useState(null);
   const [opponent, setOpponent] = useState(null);
   const [myChoice, setMyChoice] = useState(null);
