@@ -96,6 +96,7 @@ function App() {
   const [opponentChoice, setOpponentChoice] = useState(null);
   const [multiResult, setMultiResult] = useState(null);
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
+  const [isFindingOpponent, setIsFindingOpponent] = useState(false);
   
   // Bot state
   const [bot, setBot] = useState(null);
@@ -108,36 +109,23 @@ function App() {
   const timerRef = useRef(null);
   const [notification, setNotification] = useState(null);
   const notifTimeout = useRef(null);
-  const [connectionStatus, setConnectionStatus] = useState('🟢 Yaxshilash...');
+  const [connectionStatus, setConnectionStatus] = useState('⏳ Ulanish...');
+  const [wsStatus, setWsStatus] = useState('disconnected'); // connected, disconnected, connecting
   
   // WebSocket connection
   const ws = useRef(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  const heartbeatInterval = useRef(null);
 
   // ✅ Server URL'ini aniqlash
   const getServerUrl = () => {
-    const hostname = window.location.hostname;
-    const protocol = window.location.protocol;
-    
-    // Agar localhost bo'lsa
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'ws://localhost:10000/ws';
-    }
-    
-    // Agar production bo'lsa (sizning server manzilingiz)
+    // Har doim Render serveriga ulanamiz
     return 'wss://telegram-bot-server-2-matj.onrender.com/ws';
   };
 
   // ✅ API URL'ini aniqlash
   const getApiUrl = () => {
-    const hostname = window.location.hostname;
-    const protocol = window.location.protocol;
-    
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:10000';
-    }
-    
     return 'https://telegram-bot-server-2-matj.onrender.com';
   };
 
@@ -182,7 +170,7 @@ function App() {
       
       setUser(userData);
       
-      // Ko'pchilikni serverdan olish
+      // Ko'pchilikni olish
       try {
         const apiUrl = getApiUrl();
         const coinsResponse = await fetch(`${apiUrl}/api/coins/${userData.id}`);
@@ -194,7 +182,7 @@ function App() {
         }
       } catch (error) {
         console.log('Koinlarni olishda xato:', error);
-        setCoins(100); // Default qiymat
+        setCoins(100);
       }
       
       // WebSocket ga ulanish
@@ -208,36 +196,46 @@ function App() {
       if (ws.current) {
         ws.current.close();
       }
+      if (heartbeatInterval.current) {
+        clearInterval(heartbeatInterval.current);
+      }
     };
   }, []);
 
-  // ✅ WebSocket ulanishi
+  // ✅ Yaxshilangan WebSocket ulanishi
   const connectWebSocket = (userData) => {
     try {
-      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-        console.log('WebSocket allaqachon ochiq');
-        return;
+      // Avvalgi ulanishni yopish
+      if (ws.current) {
+        ws.current.close();
       }
       
       const wsUrl = getServerUrl();
-      console.log('WebSocket ga ulanish:', wsUrl);
+      console.log('🔗 WebSocket ga ulanish:', wsUrl);
+      setConnectionStatus('⏳ Ulanmoqda...');
+      setWsStatus('connecting');
       
       const socket = new WebSocket(wsUrl);
       
       socket.onopen = () => {
         console.log('✅ WebSocket serverga ulandi');
         setConnectionStatus('🟢 Serverga ulandi');
+        setWsStatus('connected');
         reconnectAttempts.current = 0;
         
-        // Foydalanuvchini registratsiya qilish
+        // Registratsiya xabarini yuborish
         socket.send(JSON.stringify({
           type: 'register',
           userId: userData.id,
           username: userData.username,
-          firstName: userData.first_name
+          firstName: userData.first_name,
+          timestamp: new Date().toISOString()
         }));
         
         showNotif('Serverga muvaffaqiyatli ulandik!', 'success');
+        
+        // Heartbeat boshlash
+        startHeartbeat(socket);
       };
       
       socket.onmessage = (e) => {
@@ -246,37 +244,36 @@ function App() {
           console.log('📩 WebSocket xabar:', data);
           handleWsMessage(data);
         } catch (error) {
-          console.error('❌ Xabarni oqishda xato:', error);
+          console.error('❌ Xabarni parse qilishda xato:', error);
         }
       };
       
       socket.onerror = (error) => {
         console.error('❌ WebSocket xatosi:', error);
         setConnectionStatus('🔴 Ulanishda xato');
-        
-        // Qayta ulanish
-        if (reconnectAttempts.current < maxReconnectAttempts) {
-          setTimeout(() => {
-            reconnectAttempts.current++;
-            console.log(`🔄 Qayta ulanmoqda... (${reconnectAttempts.current}/${maxReconnectAttempts})`);
-            connectWebSocket(userData);
-          }, 3000 * reconnectAttempts.current);
-        } else {
-          showNotif('Serverga ulanib bo\'lmadi. Lokal rejimga o\'tildi.', 'warning');
-          setConnectionStatus('⚠️ Lokal rejim');
-        }
+        setWsStatus('disconnected');
       };
       
       socket.onclose = (event) => {
         console.log('🔌 WebSocket yopildi:', event.code, event.reason);
+        setWsStatus('disconnected');
+        
+        // Heartbeat to'xtatish
+        if (heartbeatInterval.current) {
+          clearInterval(heartbeatInterval.current);
+        }
         
         // Normal yopish emas bo'lsa qayta ulan
         if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
           setTimeout(() => {
             reconnectAttempts.current++;
             console.log(`🔄 Qayta ulanmoqda... (${reconnectAttempts.current}/${maxReconnectAttempts})`);
+            setConnectionStatus(`🔄 Qayta ulanmoqda (${reconnectAttempts.current})`);
             connectWebSocket(userData);
-          }, 5000);
+          }, 3000);
+        } else if (reconnectAttempts.current >= maxReconnectAttempts) {
+          showNotif('Serverga ulanib bo\'lmadi. Lokal rejimga o\'tildi.', 'warning');
+          setConnectionStatus('⚠️ Lokal rejim');
         }
       };
       
@@ -285,12 +282,30 @@ function App() {
     } catch (error) {
       console.error('❌ WebSocket ulanish xatosi:', error);
       setConnectionStatus('🔴 Ulanishda xato');
+      setWsStatus('disconnected');
     }
+  };
+
+  // ✅ Heartbeat funksiyasi
+  const startHeartbeat = (socket) => {
+    if (heartbeatInterval.current) {
+      clearInterval(heartbeatInterval.current);
+    }
+    
+    heartbeatInterval.current = setInterval(() => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 20000); // Har 20 soniyada
   };
 
   // ✅ WebSocket message handler
   const handleWsMessage = (data) => {
     switch (data.type) {
+      case 'connected':
+        console.log('✅ Server ulanishni tasdiqladi');
+        break;
+        
       case 'registered':
         console.log('✅ Foydalanuvchi registratsiyadan o\'tdi');
         showNotif('Tizimga kirdingiz', 'success');
@@ -301,10 +316,9 @@ function App() {
         setMode('multiplayer');
         setGameMode('multiplayer');
         setWaitingForOpponent(true);
-        setNotification({ 
-          text: `O'yin yaratildi. ID: ${data.gameId.slice(0, 8)}`, 
-          type: 'info' 
-        });
+        setIsFindingOpponent(true);
+        
+        showNotif(`O'yin yaratildi. Raqib qidirilmoqda...`, 'info');
         
         // Avtomatik raqib qidirish
         setTimeout(() => {
@@ -314,8 +328,9 @@ function App() {
               userId: user?.id,
               gameId: data.gameId
             }));
+            showNotif('Raqib qidirilmoqda...', 'info');
           }
-        }, 1000);
+        }, 1500);
         break;
         
       case 'opponent_found':
@@ -324,9 +339,11 @@ function App() {
         setOpponentChoice(null);
         setMultiResult(null);
         setWaitingForOpponent(false);
+        setIsFindingOpponent(false);
         setTimer(60);
         startTimer();
-        showNotif(`Raqib topildi: ${data.opponent.firstName || data.opponent.username}`, 'success');
+        
+        showNotif(`Raqib topildi: ${data.opponent.firstName || data.opponent.username || 'Raqib'}`, 'success');
         break;
         
       case 'opponent_choice_made':
@@ -351,33 +368,36 @@ function App() {
 
         setMultiResult(data?.result || 'draw');
 
-        let msg = data.result === 'draw'
-          ? 'Durang'
-          : data.winnerId === myId
-          ? 'G‘alaba!'
-          : 'Mag‘lubiyat';
+        let msg = '';
+        let type = 'info';
+        let coinsChange = 0;
 
-        let type =
-          data.result === 'draw'
-            ? 'warning'
-            : data.winnerId === myId
-            ? 'success'
-            : 'error';
-
-        // Ko'pchilikni yangilash
-        if (data.result === 'win') {
-          const coinsChange = data.winnerId === myId ? 50 : -20;
-          setCoins(prev => Math.max(0, prev + coinsChange));
-          msg += ` (${coinsChange > 0 ? '+' : ''}${coinsChange})`;
+        if (data.result === 'draw') {
+          msg = 'Durang';
+          type = 'warning';
+          coinsChange = 25;
+        } else if (data.winnerId === myId) {
+          msg = 'G‘alaba!';
+          type = 'success';
+          coinsChange = 50;
+        } else {
+          msg = 'Mag‘lubiyat';
+          type = 'error';
+          coinsChange = -20;
         }
 
-        setNotification({ text: msg, type });
+        // Ko'pchilikni yangilash
+        setCoins(prev => Math.max(0, prev + coinsChange));
+        msg += ` (${coinsChange > 0 ? '+' : ''}${coinsChange})`;
+
+        showNotif(msg, type);
         break;
       }
         
       case 'game_timeout':
         clearInterval(timerRef.current);
         setMultiResult('timeout');
+        setIsFindingOpponent(false);
         showNotif('Vaqt tugadi', 'warning');
         break;
         
@@ -393,11 +413,12 @@ function App() {
         showNotif(data.message || 'Server xatosi', 'error');
         if (data.message?.includes('topilmadi')) {
           setWaitingForOpponent(false);
+          setIsFindingOpponent(false);
         }
         break;
         
       case 'pong':
-        // Keep-alive
+        // Heartbeat javobi
         break;
         
       default:
@@ -428,25 +449,23 @@ function App() {
     notifTimeout.current = setTimeout(() => setNotification(null), 3200);
   };
 
-  // ✅ Do'stlar bilan o'ynash (Server bilan)
+  // ✅ Do'stlar bilan o'ynash
   const startMultiplayer = () => {
     if (!user) {
       showNotif("Foydalanuvchi ma'lumotlari yo'q", 'error');
       return;
     }
     
-    // WebSocket ochiqligini tekshirish
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      showNotif("Serverga ulanmoqda...", 'info');
-      
-      // Qayta ulanishni urinish
+    // WebSocket holatini tekshirish
+    if (wsStatus !== 'connected') {
+      showNotif("Serverga ulanilmagan. Qayta ulanmoqda...", 'warning');
       connectWebSocket(user);
       
       setTimeout(() => {
-        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        if (wsStatus === 'connected') {
           createGame();
         } else {
-          showNotif("Serverga ulanib bo'lmadi", 'error');
+          showNotif("Serverga ulanib bo'lmadi. Iltimos keyinroq urinib ko'ring.", 'error');
         }
       }, 2000);
       return;
@@ -458,12 +477,18 @@ function App() {
   const createGame = () => {
     showNotif("O'yin yaratilmoqda...", 'info');
     
-    ws.current.send(JSON.stringify({
-      type: 'create_game',
-      userId: user.id,
-      username: user.username || `user_${user.id}`,
-      firstName: user.first_name || 'Player'
-    }));
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({
+        type: 'create_game',
+        userId: user.id,
+        username: user.username || `user_${user.id}`,
+        firstName: user.first_name || 'Player',
+        timestamp: new Date().toISOString()
+      }));
+    } else {
+      showNotif("WebSocket ulanishi ochiq emas", 'error');
+      setConnectionStatus('🔴 Ulanish yo\'q');
+    }
   };
 
   // ✅ Bot o'yinini boshlash
@@ -550,6 +575,7 @@ function App() {
         gameId: gameId,
         choice: choice
       }));
+      showNotif('Tanlovingiz yuborildi', 'success');
     } else {
       showNotif("Serverga ulanib bo'lmadi", 'error');
     }
@@ -563,52 +589,29 @@ function App() {
     setOpponent(null);
     setGameId(null);
     setWaitingForOpponent(false);
-    startMultiplayer();
-  };
-
-  // ✅ Daily bonus olish
-  const claimDailyBonus = async () => {
-    try {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/api/daily-bonus`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.id
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setCoins(prev => prev + data.amount);
-        showNotif(`Daily bonus: +${data.amount} coins! (${data.streak} kun ketma-ket)`, 'success');
-      } else {
-        showNotif(data.message || 'Daily bonus olishda xato', 'warning');
-      }
-    } catch (error) {
-      console.error('Daily bonus xatosi:', error);
-      showNotif('Serverga ulanib bo\'lmadi', 'error');
+    setIsFindingOpponent(false);
+    
+    // Agar WebSocket ochiq bo'lsa, yangi o'yin boshlash
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      startMultiplayer();
+    } else {
+      setMode('menu');
     }
   };
 
-  // ✅ Koinlarni yangilash funksiyasi
-  const updateCoins = async () => {
-    if (!user) return;
-    
-    try {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/api/coins/${user.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setCoins(data.balance || 100);
-        }
-      }
-    } catch (error) {
-      console.log('Koinlarni yangilashda xato:', error);
+  // ✅ O'yinni bekor qilish
+  const cancelMultiplayer = () => {
+    setWaitingForOpponent(false);
+    setIsFindingOpponent(false);
+    setMode('menu');
+    showNotif('O\'yin bekor qilindi', 'warning');
+  };
+
+  // ✅ Qayta ulanish funksiyasi
+  const reconnect = () => {
+    if (user) {
+      showNotif('Qayta ulanmoqda...', 'info');
+      connectWebSocket(user);
     }
   };
 
@@ -627,11 +630,15 @@ function App() {
           <span className="logo-emoji">✌️</span>
         </div>
         <div className="header-right">
-          <div className="coins-display">
+          <div className="coins-display" onClick={() => setCoins(c => c + 10)} title="Koinlarni yangilash">
             <span className="coin-emoji">🪙</span>
             <span className="coin-amount">{coins}</span>
           </div>
-          <div className="connection-status" onClick={updateCoins} title="Koinlarni yangilash">
+          <div 
+            className={`connection-status ${wsStatus}`} 
+            onClick={reconnect}
+            title={wsStatus === 'connected' ? 'Serverga ulangan' : 'Qayta ulanish uchun bosing'}
+          >
             {connectionStatus}
           </div>
         </div>
@@ -653,17 +660,24 @@ function App() {
                   </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-icon">⚡</div>
+                  <div className="stat-icon">
+                    {wsStatus === 'connected' ? '🟢' : wsStatus === 'connecting' ? '🟡' : '🔴'}
+                  </div>
                   <div className="stat-content">
-                    <div className="stat-value">Online</div>
+                    <div className="stat-value">
+                      {wsStatus === 'connected' ? 'Online' : wsStatus === 'connecting' ? 'Ulanmoqda' : 'Offline'}
+                    </div>
                     <div className="stat-label">Holat</div>
                   </div>
                 </div>
               </div>
               
-              <button className="daily-bonus-btn" onClick={claimDailyBonus}>
-                🎁 Daily Bonus Olish
-              </button>
+              <div className="server-info">
+                <p>Server: telegram-bot-server-2-matj.onrender.com</p>
+                <button className="reconnect-btn" onClick={reconnect}>
+                  {wsStatus === 'connected' ? '✅ Ulangan' : '🔄 Qayta ulanmoq'}
+                </button>
+              </div>
             </div>
             
             <div className="mode-selection">
@@ -673,6 +687,9 @@ function App() {
                   <h3>Do'stlar bilan o'ynash</h3>
                   <p>Haqiqiy odamlar bilan raqobat</p>
                   <small>+50/-20 koin • 60s</small>
+                  <div className={`server-status-indicator ${wsStatus}`}>
+                    {wsStatus === 'connected' ? '🟢 Tayyor' : wsStatus === 'connecting' ? '🟡 Ulanmoqda' : '🔴 Offline'}
+                  </div>
                 </div>
                 <div className="mode-arrow">→</div>
               </div>
@@ -688,14 +705,15 @@ function App() {
               </div>
             </div>
             
-            <div className="server-info">
-              <div className="server-status">
-                <span className="status-indicator"></span>
-                <span>Server: {ws.current?.readyState === WebSocket.OPEN ? '🟢 Online' : '🔴 Offline'}</span>
+            <div className="user-info-card">
+              <div className="user-avatar">
+                {user?.first_name?.charAt(0) || 'P'}
               </div>
-              <button className="reconnect-btn" onClick={() => connectWebSocket(user)}>
-                🔄 Qayta ulanmoq
-              </button>
+              <div className="user-details">
+                <h4>{user?.first_name || 'Player'}</h4>
+                <p>ID: {user?.id?.toString().slice(0, 8)}</p>
+                <p>@{user?.username || 'username'}</p>
+              </div>
             </div>
           </div>
         )}
@@ -893,18 +911,28 @@ function App() {
                 <div className="waiting-spinner"></div>
                 <h3>Raqib qidirilmoqda...</h3>
                 <p>Server orqali haqiqiy raqib topilmoqda</p>
-                {gameId && (
-                  <div className="game-id-display">
-                    <small>Oʻyin ID: </small>
-                    <code>{gameId.slice(0, 12)}</code>
+                
+                {isFindingOpponent && (
+                  <div className="finding-info">
+                    <p>⏳ Server bilan aloqa: {wsStatus === 'connected' ? '🟢 Faol' : '🔴 Uzilgan'}</p>
+                    <p>📡 Oʻyin ID: <code>{gameId?.slice(0, 10) || 'Kutilmoqda...'}</code></p>
                   </div>
                 )}
-                <button 
-                  className="cancel-button"
-                  onClick={() => setMode('menu')}
-                >
-                  ❌ Bekor qilish
-                </button>
+                
+                <div className="waiting-actions">
+                  <button 
+                    className="cancel-button"
+                    onClick={cancelMultiplayer}
+                  >
+                    ❌ Bekor qilish
+                  </button>
+                  <button 
+                    className="reconnect-btn"
+                    onClick={reconnect}
+                  >
+                    🔄 Qayta ulanmoq
+                  </button>
+                </div>
               </div>
             ) : opponent ? (
               <>
@@ -915,6 +943,7 @@ function App() {
                   <div className="opponent-details">
                     <h4>{opponent.firstName || opponent.username || 'Raqib'}</h4>
                     <p>Real Player</p>
+                    <small>Server ID: {opponent.id?.toString().slice(0, 6)}</small>
                   </div>
                 </div>
                 
@@ -980,6 +1009,9 @@ function App() {
                     <div className="small-spinner"></div>
                     <p>Raqib tanlov qilishni kutmoqda...</p>
                     <small>Server orqali raqib javobini kutish</small>
+                    <div className="connection-hint">
+                      Holat: {wsStatus === 'connected' ? '🟢 Ulangan' : '🔴 Uzilgan'}
+                    </div>
                   </div>
                 )}
                 
@@ -1033,11 +1065,23 @@ function App() {
                 <div className="start-icon">👥</div>
                 <h3>Multiplayer O'yin</h3>
                 <p>Server orqali haqiqiy raqiblar bilan o'ynang</p>
+                
+                <div className="connection-check">
+                  <p>Server holati: 
+                    <span className={`status-indicator ${wsStatus}`}>
+                      {wsStatus === 'connected' ? ' 🟢 Ulangan' : 
+                       wsStatus === 'connecting' ? ' 🟡 Ulanmoqda' : 
+                       ' 🔴 Uzilgan'}
+                    </span>
+                  </p>
+                </div>
+                
                 <button 
-                  className="start-button"
+                  className={`start-button ${wsStatus !== 'connected' ? 'disabled' : ''}`}
                   onClick={startMultiplayer}
+                  disabled={wsStatus !== 'connected'}
                 >
-                  🎮 O'yinni Boshlash
+                  {wsStatus === 'connected' ? '🎮 O\'yinni Boshlash' : '⏳ Serverga ulanmoqda...'}
                 </button>
                 <button 
                   className="back-button"
@@ -1054,6 +1098,13 @@ function App() {
       <footer>
         <p>© {new Date().getFullYear()} Tosh-Qog'oz-Qaychi • Real Multiplayer</p>
         <small>Server: wss://telegram-bot-server-2-matj.onrender.com</small>
+        <div className="footer-links">
+          <span>WebSocket: {wsStatus}</span>
+          <span>•</span>
+          <span>Koinlar: {coins}</span>
+          <span>•</span>
+          <button className="footer-btn" onClick={reconnect}>Qayta ulanmoq</button>
+        </div>
       </footer>
     </div>
   );
