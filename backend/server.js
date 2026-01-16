@@ -10,13 +10,7 @@ const WebSocket = require('ws');
 
 const app = express();
 const server = http.createServer(app);
-
-const wss = new WebSocket.Server({ 
-  server, 
-  path: '/ws', // Yo'lni aniq ko'rsatish
-  clientTracking: true // Klientlarni kuzatish
-});
-
+const wss = new WebSocket.Server({ server });
 
 app.use(cors());
 app.use(express.json());
@@ -151,59 +145,38 @@ const waitingPlayers = new Map(); // userId -> {socket, gameId}
 const playerSockets = new Map(); // userId -> WebSocket
 
 // WebSocket server
- // Heartbeat uchun
- ws.on('pong', () => {
-  ws.isAlive = true;
-});
-
-// Xabarlarni qayta ishlash
-ws.on('message', async (message) => {
-  try {
-    const data = JSON.parse(message.toString());
-    console.log('📩 WebSocket xabar:', data);
-    await handleWebSocketMessage(ws, data);
-  } catch (error) {
-    console.error('❌ Xabarni parse qilishda xato:', error);
-    ws.send(JSON.stringify({ 
-      type: 'error', 
-      message: 'Xato formatdagi xabar' 
-    }));
-  }
-});
-
-// Ulanish uzilganda
-ws.on('close', () => {
-  console.log('❌ WebSocket uzildi');
-});
-
-// Xatolikda
-ws.on('error', (error) => {
-  console.error('❌ WebSocket xatosi:', error);
-});
-
-// Birinchi xabar - ulanish tasdiqlash
-ws.send(JSON.stringify({ 
-  type: 'connected',
-  message: 'WebSocket serverga muvaffaqiyatli ulandingiz',
-  timestamp: new Date().toISOString()
-}));
-
-
-// Heartbeat intervali (har 30 soniyada)
-const interval = setInterval(() => {
-  wss.clients.forEach((ws) => {
-    if (ws.isAlive === false) {
-      console.log('💀 Olik ulanish ochirilmoqda');
-      return ws.terminate();
+wss.on('connection', (ws, req) => {
+  console.log('✅ WebSocket ulandi');
+  
+  ws.on('message', async (message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      await handleWebSocketMessage(ws, data);
+    } catch (error) {
+      console.error('❌ WebSocket xatosi:', error);
     }
-    ws.isAlive = false;
-    ws.ping();
   });
-}, 30000);
-
-wss.on('close', () => {
-  clearInterval(interval);
+  
+  ws.on('close', () => {
+    console.log('❌ WebSocket uzildi');
+    // O'yinchini waiting ro'yxatidan o'chirish
+    for (const [userId, player] of waitingPlayers.entries()) {
+      if (player.socket === ws) {
+        waitingPlayers.delete(userId);
+        break;
+      }
+    }
+    
+    // Socket'larni tozalash
+    for (const [userId, socket] of playerSockets.entries()) {
+      if (socket === ws) {
+        playerSockets.delete(userId);
+        break;
+      }
+    }
+  });
 });
+
 async function handleWebSocketMessage(ws, data) {
   switch (data.type) {
     case 'register':
