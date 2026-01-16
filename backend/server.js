@@ -12,6 +12,10 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+// Yangi global navbat (queue)
+const matchmakingQueue = [];          // [{ userId, socket, username, firstName }, ...]
+const playerToGame = new Map();        // userId → gameId   (qidirishni tezlashtirish uchun)
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -157,28 +161,108 @@ wss.on('connection', (ws, req) => {
     }
   });
   
-  ws.on('close', () => {
-    console.log('❌ WebSocket uzildi');
-    // O'yinchini waiting ro'yxatidan o'chirish
-    for (const [userId, player] of waitingPlayers.entries()) {
-      if (player.socket === ws) {
-        waitingPlayers.delete(userId);
-        break;
+  wss.on('connection', (ws, req) => {
+    console.log('➡️ Yangi WebSocket ulanish');
+  
+    // Har bir ulanish uchun vaqtinchalik identifikator (keyin register bilan almashtiriladi)
+    let currentUserId = null;
+  
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        if (data.type === 'register') {
+          currentUserId = data.userId;
+        }
+        await handleWebSocketMessage(ws, data);
+      } catch (err) {
+        console.error('Xato parse qilishda:', err);
       }
-    }
-    
-    // Socket'larni tozalash
-    for (const [userId, socket] of playerSockets.entries()) {
-      if (socket === ws) {
-        playerSockets.delete(userId);
-        break;
+    });
+  
+    ws.on('close', (code, reason) => {
+      console.log(`❌ WS uzildi → code: ${code}, reason: ${reason || 'noma\'lum'}`);
+  
+      // 1. Navbatdan o‘chirish
+      const queueIndex = matchmakingQueue.findIndex(p => p.socket === ws);
+      if (queueIndex !== -1) {
+        console.log(`Navbatdan o‘chirildi: userId ${matchmakingQueue[queueIndex].userId}`);
+        matchmakingQueue.splice(queueIndex, 1);
       }
-    }
+  
+      // 2. Agar o'yinda bo'lsa – o'yinni topib, raqibga xabar berish
+      if (currentUserId && playerToGame.has(currentUserId)) {
+        const gameId = playerToGame.get(currentUserId);
+        const game = activeGames.get(gameId);
+  
+        if (game) {
+          const isPlayer1 = game.player1.id === currentUserId;
+          const opponentId = isPlayer1 ? game.player2?.id : game.player1?.id;
+          const opponentSocket = playerSockets.get(opponentId);
+  
+          // O'yinni "abandoned" holatiga o'tkazish yoki timeout qilish
+          game.status = 'abandoned';
+          game.finishedAt = new Date();
+  
+          // Raqibga xabar
+          if (opponentSocket && opponentSocket.readyState === WebSocket.OPEN) {
+            opponentSocket.send(JSON.stringify({
+              type: 'opponent_disconnected',
+              gameId,
+              message: 'Raqib uzildi. O‘yin to‘xtatildi.'
+            }));
+          }
+  
+          // Keyinchalik cleanup qilish uchun vaqtinchalik saqlab turish
+          setTimeout(() => {
+            activeGames.delete(gameId);
+            playerToGame.delete(currentUserId);
+            if (opponentId) playerToGame.delete(opponentId);
+          }, 60000); // 1 daqiqa ichida tozalash
+        }
+      }
+  
+      // 3. Global ro'yxatlardan o'chirish
+      playerSockets.delete(currentUserId);
+    });
+  // Navbatdan chiqarish (foydalanuvchi tugmani bosganda yoki cancel qilganda)
+async function handleLeaveQueue(ws, data) {
+  const { userId } = data;
+
+  const index = matchmakingQueue.findIndex(p => p.userId === userId || p.socket === ws);
+  if (index !== -1) {
+    matchmakingQueue.splice(index, 1);
+    ws.send(JSON.stringify({
+      type: 'left_queue',
+      message: 'Qidiruv to‘xtatildi'
+    }));
+  }
+}
+
+// O'yindan chiqish xabari uchun (masalan: "opponent_disconnected")
+    ws.on('error', (err) => {
+      console.error('WebSocket xatosi:', err);
+    });
   });
 });
 
 async function handleWebSocketMessage(ws, data) {
   switch (data.type) {
+    case 'join_queue':
+      await handleJoinQueue(ws, data);
+      break;
+
+    case 'make_choice':
+      await handleMakeChoice(ws, data);
+      break;
+
+    case 'register':
+      await handlePlayerRegistration(ws, data);
+      break;
+
+    case 'leave_queue':
+    case 'disconnect':
+      await handleLeaveQueue(ws, data);
+      break;
     case 'register':
       await handlePlayerRegistration(ws, data);
       break;
@@ -352,7 +436,103 @@ async function handleFindOpponent(ws, data) {
     }));
   }
 }
+async function handleJoinQueue(ws, data) {
+  const { userId, username, firstName } = data;
 
+  // Agar allaqachon navbatda bo‘lsa yoki o‘yinda bo‘lsa → rad etamiz
+  if (matchmakingQueue.some(p => p.userId === userId)) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Siz allaqachon navbatdasiz' }));
+    return;
+  }
+
+  if (playerToGame.has(userId)) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Siz hozir o‘yindasiz' }));
+    return;
+  }
+
+  // Navbatga qo‘shish
+  matchmakingQueue.push({
+    userId,
+    socket: ws,
+    username,
+    firstName
+  });
+
+  ws.send(JSON.stringify({ type: 'joined_queue' }));
+
+  // Agar navbatda 2 yoki undan ko‘p odam bo‘lsa → juftlashtiramiz
+  while (matchmakingQueue.length >= 2) {
+    const playerA = matchmakingQueue.shift();
+    const playerB = matchmakingQueue.shift();
+
+    const gameId = `game_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const game = {
+      gameId,
+      player1: { 
+        id: playerA.userId, 
+        username: playerA.username, 
+        firstName: playerA.firstName,
+        choice: null,
+        ready: false 
+      },
+      player2: { 
+        id: playerB.userId, 
+        username: playerB.username, 
+        firstName: playerB.firstName,
+        choice: null,
+        ready: false 
+      },
+      status: 'playing',
+      createdAt: new Date(),
+      moves: []
+    };
+
+    activeGames.set(gameId, game);
+    playerToGame.set(playerA.userId, gameId);
+    playerToGame.set(playerB.userId, gameId);
+
+    // MongoDB ga saqlash (ixtiyoriy, lekin tavsiya etiladi)
+    await new Game({
+      gameId,
+      player1: game.player1,
+      player2: game.player2,
+      status: 'playing',
+      createdAt: game.createdAt
+    }).save();
+
+    // Ikkalasiga xabar
+    playerA.socket.send(JSON.stringify({
+      type: 'match_found',
+      gameId,
+      opponent: {
+        id: playerB.userId,
+        username: playerB.username,
+        firstName: playerB.firstName
+      }
+    }));
+
+    playerB.socket.send(JSON.stringify({
+      type: 'match_found',
+      gameId,
+      opponent: {
+        id: playerA.userId,
+        username: playerA.username,
+        firstName: playerA.firstName
+      }
+    }));
+
+    // Taymer boshlash
+    startGameTimer(gameId);
+  }
+}
+
+async function handleLeaveQueue(ws, data) {
+  const index = matchmakingQueue.findIndex(p => p.socket === ws);
+  if (index !== -1) {
+    matchmakingQueue.splice(index, 1);
+  }
+}
 async function handleMakeChoice(ws, data) {
   const { userId, gameId, choice } = data;
   
