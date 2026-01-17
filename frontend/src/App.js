@@ -1,20 +1,19 @@
-// App.jsx (asosiy komponent)
-import React, { useEffect, useState, useRef } from 'react';
+// src/App.jsx
+import React, { useEffect, useState } from 'react';
 import './App.css';
+
 import BotGame from './components/BotGame';
 import MultiplayerGame from './components/MultiplayerGame';
 import MenuScreen from './components/MenuScreen';
 import DifficultySelect from './components/DifficultySelect';
 
-// CHOICES va RPSBot ni shu yerga yoki alohida faylga ko'chirsa bo'ladi
-const CHOICES = {
+import RPSBot from './RPSBot';
+
+export const CHOICES = {
   rock: { emoji: '✊', name: 'Tosh', color: '#64748b' },
   paper: { emoji: '✋', name: 'Qog‘oz', color: '#3b82f6' },
   scissors: { emoji: '✌️', name: 'Qaychi', color: '#10b981' }
 };
-
-// RPSBot class ni shu yerga yoki alohida faylga (masalan: RPSBot.js)
-class RPSBot { /* ... sizning joriy RPSBot classingiz ... */ }
 
 function App() {
   const [user, setUser] = useState(null);
@@ -22,7 +21,6 @@ function App() {
   const [mode, setMode] = useState('menu');
   const [difficulty, setDifficulty] = useState('medium');
 
-  // Telegram Web App init
   useEffect(() => {
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -39,8 +37,8 @@ function App() {
   }, []);
 
   const showNotif = (text, type = 'info') => {
-    // sizning joriy showNotif logikangiz (yoki context orqali boshqarish mumkin)
     console.log(`[${type.toUpperCase()}] ${text}`);
+    // keyinchalik toast yoki modal qo'shishingiz mumkin
   };
 
   return (
@@ -53,16 +51,16 @@ function App() {
       </header>
 
       {mode === 'menu' && (
-        <MenuScreen 
-          user={user} 
-          onMultiplayer={() => setMode('multiplayer')} 
-          onBotGame={() => setMode('bot-select')} 
+        <MenuScreen
+          user={user}
+          onMultiplayer={() => setMode('multiplayer')}
+          onBotGame={() => setMode('bot-select')}
         />
       )}
 
       {mode === 'bot-select' && (
-        <DifficultySelect 
-          onSelect={(diff) => {
+        <DifficultySelect
+          onSelect={diff => {
             setDifficulty(diff);
             setMode('playing-bot');
           }}
@@ -71,7 +69,7 @@ function App() {
       )}
 
       {mode === 'playing-bot' && (
-        <BotGame 
+        <BotGame
           difficulty={difficulty}
           coins={coins}
           setCoins={setCoins}
@@ -82,7 +80,7 @@ function App() {
       )}
 
       {mode === 'multiplayer' && (
-        <MultiplayerGame 
+        <MultiplayerGame
           user={user}
           coins={coins}
           setCoins={setCoins}
