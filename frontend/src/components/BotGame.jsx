@@ -1,71 +1,70 @@
 // components/BotGame.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import RPSBot from '../RPSBot'; // agar alohida faylda bo'lsa
-import './BotGame.css';           // quyida CSS ni ham beraman
+import RPSBot from '../RPSBot';
+import './BotGame.css';
 
 function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif }) {
   const [bot] = useState(() => new RPSBot(difficulty));
   const [botChoice, setBotChoice] = useState(null);
   const [playerChoice, setPlayerChoice] = useState(null);
-  const [botResult, setBotResult] = useState(null);
+  const [result, setResult] = useState(null); // 'win' | 'lose' | 'draw' | null
   const [timer, setTimer] = useState(60);
   const [isThinking, setIsThinking] = useState(true);
+
   const timerRef = useRef(null);
-  const choiceTimeoutRef = useRef(null);
+  const revealTimeoutRef = useRef(null);
 
   useEffect(() => {
-    resetRound();
+    startNewRound();
     return () => {
       clearInterval(timerRef.current);
-      clearTimeout(choiceTimeoutRef.current);
+      clearTimeout(revealTimeoutRef.current);
     };
   }, [difficulty]);
 
-  const resetRound = () => {
-    bot.reset(); // agar har bir o'yinda yangi bot xohlasangiz
-    const initialBotChoice = bot.choose();
-    setBotChoice(initialBotChoice);
+  const startNewRound = () => {
+    bot.reset?.(); // agar reset metodi bo'lsa
+    const newBotChoice = bot.choose();
+    setBotChoice(newBotChoice);
+
     setPlayerChoice(null);
-    setBotResult(null);
+    setResult(null);
     setIsThinking(true);
     setTimer(60);
-    startTimer();
 
-    // Bot "o'ylayotgandek" qilish uchun kichik kechikish
-    choiceTimeoutRef.current = setTimeout(() => {
-      setIsThinking(false);
-    }, 800);
-  };
-
-  const startTimer = () => {
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setTimer((t) => {
         if (t <= 1) {
           clearInterval(timerRef.current);
           showNotif("Vaqt tugadi!", "warning");
+          setTimeout(startNewRound, 1200);
           return 0;
         }
         return t - 1;
       });
     }, 1000);
+
+    // "o'ylash" animatsiyasi
+    revealTimeoutRef.current = setTimeout(() => {
+      setIsThinking(false);
+    }, 700);
   };
 
-  const handleBotMove = (choice) => {
-    if (playerChoice || botResult || timer <= 0) return;
+  const handlePlayerChoice = (choice) => {
+    if (playerChoice || result || timer <= 0) return;
 
     setPlayerChoice(choice);
     clearInterval(timerRef.current);
-    bot.remember(choice);
+    bot.remember?.(choice); // agar eslab qolish logikasi bo'lsa
 
     // Natijani hisoblash
-    const currentBot = botChoice;
     let res = 'draw';
-    if (choice !== currentBot) {
+    if (choice !== botChoice) {
       if (
-        (choice === 'rock' && currentBot === 'scissors') ||
-        (choice === 'paper' && currentBot === 'rock') ||
-        (choice === 'scissors' && currentBot === 'paper')
+        (choice === 'rock' && botChoice === 'scissors') ||
+        (choice === 'paper' && botChoice === 'rock') ||
+        (choice === 'scissors' && botChoice === 'paper')
       ) {
         res = 'win';
       } else {
@@ -73,7 +72,7 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
       }
     }
 
-    setBotResult(res);
+    setResult(res);
 
     const change =
       res === 'win'
@@ -89,38 +88,37 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
     setCoins((c) => Math.max(0, c + change));
 
     showNotif(
-      res === 'win'
-        ? `G‘alaba! +${change} 🪙`
-        : res === 'draw'
-        ? `Durang +${change} 🪙`
-        : `Mag‘lubiyat ${change} 🪙`,
+      res === 'win' ? `G‘alaba! +${change} 🪙` :
+      res === 'draw' ? `Durang +${change} 🪙` :
+      `Mag‘lubiyat ${change} 🪙`,
       res === 'win' ? 'success' : res === 'draw' ? 'warning' : 'error'
     );
+
+    // Keyingi raund ~2.2 soniyadan keyin boshlanadi
+    setTimeout(startNewRound, 2200);
   };
 
-  const ChoiceButton = ({ choiceKey, data }) => {
-    const isSelected = playerChoice === choiceKey;
-    const isWinner = botResult === 'win' && isSelected;
-    const isLoser = botResult === 'lose' && isSelected;
+  const ChoiceButton = ({ choiceKey, data }) => (
+    <button
+      className={`choice-btn ${playerChoice === choiceKey ? 'selected' : ''}`}
+      style={{ '--choice-color': data.color }}
+      onClick={() => handlePlayerChoice(choiceKey)}
+      disabled={!!playerChoice || timer <= 0}
+    >
+      <span className="emoji">{data.emoji}</span>
+    </button>
+  );
 
-    return (
-      <button
-        className={`choice-btn ${isSelected ? 'selected' : ''} ${isWinner ? 'winner' : ''} ${
-          isLoser ? 'loser' : ''
-        }`}
-        style={{ '--choice-color': data.color }}
-        onClick={() => handleBotMove(choiceKey)}
-        disabled={!!playerChoice || !!botResult || timer <= 0}
-      >
-        <div className="emoji">{data.emoji}</div>
-        <span className="label">{data.name}</span>
-      </button>
-    );
+  const getResultText = () => {
+    if (!result) return '';
+    if (result === 'win') return 'G‘ALABA!';
+    if (result === 'lose') return 'MAG‘LUBIYAT';
+    return 'DURRANG';
   };
 
   return (
     <main className="game-screen bot-game">
-      <div className="header-info">
+      <div className="header">
         <div className="difficulty-badge">{difficulty.toUpperCase()}</div>
         <div className="timer-container">
           <div className="timer-bar">
@@ -128,12 +126,13 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
           </div>
           <span className="timer-text">{timer}s</span>
         </div>
+        <div className="coins-display">🪙 {coins}</div>
       </div>
 
       <div className="versus-container">
         <div className="player-side you">
           <div className="label">SIZ</div>
-          <div className={`choice-display ${playerChoice ? 'revealed' : ''}`}>
+          <div className={`choice-display ${playerChoice ? 'revealed' : 'hidden'}`}>
             {playerChoice ? CHOICES[playerChoice].emoji : '?'}
           </div>
         </div>
@@ -148,38 +147,21 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
         </div>
       </div>
 
-      {!playerChoice && botResult === null && timer > 0 && (
-        <div className="choices-container">
-          {Object.entries(CHOICES).map(([key, val]) => (
-            <ChoiceButton key={key} choiceKey={key} data={val} />
-          ))}
+      {result && (
+        <div className={`result-text ${result}`}>
+          {getResultText()}
         </div>
       )}
 
-      {botResult && (
-        <div className={`result-overlay ${botResult}`}>
-          <div className="result-content">
-            <h2 className={botResult}>
-              {botResult === 'win' ? 'G‘ALABA!' : botResult === 'lose' ? 'MAG‘LUBIYAT' : 'DURRANG'}
-            </h2>
+      <div className="choices-row">
+        {Object.entries(CHOICES).map(([key, val]) => (
+          <ChoiceButton key={key} choiceKey={key} data={val} />
+        ))}
+      </div>
 
-            <div className="final-choices">
-              <div className="choice-result">{CHOICES[playerChoice]?.emoji}</div>
-              <div className="vs-small">VS</div>
-              <div className="choice-result">{CHOICES[botChoice]?.emoji}</div>
-            </div>
-
-            <div className="result-actions">
-              <button className="play-again-btn" onClick={resetRound}>
-                Yana o'ynash
-              </button>
-              <button className="menu-btn" onClick={onBackToMenu}>
-                Menyuga qaytish
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <button className="back-to-menu-btn" onClick={onBackToMenu}>
+        Menyuga qaytish
+      </button>
     </main>
   );
 }
