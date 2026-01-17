@@ -1,0 +1,231 @@
+.bot-game {
+    position: relative;
+    min-height: 100vh;
+    padding: 1rem;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    color: white;
+    overflow: hidden;
+  }
+  
+  .header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .difficulty-badge {
+    padding: 0.4rem 1rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: bold;
+    font-size: 0.9rem;
+    backdrop-filter: blur(8px);
+  }
+  
+  .timer-container {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+  
+  .timer-bar {
+    width: 140px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  .timer-progress {
+    height: 100%;
+    background: linear-gradient(to right, #22c55e, #10b981);
+    transition: width 1s linear;
+  }
+  
+  .timer-text {
+    font-weight: bold;
+    min-width: 50px;
+    text-align: right;
+  }
+  
+  /* Versus */
+  .versus-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    margin: 2rem 0;
+  }
+  
+  .player-side {
+    text-align: center;
+    flex: 1;
+    max-width: 140px;
+  }
+  
+  .label {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 0.5rem;
+  }
+  
+  .choice-display {
+    font-size: 5.5rem;
+    width: 110px;
+    height: 110px;
+    line-height: 110px;
+    background: rgba(30, 41, 59, 0.6);
+    border-radius: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.12);
+    transition: all 0.4s ease;
+    backdrop-filter: blur(6px);
+  }
+  
+  .choice-display.revealed {
+    transform: scale(1.08);
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.15);
+  }
+  
+  .choice-display.thinking {
+    animation: thinking 1.8s infinite;
+  }
+  
+  @keyframes thinking {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+  }
+  
+  /* Tugmalar */
+  .choices-container {
+    display: flex;
+    justify-content: center;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+    margin: 2rem 0;
+  }
+  
+  .choice-btn {
+    width: 100px;
+    height: 100px;
+    border-radius: 20px;
+    background: rgba(30, 41, 59, 0.5);
+    border: 2px solid var(--choice-color, #64748b);
+    color: white;
+    font-size: 2.8rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    backdrop-filter: blur(8px);
+  }
+  
+  .choice-btn:hover:not(:disabled) {
+    transform: translateY(-8px) scale(1.08);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 0 4px rgba(var(--choice-color-rgb), 0.3);
+  }
+  
+  .choice-btn.selected {
+    transform: scale(1.12);
+    box-shadow: 0 0 25px var(--choice-color);
+  }
+  
+  .choice-btn.winner {
+    animation: winnerPulse 1.2s infinite;
+  }
+  
+  .choice-btn.loser {
+    animation: loserShake 0.6s;
+  }
+  
+  @keyframes winnerPulse {
+    0%, 100% { box-shadow: 0 0 20px var(--choice-color); }
+    50% { box-shadow: 0 0 40px var(--choice-color); }
+  }
+  
+  @keyframes loserShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  
+  /* Natija overlay */
+  .result-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    animation: fadeIn 0.6s ease;
+  }
+  
+  .result-content {
+    text-align: center;
+    padding: 2.5rem;
+    background: rgba(30, 41, 59, 0.9);
+    border-radius: 24px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    max-width: 90%;
+    backdrop-filter: blur(12px);
+  }
+  
+  .result-overlay h2 {
+    font-size: 3.2rem;
+    margin: 0 0 1.5rem;
+  }
+  
+  .win { color: #22c55e; text-shadow: 0 0 20px #22c55e80; }
+  .lose { color: #ef4444; text-shadow: 0 0 20px #ef444480; }
+  .draw { color: #f59e0b; text-shadow: 0 0 20px #f59e0b80; }
+  
+  .final-choices {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    font-size: 4.5rem;
+    margin: 1.5rem 0;
+  }
+  
+  .result-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+  }
+  
+  .play-again-btn,
+  .menu-btn {
+    padding: 0.9rem 1.8rem;
+    font-size: 1.1rem;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  
+  .play-again-btn {
+    background: #10b981;
+    color: white;
+  }
+  
+  .play-again-btn:hover {
+    background: #059669;
+    transform: translateY(-2px);
+  }
+  
+  .menu-btn {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+  }
+  
+  .menu-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
