@@ -1,0 +1,98 @@
+.difficulty-screen {
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+  }
+  
+  .screen-title {
+    font-size: 2.2rem;
+    margin: 0 0 0.6rem;
+    font-weight: 700;
+  }
+  
+  .screen-subtitle {
+    font-size: 1.1rem;
+    opacity: 0.8;
+    margin: 0 0 2.5rem;
+  }
+  
+  .difficulty-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1.3rem;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  
+  .difficulty-btn {
+    width: 100%;
+    padding: 1.4rem;
+    border-radius: 16px;
+    border: 2px solid var(--diff-color);
+    background: rgba(30, 41, 59, 0.5);
+    color: white;
+    font-size: 1.3rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.28s ease;
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .difficulty-btn:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.3);
+  }
+  
+  .difficulty-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(255,255,255,0.08));
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  
+  .difficulty-btn:hover::after {
+    opacity: 1;
+  }
+  
+  .difficulty-btn .emoji {
+    font-size: 2.6rem;
+    display: block;
+    margin-bottom: 0.6rem;
+  }
+  
+  .difficulty-btn .label {
+    display: block;
+    font-size: 1.5rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .difficulty-btn .desc {
+    display: block;
+    font-size: 0.95rem;
+    opacity: 0.8;
+    font-weight: normal;
+  }
+  
+  /* Har bir daraja uchun o‘ziga xos soyalar */
+  .easy   { --diff-color: #10b981; }
+  .medium { --diff-color: #f59e0b; }
+  .hard   { --diff-color: #ef4444; }
+  
+  .back-button {
+    margin-top: 3rem;
+    padding: 0.9rem 2rem;
+    font-size: 1.1rem;
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  
+  .back-button:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
