@@ -130,6 +130,21 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
         </div>
       </div>
 
+<div className={`choice-display big ${playerChoice ? 'has-choice' : ''}`}>
+  {playerChoice ? CHOICES[playerChoice].emoji : '?'}
+</div>
+
+// Bot tarafi uchun:
+<div className={`choice-display big ${botChoice ? 'has-choice reveal' : ''}`}>
+  {botChoice ? CHOICES[botChoice].emoji : '🤔'}
+</div>
+
+// Result banner ga className ni to‘g‘ri qo‘shish
+{result && (
+  <div className={`result-banner ${result}`}>
+    {result === 'win' ? 'G‘ALABA!' : result === 'lose' ? 'MAG‘LUBIYAT!' : 'DURRANG'}
+  </div>
+)}
       {result && (
         <div className={`result-banner ${result}`}>
           {result === 'win' ? 'G‘ALABA!' : result === 'lose' ? 'MAG‘LUBIYAT' : 'DURRANG'}
