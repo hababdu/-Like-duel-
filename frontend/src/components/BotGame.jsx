@@ -3,12 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import './BotGame.css';
 
 function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif }) {
-  const [botChoice, setBotChoice] = useState(null);          // ekranda ko‘rinadigan
-  const [hiddenBotChoice, setHiddenBotChoice] = useState(null); // oldindan tanlangan
+  const [botChoice, setBotChoice] = useState(null);
   const [playerChoice, setPlayerChoice] = useState(null);
   const [result, setResult] = useState(null);
   const [timer, setTimer] = useState(60);
-  const [isThinking, setIsThinking] = useState(true);
+  const [isBotThinking, setIsBotThinking] = useState(true);
 
   const timerRef = useRef(null);
   const nextRoundTimeout = useRef(null);
@@ -22,20 +21,18 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
   }, [difficulty]);
 
   const getBotChoice = () => {
-    // Keyinchalik bu yerni haqiqiy qiyinlikka mos bot logikasiga almashtirishingiz mumkin
+    // Keyinchalik bu yerni qiyinlik darajasiga moslashtirishingiz mumkin
+    // Hozircha oddiy random
     const options = Object.keys(CHOICES);
     return options[Math.floor(Math.random() * options.length)];
   };
 
   const startNewRound = () => {
-    const newBotChoice = getBotChoice();
-    setHiddenBotChoice(newBotChoice);
     setBotChoice(null);
-    setIsThinking(true);
-
     setPlayerChoice(null);
     setResult(null);
     setTimer(60);
+    setIsBotThinking(true); // yangi raund boshida "o‘ylayapti" holati
 
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -50,11 +47,10 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
       });
     }, 1000);
 
-    // Bot "o‘ylayotgandek" ko‘rinishi uchun kechikish
+    // Bot tanlovini biroz kech ochish uchun (vizual effekt)
     setTimeout(() => {
-      setIsThinking(false);
-      setBotChoice(newBotChoice);
-    }, 600 + Math.random() * 400); // 600–1000 ms oralig‘ida ochiladi
+      setIsBotThinking(false);
+    }, 800 + Math.random() * 600); // 800–1400 ms oralig‘ida
   };
 
   const handlePlayerChoice = (choice) => {
@@ -63,9 +59,10 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
     setPlayerChoice(choice);
     clearInterval(timerRef.current);
 
-    const bot = hiddenBotChoice;
-    setBotChoice(bot); // agar hali ochilmagan bo‘lsa, majburan ochamiz
-    setIsThinking(false);
+    // Bot shu yerda tanlaydi — eng halol joy!
+    const bot = getBotChoice();
+    setBotChoice(bot);
+    setIsBotThinking(false);
 
     let res = 'draw';
     if (choice !== bot) {
@@ -82,6 +79,7 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
 
     setResult(res);
 
+    // Mukofot / jarima miqdori qiyinlikka qarab
     const change =
       res === 'win'
         ? difficulty === 'easy'
@@ -145,12 +143,12 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
           <div className="label">BOT</div>
           <div
             className={`choice-display big ${
-              botChoice ? 'has-choice reveal' : isThinking ? 'thinking' : ''
+              botChoice ? 'has-choice reveal' : isBotThinking ? 'thinking' : 'waiting'
             }`}
           >
             {botChoice
               ? CHOICES[botChoice].emoji
-              : isThinking
+              : isBotThinking
               ? '🤔'
               : '❓'}
           </div>
