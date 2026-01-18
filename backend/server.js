@@ -39,7 +39,7 @@ const User = mongoose.model('User', UserSchema);
 // ────────────────────────────────────────────────
 const queue = [];                       // [{userId, socket, name, ...}]
 const games = new Map();                // gameId → {player1, player2, ...}
-const sockets = new Map();              // userId → ws
+const socket = new WebSocket('https://telegram-bot-server-2-matj.onrender.com/ws');             // userId → ws
 
 // ────────────────────────────────────────────────
 //  Telegram Bot (minimal /start uchun)

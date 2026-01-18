@@ -42,12 +42,7 @@ function App() {
 
   return (
     <div className="app-container">
-      <header>
-        <div className="logo">✊ Qaychi Qog‘oz ✌️</div>
-        <div className="coins-display">
-          <span>🪙 {coins.toLocaleString()}</span>
-        </div>
-      </header>
+
 
       {mode === 'menu' && (
         <MenuScreen
@@ -89,9 +84,7 @@ function App() {
         />
       )}
 
-      <footer>
-        <p>Telegram o‘yini • {new Date().getFullYear()}</p>
-      </footer>
+
     </div>
   );
 }
