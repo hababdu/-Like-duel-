@@ -50,7 +50,7 @@ bot.onText(/\/start/, (msg) => {
   const { id, first_name, username } = msg.from;
   bot.sendMessage(msg.chat.id, `Salom ${first_name}! 🎮 O‘yinni boshlash uchun veb-ilovani oching.`, {
     reply_markup: {
-      inline_keyboard: [[{ text: "O‘ynash", web_app: { url: process.env.WEB_APP_URL || 'https://your-domain.com' } }]]
+      inline_keyboard: [[{ text: "O‘ynash", web_app: { url: process.env.WEB_APP_URL || 'https://telegram-mini-app-gsny.onrender.com' } }]]
     }
   });
 });
