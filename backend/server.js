@@ -1,11 +1,10 @@
 /**
  * Tosh-Qaychi-Qog'oz Multiplayer Server
  * Telegram Mini App + WebSocket + MongoDB
- * 
+ *
  * @version 1.1.0
  * @date 2026-01
  */
-
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -36,7 +35,7 @@ mongoose.connect(MONGODB_URI, {
   .then(() => console.log('MongoDB connected successfully'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// Schemas (minimal working version)
+// Schemas
 const userSchema = new mongoose.Schema({
   telegramId: { type: Number, required: true, unique: true },
   firstName: String,
@@ -64,22 +63,20 @@ const User = mongoose.model('User', userSchema);
 const Game = mongoose.model('Game', gameSchema);
 
 // ==================== IN-MEMORY STATE ====================
-const matchmakingQueue = [];           // [{ userId, socket, username, firstName }]
-const activeGames = new Map();          // gameId → game object
-const playerSockets = new Map();        // userId → WebSocket
+const matchmakingQueue = []; // [{ userId, socket, username, firstName }]
+const activeGames = new Map(); // gameId → game object
+const playerSockets = new Map(); // userId → WebSocket
 
 // ==================== TELEGRAM BOT ====================
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 bot.onText(/\/start/, async (msg) => {
   const { id, first_name, username } = msg.from;
-
   await User.findOneAndUpdate(
     { telegramId: id },
     { telegramId: id, firstName: first_name, username },
     { upsert: true, new: true }
   );
-
   bot.sendMessage(msg.chat.id, `Assalomu alaykum, ${first_name}! 👋\nTosh-Qaychi-Qog‘oz o‘yinini boshlash uchun quyidagi tugmani bosing:`, {
     reply_markup: {
       inline_keyboard: [[{ text: "🎮 O‘ynash", web_app: { url: WEB_APP_URL } }]]
@@ -91,14 +88,13 @@ bot.onText(/\/start/, async (msg) => {
 // ==================== WEBSOCKET SERVER ====================
 wss.on('connection', (ws) => {
   console.log('[WS] New connection established');
-
   let authenticatedUserId = null;
 
   ws.on('message', async (rawMessage) => {
     try {
       const data = JSON.parse(rawMessage.toString());
 
-      // 1. Register – user identifikatsiyasi
+      // Register
       if (data.type === 'register') {
         if (!data.userId) {
           ws.send(JSON.stringify({ type: 'error', message: 'userId talab qilinadi' }));
@@ -110,7 +106,7 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      // Auth tekshiruvi (registerdan keyin)
+      // Auth tekshiruvi
       if (!authenticatedUserId) {
         ws.send(JSON.stringify({ type: 'error', message: 'Avval register qiling' }));
         return;
@@ -125,19 +121,15 @@ wss.on('connection', (ws) => {
 
   ws.on('close', (code, reason) => {
     console.log(`[WS] Connection closed | user: ${authenticatedUserId} | code: ${code}`);
-
     // Navbatdan chiqarish
     const queueIndex = matchmakingQueue.findIndex(p => p.userId === authenticatedUserId);
     if (queueIndex !== -1) matchmakingQueue.splice(queueIndex, 1);
-
     playerSockets.delete(authenticatedUserId);
-
-    // O‘yindagi raqibga xabar berish
+    // O‘yindagi raqibga xabar
     for (const [gameId, game] of activeGames.entries()) {
       if (game.player1?.id === authenticatedUserId || game.player2?.id === authenticatedUserId) {
         const opponentId = game.player1?.id === authenticatedUserId ? game.player2?.id : game.player1?.id;
         const opponentWs = playerSockets.get(opponentId);
-
         if (opponentWs?.readyState === WebSocket.OPEN) {
           opponentWs.send(JSON.stringify({
             type: 'opponent_disconnected',
@@ -145,7 +137,6 @@ wss.on('connection', (ws) => {
             message: 'Raqib uzildi. O‘yin yakunlandi.'
           }));
         }
-
         activeGames.delete(gameId);
         break;
       }
@@ -155,6 +146,9 @@ wss.on('connection', (ws) => {
 
 /**
  * Asosiy xabarlar protsessori
+ * @param {WebSocket} ws - Yuboruvchi socket
+ * @param {Object} data - Kelgan ma'lumot
+ * @param {Number} userId - Foydalanuvchi ID
  */
 async function handleMessage(ws, data, userId) {
   switch (data.type) {
@@ -162,20 +156,16 @@ async function handleMessage(ws, data, userId) {
       if (matchmakingQueue.some(p => p.userId === userId)) {
         return ws.send(JSON.stringify({ type: 'error', message: 'Siz allaqachon navbatdasiz' }));
       }
-
       matchmakingQueue.push({
         userId,
         socket: ws,
         username: data.username || `User_${userId}`,
         firstName: data.firstName || 'Player'
       });
-
       ws.send(JSON.stringify({ type: 'joined_queue' }));
-
       attemptMatchmaking();
       break;
     }
-
     case 'leave_queue': {
       const index = matchmakingQueue.findIndex(p => p.userId === userId);
       if (index !== -1) {
@@ -184,11 +174,9 @@ async function handleMessage(ws, data, userId) {
       }
       break;
     }
-
     case 'make_choice': {
       const game = activeGames.get(data.gameId);
       if (!game) return ws.send(JSON.stringify({ type: 'error', message: 'O‘yin topilmadi' }));
-
       if (game.player1.id === userId) {
         game.player1.choice = data.choice;
       } else if (game.player2?.id === userId) {
@@ -196,42 +184,86 @@ async function handleMessage(ws, data, userId) {
       } else {
         return ws.send(JSON.stringify({ type: 'error', message: 'Siz bu o‘yinda emassiz' }));
       }
-
       activeGames.set(data.gameId, game);
-
       // Raqibga bildirish
       const opponentId = game.player1.id === userId ? game.player2.id : game.player1.id;
       const opponentWs = playerSockets.get(opponentId);
       if (opponentWs?.readyState === WebSocket.OPEN) {
         opponentWs.send(JSON.stringify({ type: 'opponent_choice_made' }));
       }
-
       // Ikkalasida ham tanlov bo‘lsa — natija
       if (game.player1.choice && game.player2?.choice) {
         await finalizeGame(data.gameId);
       }
-
       ws.send(JSON.stringify({ type: 'choice_accepted', choice: data.choice }));
       break;
     }
-
     case 'chat_message': {
-      const game = activeGames.get(data.gameId);
-      if (!game) return;
+      console.log("[CHAT] Kelgan xabar:", data);
 
+      // Majburiy maydonlarni tekshirish
+      if (!data.gameId || typeof data.gameId !== 'string') {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'gameId talab qilinadi va string bo‘lishi kerak'
+        }));
+        return;
+      }
+
+      if (!data.text || typeof data.text !== 'string' || data.text.trim() === '') {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Xabar matni bo‘sh bo‘lmasligi kerak'
+        }));
+        return;
+      }
+
+      const game = activeGames.get(data.gameId);
+      if (!game) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'O‘yin topilmadi yoki tugagan'
+        }));
+        return;
+      }
+
+      // Faqat o‘yindagi o‘yinchilar yuborishi mumkin
+      if (game.player1.id !== userId && game.player2?.id !== userId) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Bu o‘yin sizga tegishli emas'
+        }));
+        return;
+      }
+
+      // Raqibni topamiz
       const receiverId = game.player1.id === userId ? game.player2.id : game.player1.id;
       const receiverWs = playerSockets.get(receiverId);
 
-      if (receiverWs?.readyState === WebSocket.OPEN) {
-        receiverWs.send(JSON.stringify({
-          type: 'chat_message',
-          senderId: userId,
-          text: data.text.trim().slice(0, 500), // xavfsizlik uchun limit
+      const chatPayload = {
+        type: 'chat_message',
+        senderId: userId,
+        text: data.text.trim().slice(0, 1000), // Cheklash
+        timestamp: Date.now()
+      };
+
+      // Raqibga yuboramiz
+      if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+        receiverWs.send(JSON.stringify(chatPayload));
+        console.log(`[CHAT] Xabar yuborildi → user ${receiverId}`);
+      } else {
+        console.log(`[CHAT] Raqib offline: ${receiverId}`);
+        ws.send(JSON.stringify({
+          type: 'info',
+          message: 'Raqib hozir offline, xabar yetib bormadi'
         }));
       }
+
+      // O‘ziga echo
+      ws.send(JSON.stringify(chatPayload));
+
       break;
     }
-
     default:
       ws.send(JSON.stringify({ type: 'error', message: 'Noma’lum xabar turi' }));
   }
@@ -244,9 +276,7 @@ function attemptMatchmaking() {
   while (matchmakingQueue.length >= 2) {
     const playerA = matchmakingQueue.shift();
     const playerB = matchmakingQueue.shift();
-
     const gameId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
     const game = {
       gameId,
       player1: { id: playerA.userId, username: playerA.username, firstName: playerA.firstName, choice: null },
@@ -254,37 +284,32 @@ function attemptMatchmaking() {
       status: 'playing',
       createdAt: new Date(),
     };
-
     activeGames.set(gameId, game);
-
-    // Ikkalasiga o‘yin boshlanganligi haqida xabar
+    // Xabar yuborish
     playerA.socket.send(JSON.stringify({
       type: 'match_found',
       gameId,
       opponent: { id: playerB.userId, username: playerB.username, firstName: playerB.firstName }
     }));
-
     playerB.socket.send(JSON.stringify({
       type: 'match_found',
       gameId,
       opponent: { id: playerA.userId, username: playerA.username, firstName: playerA.firstName }
     }));
-
-    // 60 soniyalik taymer
+    // Taymer
     setGameTimeout(gameId);
   }
 }
 
 /**
  * O‘yin natijasini hisoblash va yuborish
+ * @param {String} gameId - O'yin ID
  */
 async function finalizeGame(gameId) {
   const game = activeGames.get(gameId);
   if (!game) return;
-
   const { player1, player2 } = game;
   let result, winnerId;
-
   if (player1.choice === player2.choice) {
     result = 'draw';
   } else if (
@@ -298,20 +323,16 @@ async function finalizeGame(gameId) {
     result = 'player2_win';
     winnerId = player2.id;
   }
-
   game.result = result;
   game.winnerId = winnerId;
   game.status = 'finished';
   game.finishedAt = new Date();
-
   activeGames.set(gameId, game);
-
-  // Statistikani yangilash (oddiy versiya)
+  // Statistikani yangilash
   await Promise.all([
     User.updateOne({ telegramId: player1.id }, { $inc: { 'gameStats.totalGames': 1, ...(result === 'player1_win' ? { 'gameStats.wins': 1 } : result === 'draw' ? { 'gameStats.draws': 1 } : { 'gameStats.losses': 1 }) } }),
     User.updateOne({ telegramId: player2.id }, { $inc: { 'gameStats.totalGames': 1, ...(result === 'player2_win' ? { 'gameStats.wins': 1 } : result === 'draw' ? { 'gameStats.draws': 1 } : { 'gameStats.losses': 1 }) } }),
   ]);
-
   // Natijani yuborish
   const resultPayload = {
     type: 'game_result',
@@ -320,20 +341,19 @@ async function finalizeGame(gameId) {
     winnerId,
     choices: { player1: player1.choice, player2: player2.choice }
   };
-
   [player1.id, player2.id].forEach(id => {
     const ws = playerSockets.get(id);
     if (ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(resultPayload));
     }
   });
-
-  // O‘yinni tozalash
+  // Tozalash
   setTimeout(() => activeGames.delete(gameId), 30000);
 }
 
 /**
  * O‘yin uchun 60 soniyalik taymer
+ * @param {String} gameId - O'yin ID
  */
 function setGameTimeout(gameId) {
   setTimeout(async () => {
@@ -342,17 +362,14 @@ function setGameTimeout(gameId) {
       game.status = 'finished';
       game.result = 'timeout';
       game.finishedAt = new Date();
-
       const payload = { type: 'game_timeout', gameId };
-
       [game.player1.id, game.player2?.id].forEach(id => {
         const ws = playerSockets.get(id);
         if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
       });
-
       activeGames.delete(gameId);
     }
-  }, 60_000);
+  }, 60000);
 }
 
 // ==================== HEALTH CHECK & BASIC ROUTES ====================
@@ -375,10 +392,10 @@ app.get('*', (req, res) => {
 server.listen(PORT, () => {
   console.log(`
   ┌──────────────────────────────────────────────────────┐
-  │  Tosh-Qaychi-Qog‘oz Multiplayer Server               │
-  │  Port:          ${PORT.toString().padEnd(40)}│
-  │  WebSocket:     wss://your-domain.onrender.com/ws    │
-  │  Health:        http://localhost:${PORT}/health       │
+  │ Tosh-Qaychi-Qog‘oz Multiplayer Server                │
+  │ Port: ${PORT.toString().padEnd(40)}│
+  │ WebSocket: wss://your-domain.onrender.com/ws         │
+  │ Health: http://localhost:${PORT}/health              │
   └──────────────────────────────────────────────────────┘
   `);
 });
