@@ -54,7 +54,7 @@ const createConfetti = (count) => {
     document.body.appendChild(confetti);
     
     // 3 soniyadan keyin o‘chirish
-    setTimeout(() => confetti.remove(), 3000);
+    setTimeout(() => confetti.remove(), 5000);
   }
 };
   const startNewRound = () => {
