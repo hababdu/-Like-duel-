@@ -20,20 +20,7 @@ function App() {
   const [mode, setMode] = useState('menu');
   const [difficulty, setDifficulty] = useState('medium');
 
-  useEffect(() => {
-    if (window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-      tg.MainButton.setText("O'ynash").show();
-
-      const initData = tg.initDataUnsafe;
-      if (initData?.user) {
-        setUser(initData.user);
-        setCoins(prev => prev + (initData.user.id % 500 || 0));
-      }
-    }
-  }, []);
+  
 
   const showNotif = (text, type = 'info') => {
     console.log(`[${type.toUpperCase()}] ${text}`);
