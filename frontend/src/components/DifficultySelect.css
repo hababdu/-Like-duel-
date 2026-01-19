@@ -1,112 +1,106 @@
-/* DifficultySelect.css — o‘yincha versiya */
+/* DifficultySelect.css — jiddiy, muvozanatli */
 
 .difficulty-screen {
   min-height: 100vh;
-  background: linear-gradient(to bottom, #a7d8ff, #ffccdd);
-  padding: 2rem 1rem;
-  text-align: center;
-  font-family: 'Comic Neue', cursive, sans-serif;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #e2e8f0;
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 2.5rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .screen-title {
-  font-size: 3.2rem;
-  font-weight: 900;
-  color: #2f3542;
-  text-shadow: 
-    5px 5px 0 #ff9ff3,
-    -3px -3px 0 #feca57;
-  margin: 1rem 0 0.5rem;
-  animation: wobble 3s infinite;
+  font-size: 2.4rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+  color: #f1f5f9;
+  letter-spacing: -0.4px;
 }
 
 .screen-subtitle {
-  font-size: 1.4rem;
-  color: #57606f;
-  margin-bottom: 3rem;
-  font-weight: bold;
+  font-size: 1.1rem;
+  color: #94a3b8;
+  margin: 0 0 3rem;
+  max-width: 340px;
+  text-align: center;
 }
 
 .difficulty-options {
   display: flex;
   flex-direction: column;
-  gap: 2.2rem;
+  gap: 1.3rem;
+  width: 100%;
   max-width: 360px;
-  margin: 0 auto;
 }
 
 .difficulty-btn {
-  background: white;
-  border-radius: 30px;
-  padding: 2rem 1.5rem;
-  box-shadow: 
-    0 14px 0 #2ed573,
-    0 20px 40px rgba(0,0,0,0.25);
-  border: 6px solid;
-  transition: all 0.25s ease;
-  position: relative;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 14px;
+  padding: 1.6rem 1.4rem;
   cursor: pointer;
-  transform: rotate(-1deg);
+  transition: all 0.28s ease;
+  backdrop-filter: blur(8px);
+  text-align: left;
 }
 
-.difficulty-btn.easy   { border-color: #2ed573; box-shadow: 0 14px 0 #2ed573; }
-.difficulty-btn.medium { border-color: #ffa502; box-shadow: 0 14px 0 #ffa502; }
-.difficulty-btn.hard   { border-color: #ff4757; box-shadow: 0 14px 0 #ff4757; }
-
 .difficulty-btn:hover {
-  transform: translateY(-16px) rotate(0deg) scale(1.07);
-  box-shadow: 
-    0 24px 0 #2ed573,
-    0 40px 60px rgba(0,0,0,0.4);
+  transform: translateY(-5px);
+  background: rgba(30, 41, 59, 0.9);
+  border-color: var(--diff-color);
+  box-shadow: 0 14px 28px -6px rgba(0, 0, 0, 0.35);
 }
 
 .difficulty-btn:active {
-  transform: translateY(-4px) scale(0.97);
+  transform: translateY(-2px);
 }
 
 .emoji {
-  font-size: 5.5rem;
+  font-size: 2.8rem;
+  margin-bottom: 0.9rem;
   display: block;
-  margin-bottom: 1rem;
-  filter: drop-shadow(3px 5px 2px rgba(0,0,0,0.3));
 }
 
 .label {
-  font-size: 2.3rem;
-  font-weight: 900;
-  margin: 0.3rem 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+  color: var(--diff-color);
 }
-
-.easy   .label { color: #2ed573; }
-.medium .label { color: #ffa502; }
-.hard   .label { color: #ff4757; }
 
 .desc {
-  font-size: 1.25rem;
-  color: #2f3542;
-  margin-top: 0.6rem;
+  font-size: 0.97rem;
+  color: #cbd5e1;
+  line-height: 1.4;
 }
 
+.easy   { --diff-color: #34d399; }
+.medium { --diff-color: #fbbf24; }
+.hard   { --diff-color: #f87171; }
+
 .back-button {
-  margin-top: 4rem;
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: white;
-  background: #3742fa;
-  padding: 1rem 2.5rem;
-  border-radius: 60px;
-  border: none;
-  box-shadow: 0 8px 0 #1e90ff;
+  margin-top: auto;
+  margin-bottom: 2.5rem;
+  padding: 0.9rem 2.2rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 50px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
 }
 
 .back-button:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 14px 0 #1e90ff;
+  background: rgba(30, 41, 59, 0.85);
+  color: #f1f5f9;
+  border-color: #64748b;
 }
 
-@keyframes wobble {
-  0%,100% { transform: rotate(-2deg); }
-  25%     { transform: rotate(2deg);  }
-  75%     { transform: rotate(-2deg); }
+@media (min-width: 480px) {
+  .difficulty-options { max-width: 400px; }
+  .screen-title { font-size: 2.7rem; }
 }
