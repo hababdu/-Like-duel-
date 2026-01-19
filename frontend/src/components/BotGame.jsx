@@ -26,7 +26,37 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
     const options = Object.keys(CHOICES);
     return options[Math.floor(Math.random() * options.length)];
   };
+// BotGame.jsx ichida — result o‘zgarganda ishlaydigan qism
 
+useEffect(() => {
+  if (result === 'win') {
+    createConfetti(18); // 18 dona konfeti
+  }
+}, [result]);
+
+const createConfetti = (count) => {
+  for (let i = 0; i < count; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'win-confetti';
+    
+    // Tasodifiy rang va joylashuv
+    const colors = ['#00ff9d', '#7c3aed', '#ff4d94', '#ffd700', '#00d4ff'];
+    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.left = Math.random() * 100 + 'vw';
+    confetti.style.top = '30%';
+    confetti.style.setProperty('--choice-color', confetti.style.background);
+    
+    // Tasodifiy kechikish va hajm
+    confetti.style.animationDelay = Math.random() * 0.6 + 's';
+    confetti.style.width = (8 + Math.random() * 10) + 'px';
+    confetti.style.height = confetti.style.width;
+    
+    document.body.appendChild(confetti);
+    
+    // 3 soniyadan keyin o‘chirish
+    setTimeout(() => confetti.remove(), 3000);
+  }
+};
   const startNewRound = () => {
     setBotChoice(null);
     setPlayerChoice(null);
