@@ -1,98 +1,151 @@
+/* DifficultySelect.css */
+
 .difficulty-screen {
-    padding: 2.5rem 1.5rem;
-    text-align: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #1e0533);
+  color: #ffffff;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.screen-title {
+  font-size: 2.6rem;
+  font-weight: 800;
+  margin: 1.5rem 0 0.5rem;
+  background: linear-gradient(90deg, #a78bfa, #7c3aed, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+  text-align: center;
+  animation: glow 3s ease-in-out infinite alternate;
+}
+
+.screen-subtitle {
+  font-size: 1.25rem;
+  opacity: 0.85;
+  margin: 0 0 2.5rem;
+  text-align: center;
+  max-width: 340px;
+}
+
+/* Tugmalar */
+.difficulty-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  width: 100%;
+  max-width: 360px;
+  margin: 1rem auto;
+}
+
+.difficulty-btn {
+  position: relative;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  padding: 1.5rem 1.8rem;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.4);
+  text-align: left;
+}
+
+.difficulty-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(60deg, transparent, rgba(255,255,255,0.09), transparent);
+  transform: translateX(-120%);
+  transition: transform 0.7s ease;
+  pointer-events: none;
+}
+
+.difficulty-btn:hover::before {
+  transform: translateX(120%);
+}
+
+.difficulty-btn:hover {
+  transform: translateY(-10px) scale(1.03);
+  box-shadow: 0 20px 40px -10px rgba(0,0,0,0.55);
+  border-color: var(--diff-color);
+}
+
+.difficulty-btn:active {
+  transform: translateY(-4px) scale(0.98);
+}
+
+/* Ichki elementlar */
+.emoji {
+  font-size: 3.2rem;
+  display: block;
+  margin-bottom: 0.8rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+}
+
+.label {
+  font-size: 1.7rem;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--diff-color);
+  text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.desc {
+  font-size: 1.05rem;
+  opacity: 0.88;
+  line-height: 1.4;
+}
+
+/* Har bir daraja uchun ozgina farq */
+.easy   { --diff-color: #10b981; }
+.medium { --diff-color: #f59e0b; }
+.hard   { --diff-color: #ef4444; }
+
+/* Orqaga tugmasi */
+.back-button {
+  margin-top: auto;
+  margin-bottom: 2rem;
+  padding: 0.9rem 2rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.back-button:hover {
+  background: rgba(255,255,255,0.16);
+  color: white;
+  transform: translateY(-3px);
+}
+
+.back-button:active {
+  transform: translateY(0);
+}
+
+/* Animatsiya */
+@keyframes glow {
+  from { text-shadow: 0 0 10px rgba(167,139,250,0.4); }
+  to   { text-shadow: 0 0 30px rgba(167,139,250,0.8), 0 0 60px rgba(236,72,153,0.5); }
+}
+
+/* Katta ekranlar uchun */
+@media (min-width: 480px) {
+  .difficulty-options {
+    max-width: 420px;
   }
   
   .screen-title {
-    font-size: 2.2rem;
-    margin: 0 0 0.6rem;
-    font-weight: 700;
+    font-size: 3.1rem;
   }
-  
-  .screen-subtitle {
-    font-size: 1.1rem;
-    opacity: 0.8;
-    margin: 0 0 2.5rem;
-  }
-  
-  .difficulty-options {
-    display: flex;
-    flex-direction: column;
-    gap: 1.3rem;
-    max-width: 400px;
-    margin: 0 auto;
-  }
-  
-  .difficulty-btn {
-    width: 100%;
-    padding: 1.4rem;
-    border-radius: 16px;
-    border: 2px solid var(--diff-color);
-    background: rgba(30, 41, 59, 0.5);
-    color: white;
-    font-size: 1.3rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.28s ease;
-    backdrop-filter: blur(8px);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .difficulty-btn:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.3);
-  }
-  
-  .difficulty-btn::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, transparent, rgba(255,255,255,0.08));
-    opacity: 0;
-    transition: opacity 0.4s;
-  }
-  
-  .difficulty-btn:hover::after {
-    opacity: 1;
-  }
-  
-  .difficulty-btn .emoji {
-    font-size: 2.6rem;
-    display: block;
-    margin-bottom: 0.6rem;
-  }
-  
-  .difficulty-btn .label {
-    display: block;
-    font-size: 1.5rem;
-    margin-bottom: 0.4rem;
-  }
-  
-  .difficulty-btn .desc {
-    display: block;
-    font-size: 0.95rem;
-    opacity: 0.8;
-    font-weight: normal;
-  }
-  
-  /* Har bir daraja uchun o‘ziga xos soyalar */
-  .easy   { --diff-color: #10b981; }
-  .medium { --diff-color: #f59e0b; }
-  .hard   { --diff-color: #ef4444; }
-  
-  .back-button {
-    margin-top: 3rem;
-    padding: 0.9rem 2rem;
-    font-size: 1.1rem;
-    background: rgba(255, 255, 255, 0.12);
-    border: none;
-    border-radius: 12px;
-    color: white;
-    cursor: pointer;
-    transition: all 0.25s;
-  }
-  
-  .back-button:hover {
-    background: rgba(255, 255, 255, 0.22);
-  }
+}
