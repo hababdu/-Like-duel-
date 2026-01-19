@@ -189,7 +189,6 @@ function MultiplayerGame({ user, onBackToMenu, showNotif }) {
     <div className="multiplayer-game-container">
       <header className="game-header">
         <button className="back-btn" onClick={onBackToMenu}>← Menyu</button>
-        <h1>Tosh-Qaychi-Qog'oz • Multiplayer</h1>
       </header>
       {!connected ? (
         <div className="connecting-screen">
