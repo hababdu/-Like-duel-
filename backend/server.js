@@ -165,6 +165,13 @@ async function handleMessage(ws, data, userId) {
       ws.send(JSON.stringify({ type: 'joined_queue' }));
       attemptMatchmaking();
       break;
+      console.log(`[QUEUE] Navbatdagi o'yinchilar soni: ${matchmakingQueue.length}`);
+  matchmakingQueue.forEach(p => {
+    console.log(`  - ${p.userId} (${p.firstName || p.username})`);
+  });
+
+  attemptMatchmaking();
+  break;
     }
     case 'leave_queue': {
       const index = matchmakingQueue.findIndex(p => p.userId === userId);
