@@ -378,7 +378,9 @@ function setGameTimeout(gameId) {
     }
   }, 60000);
 }
-
+app.get('/admin', (req, res) => {
+  res.sendFile(__dirname + '/admin.html');   // yoki ./public/admin.html
+});
 // ==================== HEALTH CHECK & BASIC ROUTES ====================
 app.get('/health', (req, res) => {
   res.json({
