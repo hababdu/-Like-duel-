@@ -1,202 +1,176 @@
-/* BotGame.css - Ultra Compact Dark Minimal Version */
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* BotGame.css - ultra minimal version */
 
 .bot-game-screen {
-  min-height: 100dvh;
-  background: linear-gradient(145deg, #0b081f 0%, #16123a 100%);
-  color: #e0e0ff;
-  font-family: system-ui, -apple-system, sans-serif;
-  padding: 10px 12px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a081f 0%, #1a173f 100%);
+  color: #ddd;
+  font-family: system-ui, sans-serif;
+  padding: 12px;
   overflow: hidden;
-  touch-action: manipulation;
 }
 
-/* Top bar - juda ixcham */
 .top-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  padding: 0 6px;
 }
 
-.difficulty,
-.coins {
-  background: rgba(255,255,255,0.06);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding: 4px 10px;
-  border-radius: 16px;
-  font-size: 0.74rem;
+.difficulty, .coins {
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(8px);
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.78rem;
   font-weight: 600;
-  border: 1px solid rgba(140,160,255,0.18);
-  letter-spacing: 0.4px;
+  border: 1px solid rgba(120,140,255,0.2);
 }
 
 .timer {
-  width: 80px;
-  height: 24px;
-  background: rgba(0,0,0,0.5);
+  width: 90px;
+  height: 28px;
+  background: rgba(0,0,0,0.45);
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
   overflow: hidden;
   position: relative;
 }
 
 .progress {
   height: 100%;
-  background: linear-gradient(90deg, #00c4ff, #7c3aed);
+  background: linear-gradient(90deg, #00c0ff, #6d28d9);
   transition: width 1s linear;
 }
 
 .timer span {
   position: absolute;
   inset: 0;
-  font-size: 0.96rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.urgent {
-  color: #ff4d88;
-  animation: pulse 1.4s infinite;
-}
+.urgent { color: #ff3366; }
 
-@keyframes pulse {
-  40%, 60% { transform: scale(1.08); }
-}
-
-/* Versus - minimal */
+/* Versus — juda ixcham */
 .versus {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin: 14px 0 20px;
+  gap: 12px;
+  margin: 16px 0 24px;
 }
 
 .vs-text {
-  font-size: 1.6rem;
+  font-size: 1.8rem;
+  opacity: 0.3;
   font-weight: 900;
-  opacity: 0.28;
-  color: #a78bfa;
 }
 
 .player .label {
-  font-size: 0.64rem;
-  opacity: 0.65;
-  margin-bottom: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+  font-size: 0.68rem;
+  opacity: 0.6;
+  margin-bottom: 4px;
 }
 
 .choice-display {
-  width: 62px;
-  height: 62px;
-  font-size: 2.6rem;
-  background: rgba(35,35,70,0.45);
-  border-radius: 14px;
-  border: 1.5px solid rgba(120,150,255,0.25);
+  width: 68px;
+  height: 68px;
+  font-size: 2.8rem;
+  background: rgba(30,30,60,0.5);
+  border-radius: 16px;
+  border: 1.5px solid rgba(100,140,255,0.3);
   backdrop-filter: blur(6px);
-  display: grid;
-  place-items: center;
-  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
 }
 
 .choice-display.big {
-  width: 74px;
-  height: 74px;
-  font-size: 3.1rem;
+  width: 80px;
+  height: 80px;
+  font-size: 3.4rem;
 }
 
 .choice-display.has-choice {
   border-color: #60a5fa;
-  box-shadow: 0 0 14px rgba(96,165,250,0.35);
+  box-shadow: 0 0 16px rgba(96,165,250,0.4);
 }
 
-/* Choice buttons - ENG KICHIK */
+/* Tanlov tugmalari — ENG KICHIK versiya */
 .choices-container {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  max-width: 240px;
-  margin: 0 auto 28px;
+  gap: 10px;
+  max-width: 260px;
+  margin: 0 auto 32px;
 }
 
 .choice-btn {
   aspect-ratio: 1;
-  border-radius: 14px;
-  background: rgba(40,40,85,0.38);
+  border-radius: 16px;
+  background: rgba(40,40,80,0.4);
   border: 1.5px solid transparent;
   backdrop-filter: blur(8px);
-  font-size: 2.4rem;
+  font-size: 2.6rem;           /* emoji hajmi */
   cursor: pointer;
-  transition: all 0.18s ease;
-  touch-action: manipulation;
+  transition: all 0.22s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
 .choice-btn::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--choice-color, #a78bfa);
-  opacity: 0.10;
-  border-radius: 12px;
-  transition: opacity 0.25s;
+  background: var(--choice-color);
+  opacity: 0.12;
+  border-radius: 14px;
 }
 
 .choice-btn:hover::before,
 .choice-btn.selected::before {
-  opacity: 0.26;
+  opacity: 0.28;
 }
 
 .choice-btn:hover,
 .choice-btn.selected {
-  transform: translateY(-3px) scale(1.04);
-  border-color: var(--choice-color, #a78bfa);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+  transform: translateY(-4px) scale(1.05);
+  border-color: var(--choice-color);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
 
 .choice-btn:disabled {
-  opacity: 0.32;
-  transform: none;
+  opacity: 0.35;
 }
 
-/* Result - juda kichik */
+/* Natija — minimal */
 .result-banner {
-  font-size: 1.75rem;
+  font-size: 1.9rem;
   font-weight: 800;
   text-align: center;
-  margin: 10px 0 18px;
-  letter-spacing: 0.8px;
+  margin: 12px 0 20px;
+  letter-spacing: 1px;
 }
 
-.win  { color: #22d3ee; text-shadow: 0 0 12px #22d3ee66; }
-.lose { color: #f472b6; text-shadow: 0 0 12px #f472b666; }
-.draw { color: #fbbf24; text-shadow: 0 0 12px #fbbf2466; }
+.win  { color: #22d3ee; }
+.lose { color: #f472b6; }
+.draw { color: #fbbf24; }
 
-/* Back button - minimal */
+/* Orqaga tugmasi — kichik */
 .back-btn {
   position: fixed;
-  bottom: 14px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 7px 22px;
-  background: rgba(255,255,255,0.07);
+  padding: 8px 24px;
+  background: rgba(255,255,255,0.08);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 40px;
-  font-size: 0.86rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #e0e0ff;
-  transition: all 0.22s;
-}
-
-.back-btn:active {
-  transform: translateX(-50%) scale(0.96);
 }
