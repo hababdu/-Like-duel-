@@ -3778,7 +3778,94 @@ app.get('/api/users/:id', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+// Admin panel static fayllar
+app.use('/admin/panel', express.static('admin-panel'));
 
+// Admin login (simple version)
+app.post('/admin/login', (req, res) => {
+  const { token } = req.body;
+  if (token === ADMIN_TOKEN) {
+    res.json({ success: true, token: ADMIN_TOKEN });
+  } else {
+    res.status(401).json({ success: false, error: 'Invalid token' });
+  }
+});
+
+// Admin panel uchun bosh sahifa
+app.get('/admin', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Game Server Admin</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .login-container {
+          background: white;
+          padding: 40px;
+          border-radius: 10px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          text-align: center;
+        }
+        input {
+          width: 100%;
+          padding: 10px;
+          margin: 10px 0;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+        }
+        button {
+          background: #667eea;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 5px;
+          cursor: pointer;
+          width: 100%;
+        }
+        button:hover {
+          background: #764ba2;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="login-container">
+        <h2>Game Server Admin Login</h2>
+        <input type="password" id="token" placeholder="Admin Token">
+        <button onclick="login()">Login</button>
+        <div id="error" style="color: red; margin-top: 10px;"></div>
+      </div>
+      <script>
+        async function login() {
+          const token = document.getElementById('token').value;
+          const response = await fetch('/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+          });
+          const data = await response.json();
+          if (data.success) {
+            localStorage.setItem('adminToken', token);
+            window.location.href = '/admin/panel';
+          } else {
+            document.getElementById('error').textContent = data.error;
+          }
+        }
+        document.getElementById('token').addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') login();
+        });
+      </script>
+    </body>
+    </html>
+  `);
+});
 // Admin API (faqat admin uchun)
 app.use('/admin/api/*', (req, res, next) => {
   const token = req.headers['x-admin-token'];
