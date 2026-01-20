@@ -1128,7 +1128,7 @@ async function handleJoinQueue(ws, data, session) {
       safeSend(ws, { 
         type: 'error', 
         code: 'ALREADY_IN_GAME',
-        message: 'Siz allaqachon o'yindasiz' 
+        message: 'Siz allaqachon oyindasiz' 
       });
       return;
     }
@@ -2138,7 +2138,7 @@ async function handleFriendRequest(ws, data, session) {
           safeSend(ws, { 
             type: 'error', 
             code: 'ALREADY_FRIENDS',
-            message: 'Bu foydalanuvchi allaqachon do'stingiz' 
+            message: 'Bu foydalanuvchi allaqachon dostingiz' 
           });
           return;
         }
@@ -2183,7 +2183,7 @@ async function handleFriendRequest(ws, data, session) {
           safeSend(ws, { 
             type: 'error', 
             code: 'NO_FRIEND_REQUEST',
-            message: 'Do'stlik so'rovi topilmadi' 
+            message: 'Dostlik sorovi topilmadi' 
           });
           return;
         }
@@ -2283,7 +2283,7 @@ async function handleFriendRequest(ws, data, session) {
     safeSend(ws, { 
       type: 'error', 
       code: 'FRIEND_REQUEST_FAILED',
-      message: 'Do'stlik so'rovida xatolik' 
+      message: 'Dostlik sorovida xatolik' 
     });
   }
 }
