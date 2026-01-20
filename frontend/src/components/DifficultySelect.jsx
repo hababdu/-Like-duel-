@@ -24,10 +24,7 @@ export default function DifficultySelect({ onSelect, onBack }) {
           >
             <span className="emoji">{emoji}</span>
             <span className="label">{label}</span>
-            <span className="desc">
-              {level === 'easy' ? 'Yengil boshlanish' :
-               level === 'medium' ? 'Haqiqiy raqobat' : 'Haqiqiy sinov'}
-            </span>
+          
           </button>
         ))}
       </div>

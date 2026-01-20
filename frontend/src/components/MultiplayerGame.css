@@ -163,7 +163,7 @@
   padding: 15px;
   background: rgba(255, 255, 255, 0.1); /* Shaffof fon */
   border: 2px solid #fff;
-  border-radius: 10px;
+  border-radius: 50%;
   box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
   transition: transform 0.3s;
 }
@@ -230,16 +230,16 @@
 .choice-btn {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
   background: var(--choice-color);
   color: #fff;
   border: 3px solid #fff;
-  border-radius: 12px;
+  border-radius: 50%;
   padding: 10px 20px;
   cursor: pointer;
   transition: all 0.3s;
   box-shadow: 0 0 15px var(--choice-color), inset 0 0 5px #fff;
-  width: 120px;
 }
 
 .choice-btn:hover {

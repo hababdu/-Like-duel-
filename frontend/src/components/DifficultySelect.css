@@ -34,14 +34,24 @@
 }
 
 .difficulty-btn {
-  background: rgba(30, 41, 59, 0.75);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(to right, #ff4500, #ff8c00);
+  border: 3px solid #ffd700;
+  padding: 8px 16px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px #ff4500, inset 0 0 5px #ffd700;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
   border-radius: 11px;
   padding: 1rem 1rem;       /* padding keskin qisqardi */
   cursor: pointer;
   transition: all 0.22s ease;
   backdrop-filter: blur(6px);
   text-align: left;
+  box-shadow: 0 0 15px var(--choice-color), inset 0 0 5px #fff;
 }
 
 .difficulty-btn:hover {
@@ -74,14 +84,18 @@
 .hard   { --diff-color: #f87171; }
 
 .back-button {
+  background: linear-gradient(to right, #ff4500, #ff8c00);
+    border: 3px solid #ffd700;
+    padding: 8px 16px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 10px #ff4500, inset 0 0 5px #ffd700;
+
   margin-top: auto;
   margin-bottom: 2rem;
   padding: 0.7rem 1.8rem;
-  font-size: 0.98rem;
-  font-weight: 600;
   color: #cbd5e1;
-  background: rgba(30, 41, 59, 0.65);
-  border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 50px;
 }
 

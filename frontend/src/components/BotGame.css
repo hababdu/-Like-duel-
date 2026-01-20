@@ -128,8 +128,8 @@
 }
 
 .choice-display.big {
-  width: 140px;
-  height: 140px;
+  width: 80px;
+  height: 80px;
   font-size: 6rem;
 }
 
@@ -160,15 +160,19 @@
 
 /* Natija banner */
 .result-banner {
+  position: absolute;
+
   text-align: center;
   font-size: 2.8rem;
   font-weight: 900;
   margin: 16px 0 32px;
   letter-spacing: 2px;
-  text-shadow: 0 0 30px currentColor;
   opacity: 0;
   transform: translateY(20px);
-  animation: bannerAppear 0.9s forwards 0.3s;
+  animation: bannerAppear 1s forwards 0.3s;
+  background-color: #000000;
+  padding: 10px ;
+  border-radius: 50px;
 }
 
 .result-banner.win  { color: #00ff9d; text-shadow: 0 0 40px #00ff9d88; }
