@@ -393,118 +393,159 @@ app.get('/health', (req, res) => {
   });
 });
 // ==================== API ROUTES ====================
-// 1. Barcha foydalanuvchilar (pagination bilan)
+
+// 1. Barcha foydalanuvchilar (pagination + lean + select bilan optimallashtirish)
 app.get('/api/users', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100); // haddan tashqari katta so‘rovni cheklash
     const skip = (page - 1) * limit;
+
     const users = await User.find()
-      .sort({ createdAt: -1 }) // yangisi birinchi
+      .select('-__v -someSensitiveField') // keraksiz maydonlarni olib tashlash
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .lean(); // tezroq ishlaydi
+      .lean();
+
     const total = await User.countDocuments();
+
     res.json({
       success: true,
-      users,
-      page,
-      totalPages: Math.ceil(total / limit),
-      totalUsers: total
+      data: users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPrevPage: page > 1
+      }
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Users endpoint error:', err);
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 });
-// 2. Umumiy statistika
+
+// 2. Umumiy statistika (optimallashtirilgan)
 app.get('/api/stats', async (req, res) => {
   try {
-    const [
-      totalUsers,
-      totalGames,
-      activeGamesCount, // hozirgi kodda faqat in-memory, DBda saqlanmagan
-      newToday
-    ] = await Promise.all([
+    const [totalUsers, totalGames, activeGames, newToday] = await Promise.all([
       User.countDocuments(),
       Game.countDocuments(),
       Game.countDocuments({ status: 'playing' }),
       User.countDocuments({
-        createdAt: { $gte: new Date(Date.now() - 24*60*60*1000) }
+        createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
       })
     ]);
+
     res.json({
       success: true,
       stats: {
         totalUsers,
-        activeToday: newToday, // taxminiy
         totalGames,
-        activeGames: activeGamesCount || 0,
-        waitingPlayers: matchmakingQueue.length,
+        activeGames: activeGames || 0,
+        newUsersToday: newToday,
+        waitingPlayers: matchmakingQueue?.length || 0, // agar queue mavjud bo‘lmasa 0
         botStatus: 'running',
-        databaseStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+        databaseStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        serverUptimeSeconds: Math.round(process.uptime())
       }
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Stats endpoint error:', err);
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 });
-// 3. O'yinlar ro'yxati (oddiy versiya)
+
+// 3. O‘yinlar ro‘yxati
 app.get('/api/games', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 15;
+    const limit = Math.min(parseInt(req.query.limit) || 15, 50);
+    const skip = (page - 1) * limit;
+
     const games = await Game.find()
+      .select('-__v -boardState -movesHistory') // agar kerak bo‘lmasa og‘ir maydonlarni olib tashlash
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
+      .skip(skip)
       .limit(limit)
       .lean();
+
     const total = await Game.countDocuments();
+
     res.json({
       success: true,
-      games,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit)
+      data: games,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Games endpoint error:', err);
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 });
-// 4. Debug / tizim ma'lumotlari
+
+// 4. Debug / tizim ma'lumotlari (xavfsizroq qilish uchun ba'zi ma'lumotlarni cheklash mumkin)
 app.get('/api/debug', (req, res) => {
+  const memory = process.memoryUsage();
   res.json({
     success: true,
-    environment: {
-      uptime: process.uptime(),
-      memory: process.memoryUsage(),
+    debug: {
+      uptimeSeconds: Math.round(process.uptime()),
+      memory: {
+        rss: Math.round(memory.rss / 1024 / 1024) + ' MB',
+        heapTotal: Math.round(memory.heapTotal / 1024 / 1024) + ' MB',
+        heapUsed: Math.round(memory.heapUsed / 1024 / 1024) + ' MB'
+      },
       nodeVersion: process.version,
-      pid: process.pid
+      pid: process.pid,
+      env: process.env.NODE_ENV || 'development'
     }
   });
 });
-// 5. Leaderboard (oddiy variant — win rate bo'yicha)
+
+// 5. Leaderboard — yanada to‘g‘ri va samaraliroq
 app.get('/api/leaderboard', async (req, res) => {
   try {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+
     const topPlayers = await User.find({
-      'gameStats.totalGames': { $gt: 0 }
+      'gameStats.totalGames': { $gte: 1 }
     })
-      .sort({ 'gameStats.wins': -1 })
-      .limit(10)
+      .sort({ 'gameStats.wins': -1, 'gameStats.winRate': -1 }) // winRate ham qo‘shsa yaxshi
+      .limit(limit)
+      .select('telegramId firstName username gameStats')
       .lean();
+
+    const leaderboard = topPlayers.map(user => ({
+      id: user.telegramId,
+      name: user.firstName || 'No name',
+      username: user.username || null,
+      stats: {
+        totalGames: user.gameStats.totalGames || 0,
+        wins: user.gameStats.wins || 0,
+        losses: user.gameStats.losses || 0,
+        draws: user.gameStats.draws || 0,
+        winRate: user.gameStats.winRate || 0
+      }
+    }));
+
     res.json({
       success: true,
-      leaderboard: topPlayers.map(u => ({
-        id: u.telegramId,
-        name: u.firstName,
-        username: u.username,
-        stats: u.gameStats
-      }))
+      leaderboard,
+      totalRankedPlayers: leaderboard.length
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Leaderboard error:', err);
+    res.status(500).json({ success: false, error: 'Server error' });
   }
-}); 
+});
 app.get('*', (req, res) => {
   res.status(404).json({ error: 'Not Found' });
 });
