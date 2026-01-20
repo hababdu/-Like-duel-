@@ -392,7 +392,119 @@ app.get('/health', (req, res) => {
     dbStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
 });
-
+// ==================== API ROUTES ====================
+// 1. Barcha foydalanuvchilar (pagination bilan)
+app.get('/api/users', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    const users = await User.find()
+      .sort({ createdAt: -1 }) // yangisi birinchi
+      .skip(skip)
+      .limit(limit)
+      .lean(); // tezroq ishlaydi
+    const total = await User.countDocuments();
+    res.json({
+      success: true,
+      users,
+      page,
+      totalPages: Math.ceil(total / limit),
+      totalUsers: total
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+// 2. Umumiy statistika
+app.get('/api/stats', async (req, res) => {
+  try {
+    const [
+      totalUsers,
+      totalGames,
+      activeGamesCount, // hozirgi kodda faqat in-memory, DBda saqlanmagan
+      newToday
+    ] = await Promise.all([
+      User.countDocuments(),
+      Game.countDocuments(),
+      Game.countDocuments({ status: 'playing' }),
+      User.countDocuments({
+        createdAt: { $gte: new Date(Date.now() - 24*60*60*1000) }
+      })
+    ]);
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        activeToday: newToday, // taxminiy
+        totalGames,
+        activeGames: activeGamesCount || 0,
+        waitingPlayers: matchmakingQueue.length,
+        botStatus: 'running',
+        databaseStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+// 3. O'yinlar ro'yxati (oddiy versiya)
+app.get('/api/games', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 15;
+    const games = await Game.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+    const total = await Game.countDocuments();
+    res.json({
+      success: true,
+      games,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+// 4. Debug / tizim ma'lumotlari
+app.get('/api/debug', (req, res) => {
+  res.json({
+    success: true,
+    environment: {
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      nodeVersion: process.version,
+      pid: process.pid
+    }
+  });
+});
+// 5. Leaderboard (oddiy variant — win rate bo'yicha)
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const topPlayers = await User.find({
+      'gameStats.totalGames': { $gt: 0 }
+    })
+      .sort({ 'gameStats.wins': -1 })
+      .limit(10)
+      .lean();
+    res.json({
+      success: true,
+      leaderboard: topPlayers.map(u => ({
+        id: u.telegramId,
+        name: u.firstName,
+        username: u.username,
+        stats: u.gameStats
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+}); 
 app.get('*', (req, res) => {
   res.status(404).json({ error: 'Not Found' });
 });
