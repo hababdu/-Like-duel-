@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Kirish</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            width: 350px;
+            text-align: center;
+        }
+        
+        .login-container h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .success-message {
+            color: #27ae60;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container" id="loginSection">
+        <h1>Admin Panel</h1>
+        <div class="input-group">
+            <label for="adminToken">Admin Token</label>
+            <input type="password" id="adminToken" placeholder="admin-secret-key ni kiriting">
+        </div>
+        <button class="btn-login" onclick="login()">Kirish</button>
+        <div id="loginError" class="error-message">
+            Token noto'g'ri yoki serverga ulanishda xatolik!
+        </div>
+        <div id="loginSuccess" class="success-message hidden">
+            Muvaffaqiyatli kirildi! Bosh sahifaga yo'naltirilmoqdasiz...
+        </div>
+    </div>
+
+    <script>
+        // Bu o'zgaruvchi butun admin panel uchun token'ni saqlaydi
+        let adminToken = '';
+        
+        async function login() {
+            const tokenInput = document.getElementById('adminToken').value.trim();
+            const errorElement = document.getElementById('loginError');
+            const successElement = document.getElementById('loginSuccess');
+            
+            // Token kiritilganligini tekshirish
+            if (!tokenInput) {
+                errorElement.textContent = 'Iltimos, token kiriting!';
+                errorElement.style.display = 'block';
+                return;
+            }
+            
+            // Serverdagi /health endpoint'ini tekshirish (avtorizatsiya talab qilmaydi)
+            try {
+                const response = await fetch('https://telegram-bot-server-2-matj.onrender.com/health', {
+                    method: 'GET'
+                });
+                
+                if (response.ok) {
+                    // Token'ni saqlash
+                    adminToken = tokenInput;
+                    localStorage.setItem('adminToken', tokenInput);
+                    
+                    // Muvaffaqiyatli xabar
+                    errorElement.style.display = 'none';
+                    successElement.style.display = 'block';
+                    
+                    // 2 soniyadan keyin asosiy sahifaga yo'naltirish
+                    setTimeout(() => {
+                        // Bu yerda asosiy admin panel sahifangizga o'tishingiz mumkin
+                        // Masalan: window.location.href = 'dashboard.html';
+                        
+                        // Yoki login qismini yashirib, panelni ko'rsatish
+                        document.getElementById('loginSection').innerHTML = `
+                            <h1>Admin Dashboard</h1>
+                            <div id="dashboardContent">
+                                <p>Muvaffaqiyatli kirildi!</p>
+                                <button onclick="testAdminAPI()" class="btn-login" style="margin-top:20px;">
+                                    Loglarni Test Qilish
+                                </button>
+                                <div id="apiResult" style="margin-top:20px;text-align:left;"></div>
+                            </div>
+                        `;
+                    }, 2000);
+                    setTimeout(() => {
+    window.location.href = 'admin-panel.html'; // yoki dashboard.html
+}, 2000);
+                    
+                } else {
+                    throw new Error('Server javob bermadi');
+                }
+              } catch (error) {
+                console.error('Kirish xatosi:', error);
+                errorElement.textContent = 'Serverga ulanib bo\'lmadi. Server ishlayotganligiga ishonch hosil qiling.';
+                errorElement.style.display = 'block';
+            }
+        }
+        
+        // Admin API'ni test qilish funktsiyasi (kirgandan keyin ishlatiladi)
+        async function testAdminAPI() {
+            const resultElement = document.getElementById('apiResult');
+            resultElement.innerHTML = '<p>Loglar yuklanmoqda...</p>';
+            
+            try {
+                const response = await fetch('https://telegram-bot-server-2-matj.onrender.com/admin/api/logs', {
+                    headers: {
+                        'x-admin-token': adminToken || localStorage.getItem('adminToken')
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultElement.innerHTML = `
+                        <h3>Loglar (oxirgi ${data.logs ? data.logs.length : 0}):</h3>
+                        <pre style="background:#f5f5f5;padding:15px;border-radius:8px;max-height:300px;overflow:auto;">
+${JSON.stringify(data, null, 2)}
+                        </pre>
+                    `;
+                } else {
+                    resultElement.innerHTML = `
+                        <p style="color:#e74c3c;">Xatolik: ${data.error || 'Noma\'lum xatolik'}</p>
+                        <p>Tokenni tekshiring: ${adminToken}</p>
+                    `;
+                }
+            } catch (error) {
+                resultElement.innerHTML = `<p style="color:#e74c3c;">API so'rovida xatolik: ${error.message}</p>`;
+            }
+        }
+        
+        // Sahifa yuklanganda localStorage'dan token'ni olish
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedToken = localStorage.getItem('adminToken');
+            if (savedToken) {
+                document.getElementById('adminToken').value = savedToken;
+            }
+        });
+        
+        // Token input'ida Enter tugmasini qo'llab-quvvatlash
+        document.getElementById('adminToken').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
+    </script>
+</body>
+</html>
