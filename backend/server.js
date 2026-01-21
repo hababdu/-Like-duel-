@@ -3792,6 +3792,9 @@ app.post('/admin/login', (req, res) => {
 });
 
 // Admin panel uchun bosh sahifa
+// ==================== ADMIN PANEL ====================
+
+// Admin panel login sahifasi
 app.get('/admin', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -3806,6 +3809,7 @@ app.get('/admin', (req, res) => {
           display: flex;
           align-items: center;
           justify-content: center;
+          margin: 0;
         }
         .login-container {
           background: white;
@@ -3813,54 +3817,830 @@ app.get('/admin', (req, res) => {
           border-radius: 10px;
           box-shadow: 0 4px 6px rgba(0,0,0,0.1);
           text-align: center;
+          max-width: 400px;
+          width: 90%;
+        }
+        h2 {
+          color: #333;
+          margin-bottom: 30px;
         }
         input {
           width: 100%;
-          padding: 10px;
+          padding: 12px;
           margin: 10px 0;
           border: 1px solid #ddd;
           border-radius: 5px;
+          font-size: 16px;
+          box-sizing: border-box;
         }
         button {
           background: #667eea;
           color: white;
           border: none;
-          padding: 10px 20px;
+          padding: 12px 20px;
           border-radius: 5px;
           cursor: pointer;
           width: 100%;
+          font-size: 16px;
+          font-weight: bold;
+          margin-top: 10px;
+          transition: background 0.3s;
         }
         button:hover {
           background: #764ba2;
+        }
+        #error {
+          color: red;
+          margin-top: 10px;
+          min-height: 20px;
+        }
+        .info {
+          color: #666;
+          font-size: 14px;
+          margin-top: 20px;
+          text-align: left;
+          background: #f5f5f5;
+          padding: 10px;
+          border-radius: 5px;
         }
       </style>
     </head>
     <body>
       <div class="login-container">
-        <h2>Game Server Admin Login</h2>
-        <input type="password" id="token" placeholder="Admin Token">
-        <button onclick="login()">Login</button>
-        <div id="error" style="color: red; margin-top: 10px;"></div>
+        <h2>🎮 Game Server Admin Login</h2>
+        <input type="password" id="token" placeholder="Enter Admin Token" autocomplete="off">
+        <button onclick="login()">Login to Admin Panel</button>
+        <div id="error"></div>
+        
+        <div class="info">
+          <strong>Server Info:</strong><br>
+          • Port: ${PORT}<br>
+          • WebSocket: ws://${req.hostname}<br>
+          • Health: <a href="/health" target="_blank">/health</a>
+        </div>
       </div>
+      
       <script>
         async function login() {
-          const token = document.getElementById('token').value;
-          const response = await fetch('/admin/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token })
-          });
-          const data = await response.json();
-          if (data.success) {
-            localStorage.setItem('adminToken', token);
-            window.location.href = '/admin/panel';
-          } else {
-            document.getElementById('error').textContent = data.error;
+          const token = document.getElementById('token').value.trim();
+          const errorDiv = document.getElementById('error');
+          
+          if (!token) {
+            errorDiv.textContent = 'Please enter admin token';
+            return;
+          }
+          
+          errorDiv.textContent = 'Checking...';
+          errorDiv.style.color = 'blue';
+          
+          try {
+            // Admin tokenini tekshirish (faqat frontend)
+            const correctToken = '${ADMIN_TOKEN}' || 'admin-secret-key';
+            
+            if (token === correctToken) {
+              localStorage.setItem('adminToken', token);
+              window.location.href = '/admin/dashboard';
+            } else {
+              errorDiv.textContent = 'Invalid admin token';
+              errorDiv.style.color = 'red';
+            }
+          } catch (error) {
+            errorDiv.textContent = 'Login error: ' + error.message;
+            errorDiv.style.color = 'red';
           }
         }
+        
         document.getElementById('token').addEventListener('keypress', (e) => {
           if (e.key === 'Enter') login();
         });
+        
+        // Token localStorage'da saqlangan bo'lsa
+        const savedToken = localStorage.getItem('adminToken');
+        if (savedToken) {
+          document.getElementById('token').value = savedToken;
+        }
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Admin dashboard sahifasi (panel o'rniga)
+app.get('/admin/dashboard', (req, res) => {
+  // Token tekshirish
+  const token = req.query.token || req.headers['x-admin-token'];
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).send(`
+      <html>
+      <body style="font-family: Arial; text-align: center; padding: 50px;">
+        <h2>Unauthorized</h2>
+        <p>Invalid or missing admin token</p>
+        <a href="/admin">Back to Login</a>
+      </body>
+      </html>
+    `);
+  }
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Game Server Admin Dashboard</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        :root {
+          --primary: #2c3e50;
+          --secondary: #3498db;
+          --danger: #e74c3c;
+          --warning: #f39c12;
+          --success: #2ecc71;
+          --light: #ecf0f1;
+          --dark: #2c3e50;
+        }
+
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background: #f5f5f5;
+          min-height: 100vh;
+          padding: 20px;
+        }
+
+        .container {
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+
+        .header {
+          background: white;
+          border-radius: 10px;
+          padding: 20px;
+          margin-bottom: 20px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .header h1 {
+          color: var(--primary);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .server-info {
+          display: flex;
+          gap: 20px;
+          color: var(--dark);
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .server-info .status {
+          padding: 5px 15px;
+          border-radius: 20px;
+          font-weight: bold;
+          background: var(--success);
+          color: white;
+        }
+
+        .dashboard {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 20px;
+          margin-bottom: 20px;
+        }
+
+        .card {
+          background: white;
+          border-radius: 10px;
+          padding: 20px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+          color: var(--primary);
+          margin-bottom: 15px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .stat-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 15px;
+        }
+
+        .stat-item {
+          text-align: center;
+          padding: 15px;
+          border-radius: 8px;
+          background: var(--light);
+        }
+
+        .stat-value {
+          font-size: 24px;
+          font-weight: bold;
+          color: var(--primary);
+          margin: 10px 0;
+        }
+
+        .stat-label {
+          font-size: 12px;
+          color: #7f8c8d;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        .online { color: var(--success); }
+        .queue { color: var(--warning); }
+        .games { color: var(--secondary); }
+        .tournaments { color: var(--danger); }
+
+        .table-container {
+          background: white;
+          border-radius: 10px;
+          padding: 20px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          margin-bottom: 20px;
+          overflow-x: auto;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        th, td {
+          padding: 12px 15px;
+          text-align: left;
+          border-bottom: 1px solid #ddd;
+        }
+
+        th {
+          background: var(--primary);
+          color: white;
+          position: sticky;
+          top: 0;
+        }
+
+        tr:hover {
+          background: #f5f5f5;
+        }
+
+        .badge {
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: bold;
+        }
+
+        .badge.online { background: var(--success); color: white; }
+        .badge.offline { background: #95a5a6; color: white; }
+        .badge.queued { background: var(--warning); color: white; }
+        .badge.ingame { background: var(--secondary); color: white; }
+
+        .controls {
+          display: flex;
+          gap: 10px;
+          margin-top: 20px;
+          flex-wrap: wrap;
+        }
+
+        button {
+          padding: 10px 20px;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          font-weight: bold;
+          transition: all 0.3s;
+        }
+
+        button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary { background: var(--secondary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-dark { background: var(--primary); color: white; }
+
+        .refresh-btn {
+          background: var(--primary);
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        .loading {
+          text-align: center;
+          padding: 40px;
+          color: var(--dark);
+        }
+
+        .error {
+          color: var(--danger);
+          padding: 10px;
+          background: #ffebee;
+          border-radius: 5px;
+          margin: 10px 0;
+        }
+
+        .success {
+          color: var(--success);
+          padding: 10px;
+          background: #e8f5e9;
+          border-radius: 5px;
+          margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+          .dashboard {
+            grid-template-columns: 1fr;
+          }
+          
+          .stat-grid {
+            grid-template-columns: 1fr;
+          }
+          
+          .header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+          }
+          
+          .server-info {
+            flex-wrap: wrap;
+            justify-content: center;
+          }
+          
+          .controls {
+            justify-content: center;
+          }
+        }
+
+        .logout-btn {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          z-index: 1000;
+        }
+      </style>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    </head>
+    <body>
+      <div class="container">
+        <!-- Header -->
+        <div class="header">
+          <h1>
+            <i class="fas fa-gamepad"></i>
+            Tosh-Qaychi-Qog'oz Admin Dashboard
+          </h1>
+          <div class="server-info">
+            <div class="status" id="serverStatus">Checking...</div>
+            <div id="serverTime">--:--:--</div>
+            <button class="refresh-btn" onclick="loadAllData()">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Dashboard Stats -->
+        <div class="dashboard">
+          <div class="card">
+            <h3><i class="fas fa-users"></i> Players</h3>
+            <div class="stat-grid">
+              <div class="stat-item">
+                <div class="stat-value online" id="onlinePlayers">0</div>
+                <div class="stat-label">Online Now</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value queue" id="queuedPlayers">0</div>
+                <div class="stat-label">In Queue</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3><i class="fas fa-trophy"></i> Games</h3>
+            <div class="stat-grid">
+              <div class="stat-item">
+                <div class="stat-value games" id="activeGames">0</div>
+                <div class="stat-label">Active Games</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" id="totalGames">0</div>
+                <div class="stat-label">Total Games</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3><i class="fas fa-chess"></i> System</h3>
+            <div class="stat-grid">
+              <div class="stat-item">
+                <div class="stat-value" id="memoryUsage">0%</div>
+                <div class="stat-label">Memory</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" id="uptime">0s</div>
+                <div class="stat-label">Uptime</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Online Players Table -->
+        <div class="table-container">
+          <h3><i class="fas fa-user-clock"></i> Online Players</h3>
+          <div id="playersLoading" class="loading">
+            <i class="fas fa-spinner fa-spin"></i> Loading players...
+          </div>
+          <table id="playersTable" style="display: none;">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Game</th>
+                <th>IP Address</th>
+                <th>Connected</th>
+              </tr>
+            </thead>
+            <tbody id="playersBody">
+              <!-- Players will be loaded here -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Active Games Table -->
+        <div class="table-container">
+          <h3><i class="fas fa-play-circle"></i> Active Games</h3>
+          <div id="gamesLoading" class="loading">
+            <i class="fas fa-spinner fa-spin"></i> Loading games...
+          </div>
+          <table id="gamesTable" style="display: none;">
+            <thead>
+              <tr>
+                <th>Game ID</th>
+                <th>Player 1</th>
+                <th>Player 2</th>
+                <th>Mode</th>
+                <th>Round</th>
+                <th>Score</th>
+                <th>Started</th>
+              </tr>
+            </thead>
+            <tbody id="gamesBody">
+              <!-- Games will be loaded here -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Controls -->
+        <div class="card">
+          <h3><i class="fas fa-cogs"></i> Server Controls</h3>
+          <div class="controls">
+            <button class="btn-primary" onclick="showModal('broadcastModal')">
+              <i class="fas fa-bullhorn"></i> Broadcast
+            </button>
+            <button class="btn-warning" onclick="showModal('logsModal')">
+              <i class="fas fa-clipboard-list"></i> View Logs
+            </button>
+            <button class="btn-dark" onclick="window.open('/health', '_blank')">
+              <i class="fas fa-heartbeat"></i> Health Check
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Broadcast Modal -->
+      <div id="broadcastModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="modal-content" style="background: white; padding: 30px; border-radius: 10px; max-width: 500px; width: 90%;">
+          <h3><i class="fas fa-bullhorn"></i> Send Broadcast Message</h3>
+          <div style="margin-bottom: 15px;">
+            <label>Message Type:</label>
+            <select id="broadcastType" style="width: 100%; padding: 8px; margin-top: 5px;">
+              <option value="info">Information</option>
+              <option value="warning">Warning</option>
+              <option value="alert">Alert</option>
+            </select>
+          </div>
+          <div style="margin-bottom: 15px;">
+            <label>Message:</label>
+            <textarea id="broadcastMessage" placeholder="Enter your message here..." style="width: 100%; padding: 8px; margin-top: 5px; min-height: 100px;"></textarea>
+          </div>
+          <div id="broadcastResult"></div>
+          <div class="controls">
+            <button class="btn-success" onclick="sendBroadcast()">Send</button>
+            <button class="btn-danger" onclick="hideModal('broadcastModal')">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logs Modal -->
+      <div id="logsModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="modal-content" style="background: white; padding: 30px; border-radius: 10px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
+          <h3><i class="fas fa-clipboard-list"></i> Server Logs</h3>
+          <div class="controls" style="margin-bottom: 20px;">
+            <select id="logTypeFilter" style="padding: 8px;" onchange="loadLogs()">
+              <option value="">All Types</option>
+              <option value="error">Errors</option>
+              <option value="warning">Warnings</option>
+              <option value="info">Info</option>
+            </select>
+            <select id="logLimit" style="padding: 8px;" onchange="loadLogs()">
+              <option value="50">Last 50</option>
+              <option value="100">Last 100</option>
+            </select>
+            <button class="refresh-btn" onclick="loadLogs()">
+              <i class="fas fa-sync-alt"></i>
+            </button>
+          </div>
+          <div id="logsLoading" class="loading">
+            <i class="fas fa-spinner fa-spin"></i> Loading logs...
+          </div>
+          <div id="logsContainer" style="display: none;">
+            <!-- Logs will be loaded here -->
+          </div>
+          <div class="controls" style="margin-top: 20px;">
+            <button class="btn-danger" onclick="hideModal('logsModal')">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logout Button -->
+      <button class="logout-btn btn-danger" onclick="logout()">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </button>
+
+      <script>
+        const SERVER_URL = window.location.origin;
+        const ADMIN_TOKEN = '${ADMIN_TOKEN}';
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+          loadAllData();
+          setInterval(loadStats, 5000);
+          setInterval(updateServerTime, 1000);
+        });
+
+        function updateServerTime() {
+          const now = new Date();
+          document.getElementById('serverTime').textContent = 
+            now.toLocaleTimeString('en-US', {hour12: false});
+        }
+
+        async function loadAllData() {
+          await loadStats();
+          await loadPlayers();
+          await loadGames();
+        }
+
+        async function loadStats() {
+          try {
+            const response = await fetch(SERVER_URL + '/api/stats');
+            const data = await response.json();
+            
+            if (data.success) {
+              document.getElementById('onlinePlayers').textContent = 
+                data.stats.onlineNow || 0;
+              document.getElementById('queuedPlayers').textContent = 
+                data.stats.inQueue || 0;
+              document.getElementById('activeGames').textContent = 
+                data.stats.activeGames || 0;
+              document.getElementById('totalGames').textContent = 
+                data.stats.totalGames || 0;
+              
+              document.getElementById('serverStatus').textContent = 
+                data.stats.databaseStatus === 'connected' ? '✅ Online' : '❌ Offline';
+              document.getElementById('serverStatus').className = 
+                data.stats.databaseStatus === 'connected' ? 'status' : 'status offline';
+            }
+          } catch (error) {
+            console.error('Error loading stats:', error);
+          }
+        }
+
+        async function loadPlayers() {
+          try {
+            const response = await fetch(SERVER_URL + '/admin/api/sessions', {
+              headers: { 'x-admin-token': ADMIN_TOKEN }
+            });
+            const data = await response.json();
+            
+            const loading = document.getElementById('playersLoading');
+            const table = document.getElementById('playersTable');
+            const body = document.getElementById('playersBody');
+            
+            if (data.success) {
+              loading.style.display = 'none';
+              table.style.display = 'table';
+              body.innerHTML = '';
+              
+              if (data.sessions.length === 0) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align: center;">No players online</td></tr>';
+                return;
+              }
+              
+              data.sessions.forEach(player => {
+                const connectedTime = Math.floor((Date.now() - (player.connectedAt || Date.now())) / 1000);
+                const connectedStr = formatTime(connectedTime);
+                
+                const row = \`
+                  <tr>
+                    <td>\${player.userId}</td>
+                    <td><strong>\${player.firstName || 'Unknown'}</strong><br>
+                        <small>@\${player.username || 'no-username'}</small>
+                    </td>
+                    <td><span class="badge \${player.status || 'offline'}">\${player.status || 'offline'}</span></td>
+                    <td>\${player.gameId ? '🎮 ' + player.gameId.substring(0, 8) + '...' : 'None'}</td>
+                    <td><small>\${player.ip || 'Unknown'}</small></td>
+                    <td>\${connectedStr}</td>
+                  </tr>
+                \`;
+                body.innerHTML += row;
+              });
+            }
+          } catch (error) {
+            console.error('Error loading players:', error);
+          }
+        }
+
+        async function loadGames() {
+          try {
+            const response = await fetch(SERVER_URL + '/admin/api/games', {
+              headers: { 'x-admin-token': ADMIN_TOKEN }
+            });
+            const data = await response.json();
+            
+            const loading = document.getElementById('gamesLoading');
+            const table = document.getElementById('gamesTable');
+            const body = document.getElementById('gamesBody');
+            
+            if (data.success) {
+              loading.style.display = 'none';
+              table.style.display = 'table';
+              body.innerHTML = '';
+              
+              if (!data.games || data.games.length === 0) {
+                body.innerHTML = '<tr><td colspan="7" style="text-align: center;">No active games</td></tr>';
+                return;
+              }
+              
+              data.games.forEach(game => {
+                const startedTime = Math.floor((Date.now() - new Date(game.createdAt).getTime()) / 1000);
+                const startedStr = formatTime(startedTime);
+                
+                const row = \`
+                  <tr>
+                    <td><small>\${game.gameId?.substring(0, 12) || 'N/A'}...</small></td>
+                    <td><strong>\${game.player1?.firstName || 'Player1'}</strong><br>
+                        <small>ELO: \${game.player1?.elo || 1000}</small>
+                    </td>
+                    <td>\${game.player2?.firstName ? \`<strong>\${game.player2.firstName}</strong><br><small>ELO: \${game.player2.elo || 1000}</small>\` : 'Waiting...'}</td>
+                    <td><span class="badge \${game.mode === 'ranked' ? 'ingame' : 'queued'}">\${game.mode || 'casual'}</span></td>
+                    <td>\${game.currentRound || 1}/\${game.rounds || 3}</td>
+                    <td><strong>\${game.scores?.player1 || 0}</strong> - <strong>\${game.scores?.player2 || 0}</strong></td>
+                    <td>\${startedStr}</td>
+                  </tr>
+                \`;
+                body.innerHTML += row;
+              });
+            }
+          } catch (error) {
+            console.error('Error loading games:', error);
+          }
+        }
+
+        async function loadLogs() {
+          const typeFilter = document.getElementById('logTypeFilter').value;
+          const limit = document.getElementById('logLimit').value;
+          
+          try {
+            const url = \`\${SERVER_URL}/admin/api/logs?limit=\${limit}\${typeFilter ? \`&type=\${typeFilter}\` : ''}\`;
+            const response = await fetch(url, {
+              headers: { 'x-admin-token': ADMIN_TOKEN }
+            });
+            const data = await response.json();
+            
+            const loading = document.getElementById('logsLoading');
+            const container = document.getElementById('logsContainer');
+            
+            if (data.success) {
+              loading.style.display = 'none';
+              container.style.display = 'block';
+              container.innerHTML = '';
+              
+              if (!data.logs || data.logs.length === 0) {
+                container.innerHTML = '<div class="error">No logs found</div>';
+                return;
+              }
+              
+              data.logs.forEach(log => {
+                const time = new Date(log.timestamp).toLocaleTimeString();
+                const logClass = \`log-entry log-\${log.type}\`;
+                
+                const logHtml = \`
+                  <div class="\${logClass}" style="padding: 10px; border-left: 4px solid; margin-bottom: 10px; background: #f5f5f5;">
+                    <div style="font-size: 12px; color: #666;">[\${time}] \${log.type?.toUpperCase() || 'INFO'}</div>
+                    <div style="margin: 5px 0; font-weight: bold;">\${log.message || 'No message'}</div>
+                    \${log.data ? \`<div style="font-size: 12px; color: #666; white-space: pre-wrap;">\${JSON.stringify(log.data, null, 2)}</div>\` : ''}
+                  </div>
+                \`;
+                container.innerHTML += logHtml;
+              });
+            }
+          } catch (error) {
+            console.error('Error loading logs:', error);
+          }
+        }
+
+        async function sendBroadcast() {
+          const type = document.getElementById('broadcastType').value;
+          const message = document.getElementById('broadcastMessage').value.trim();
+          const resultDiv = document.getElementById('broadcastResult');
+          
+          if (!message) {
+            resultDiv.innerHTML = '<div class="error">Please enter a message</div>';
+            return;
+          }
+          
+          try {
+            const response = await fetch(SERVER_URL + '/admin/api/broadcast', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-admin-token': ADMIN_TOKEN
+              },
+              body: JSON.stringify({ 
+                message, 
+                type,
+                target: 'all'
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+              resultDiv.innerHTML = \`
+                <div class="success">
+                  ✅ Message sent to \${data.sentTo || 0} players
+                </div>
+              \`;
+              
+              setTimeout(() => {
+                resultDiv.innerHTML = '';
+                hideModal('broadcastModal');
+              }, 3000);
+            } else {
+              resultDiv.innerHTML = \`<div class="error">\${data.error}</div>\`;
+            }
+          } catch (error) {
+            console.error('Error sending broadcast:', error);
+            resultDiv.innerHTML = '<div class="error">Failed to send broadcast</div>';
+          }
+        }
+
+        function formatTime(seconds) {
+          if (seconds < 60) return \`\${seconds}s ago\`;
+          const minutes = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          if (minutes < 60) return \`\${minutes}m \${secs}s ago\`;
+          const hours = Math.floor(minutes / 60);
+          const mins = minutes % 60;
+          return \`\${hours}h \${mins}m ago\`;
+        }
+
+        function showModal(modalId) {
+          document.getElementById(modalId).style.display = 'flex';
+          if (modalId === 'logsModal') {
+            loadLogs();
+          }
+        }
+
+        function hideModal(modalId) {
+          document.getElementById(modalId).style.display = 'none';
+        }
+
+        function logout() {
+          localStorage.removeItem('adminToken');
+          window.location.href = '/admin';
+        }
       </script>
     </body>
     </html>
