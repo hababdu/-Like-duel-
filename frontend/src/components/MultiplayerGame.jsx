@@ -1,211 +1,336 @@
-// src/components/game/MultiplayerGame.jsx
-import React, { useState, useEffect } from 'react';
-import { useGame } from '../../contexts/GameContext';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import GameBoard from './GameBoard';
-import QueueStatus from './QueueStatus';
-import GameInviteModal from './GameInviteModal';
-import FriendList from '../friends/FriendList';
+// MultiplayerGame.jsx
+import React, { useState, useEffect, useRef } from 'react';
+import './MultiplayerGame.css';
 
-const MultiplayerGame = () => {
-  const navigate = useNavigate();
-  const {
-    currentGame,
-    matchmakingStatus,
-    queuePosition,
-    joinQueue,
-    leaveQueue,
-    sendGameInvite
-  } = useGame();
-  
-  const [gameMode, setGameMode] = useState('casual');
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [selectedFriend, setSelectedFriend] = useState(null);
-  const [rounds, setRounds] = useState(3);
-  const [searchTime, setSearchTime] = useState(0);
+const CHOICES = {
+  rock: { name: "Tosh", emoji: "✊", color: "#e74c3c" },
+  paper: { name: "Qog'oz", emoji: "✋", color: "#3498db" },
+  scissors: { name: "Qaychi", emoji: "✌️", color: "#2ecc71" },
+};
 
-  // O'yin rejimini tanlash
-  const handleModeSelect = (mode) => {
-    setGameMode(mode);
-  };
+function MultiplayerGame({ user, onBackToMenu, showNotif }) {
+  const ws = useRef(null);
+  const [connected, setConnected] = useState(false);
+  const [inQueue, setInQueue] = useState(false);
+  const [gameId, setGameId] = useState(null);
+  const [opponent, setOpponent] = useState(null);
+  const [myChoice, setMyChoice] = useState(null);
+  const [opponentChoice, setOpponentChoice] = useState(null);
+  const [result, setResult] = useState(null);
+  const [timer, setTimer] = useState(60);
+  const [messages, setMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const messagesEndRef = useRef(null);
 
-  // Navbatga qo'shilish
-  const handleJoinQueue = async () => {
-    try {
-      await joinQueue(gameMode);
-      
-      // Taymer boshlash
-      const timer = setInterval(() => {
-        setSearchTime(prev => prev + 1);
-      }, 1000);
-      
-      return () => clearInterval(timer);
-    } catch (error) {
-      console.error('Failed to join queue:', error);
-    }
-  };
-
-  // Do'stni taklif qilish
-  const handleInviteFriend = (friend) => {
-    setSelectedFriend(friend);
-    setShowInviteModal(true);
-  };
-
-  // Taklifni yuborish
-  const handleSendInvite = async () => {
-    if (!selectedFriend) return;
-    
-    try {
-      await sendGameInvite(selectedFriend.id, gameMode, rounds);
-      setShowInviteModal(false);
-      
-      // Notification yuborish
-      alert(`Taklif ${selectedFriend.name} ga yuborildi`);
-    } catch (error) {
-      console.error('Failed to send invite:', error);
-      alert('Taklif yuborishda xatolik');
-    }
-  };
-
-  // O'yin boshlanganda
+  // WebSocket ulanishini o'rnatish va boshqarish
   useEffect(() => {
-    if (currentGame && currentGame.status === 'starting') {
-      navigate('/game', { state: { game: currentGame } });
-    }
-  }, [currentGame, navigate]);
+    if (!user?.id) return;
 
-  // Format search time
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket('wss://telegram-bot-server-2-matj.onrender.com/ws');
+
+    socket.onopen = () => {
+      setConnected(true);
+      showNotif("Serverga ulanildi", "success");
+
+      // Register va join_queue
+      socket.send(JSON.stringify({
+        type: 'register',
+        userId: user.id,
+        username: user.username || `user_${user.id}`,
+        firstName: user.first_name || 'Player'
+      }));
+
+      socket.send(JSON.stringify({
+        type: 'join_queue',
+        userId: user.id,
+        username: user.username || `user_${user.id}`,
+        firstName: user.first_name || 'Player'
+      }));
+
+      setInQueue(true);
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleMessage(data);
+      } catch (e) {
+        console.error("Xato parse qilishda:", e);
+      }
+    };
+
+    socket.onclose = () => {
+      setConnected(false);
+      showNotif("Server bilan aloqa uzildi...", "error");
+      setInQueue(false);
+    };
+
+    socket.onerror = (err) => {
+      console.error("WebSocket xatosi:", err);
+      showNotif("Ulanishda xato", "error");
+    };
+
+    ws.current = socket;
+
+    return () => {
+      socket.close();
+    };
+  }, [user, showNotif]);
+
+  // Serverdan kelgan xabarlarni qayta ishlash
+  const handleMessage = (data) => {
+    switch (data.type) {
+      case 'joined_queue':
+        showNotif("Navbatga qo'shildingiz...", "info");
+        break;
+      case 'match_found':
+        setGameId(data.gameId);
+        setOpponent(data.opponent);
+        setInQueue(false);
+        setMyChoice(null);
+        setOpponentChoice(null);
+        setResult(null);
+        setTimer(60);
+        setMessages([]);
+        console.log("O'yin boshlandi, gameId =", data.gameId); // Debug
+        showNotif(`Raqib topildi: ${data.opponent.firstName || data.opponent.username}`, "success");
+        break;
+      case 'opponent_choice_made':
+        showNotif("Raqib tanlov qildi!", "info");
+        break;
+      case 'game_result':
+        setOpponentChoice(
+          data.choices.player1?.id === user.id
+            ? data.choices.player2
+            : data.choices.player1
+        );
+        setResult(data.result);
+        const isWin = data.winnerId === user.id;
+        const msg = data.result === 'draw' ? 'Durang' : isWin ? 'G‘alaba!' : 'Mag‘lubiyat';
+        showNotif(msg, data.result === 'draw' ? 'warning' : isWin ? 'success' : 'error');
+        break;
+      case 'game_timeout':
+        setResult('timeout');
+        showNotif("Vaqt tugadi", "warning");
+        break;
+      case 'opponent_disconnected':
+        setResult('disconnected');
+        showNotif("Raqib uzildi. O‘yin yakunlandi.", "warning");
+        break;
+      case 'chat_message':
+        console.log("🗨️ Chat xabari keldi:", data); // Debug
+        setMessages(prev => [...prev, {
+          sender: String(data.senderId) === String(user.id) ? 'me' : 'opponent',
+          text: data.text || "[xato xabar]",
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+        break;
+      case 'error':
+        console.log("Server xatosi:", data.message);
+        showNotif(data.message || "Xato yuz berdi", "error");
+        break;
+      default:
+        console.log("Noma'lum xabar:", data);
+    }
+  };
+
+  // Tanlov qilish funksiyasi
+  const makeChoice = (choice) => {
+    if (myChoice || result || !gameId) return;
+    setMyChoice(choice);
+    ws.current?.send(JSON.stringify({
+      type: 'make_choice',
+      userId: user.id,
+      gameId,
+      choice
+    }));
+  };
+
+  // Chat xabar yuborish
+  const sendChatMessage = (e) => {
+    e.preventDefault();
+    if (!chatInput.trim() || !gameId || !ws.current) {
+      console.warn("Chat yuborish shartlari bajarilmadi", { chatInput, gameId, wsConnected: !!ws.current });
+      return;
+    }
+
+    const message = {
+      type: 'chat_message',
+      gameId,
+      userId: user.id,
+      text: chatInput.trim()
+    };
+
+    console.log("→ Chat yuborilyapti:", message); // Debug
+    ws.current.send(JSON.stringify(message));
+    setChatInput("");
+  };
+
+  // Chat avtomatik scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Natija matnini olish
+  const getResultText = () => {
+    if (result === 'timeout') return "Vaqt tugadi";
+    if (result === 'disconnected') return "Raqib uzildi";
+    if (result === 'draw') return "Durang!";
+
+    const iWon =
+      (result === 'player1_win' && opponent?.id !== user?.id) ||
+      (result === 'player2_win' && opponent?.id === user?.id);
+
+    return iWon ? "G‘alaba!" : "Mag‘lubiyat!";
   };
 
   return (
-    <div className="multiplayer-container">
-      <div className="multiplayer-header">
-        <button 
-          className="back-button"
-          onClick={() => navigate('/')}
-        >
-          ← Ortga
-        </button>
-        <h1>Multiplayer</h1>
-        <div className="game-stats">
-          <span className="stat">🕹️ O'yinlar: 0</span>
-          <span className="stat">⭐ ELO: 1000</span>
-          <span className="stat">👑 Daraja: Bronze</span>
+    <div className="multiplayer-game-container">
+      <header className="game-header">
+        <button className="back-btn" onClick={onBackToMenu}>← Menyu</button>
+      </header>
+      {!connected ? (
+        <div className="connecting-screen">
+          <div className="spinner"></div>
+          <p>Serverga ulanmoqda...</p>
         </div>
-      </div>
-
-      {!currentGame ? (
-        <div className="multiplayer-content">
-          {/* Game mode selection */}
-          <div className="mode-selection">
-            <h2>O'yin Rejimi</h2>
-            <div className="mode-buttons">
-              <button
-                className={`mode-btn ${gameMode === 'casual' ? 'active' : ''}`}
-                onClick={() => handleModeSelect('casual')}
-              >
-                <span className="emoji">🎮</span>
-                <span className="text">Oddiy</span>
-                <span className="desc">Tajriba oshirish</span>
-              </button>
-              
-              <button
-                className={`mode-btn ${gameMode === 'ranked' ? 'active' : ''}`}
-                onClick={() => handleModeSelect('ranked')}
-              >
-                <span className="emoji">⭐</span>
-                <span className="text">Reytingli</span>
-                <span className="desc">ELO reyting</span>
-              </button>
-              
-              <button
-                className={`mode-btn ${gameMode === 'tournament' ? 'active' : ''}`}
-                onClick={() => navigate('/tournaments')}
-              >
-                <span className="emoji">🏆</span>
-                <span className="text">Turnir</span>
-                <span className="desc">Jamoa bellashuvi</span>
-              </button>
+      ) : !gameId && inQueue ? (
+        <div className="waiting-screen">
+          <div className="spinner large"></div>
+          <h2>Raqib qidirlmoqda...</h2>
+          <button
+            className="cancel-btn"
+            onClick={() => {
+              ws.current?.send(JSON.stringify({ type: 'leave_queue', userId: user.id }));
+              setInQueue(false);
+              onBackToMenu();
+            }}
+          >
+            Bekor qilish
+          </button>
+        </div>
+      ) : gameId ? (
+        <div className="game-area">
+          {/* O'yin maydoni */}
+          <div className="players-container">
+            <div className="player you">
+              <div className="player-label">SIZ</div>
+              <div className="choice-display">
+                {myChoice ? CHOICES[myChoice].emoji : "?"}
+              </div>
             </div>
-          </div>
-
-          {/* Queue status */}
-          {matchmakingStatus === 'searching' && (
-            <QueueStatus
-              position={queuePosition}
-              searchTime={searchTime}
-              onCancel={leaveQueue}
-            />
-          )}
-
-          {/* Quick match buttons */}
-          {!matchmakingStatus && (
-            <div className="quick-match">
-              <button
-                className="match-btn primary"
-                onClick={handleJoinQueue}
-              >
-                <span className="emoji">⚡</span>
-                Tezkor o'yin
-                <span className="subtext">30 soniya ichida raqib topiladi</span>
-              </button>
-              
-              <button
-                className="match-btn secondary"
-                onClick={() => navigate('/friends')}
-              >
-                <span className="emoji">👥</span>
-                Do'st bilan o'ynash
-                <span className="subtext">Do'stingizni taklif qiling</span>
-              </button>
-              
-              <button
-                className="match-btn outline"
-                onClick={() => navigate('/tournaments')}
-              >
-                <span className="emoji">🏆</span>
-                Turnirda qatnashish
-                <span className="subtext">Katta sovrinlar yutish</span>
-              </button>
-            </div>
-          )}
-
-          {/* Recent opponents */}
-          <div className="recent-opponents">
-            <h2>Oxirgi raqiblar</h2>
-            <div className="opponents-list">
-              {/* Map through recent games */}
-              <div className="empty-state">
-                <span className="emoji">👤</span>
-                <p>Hozircha raqiblar yo'q</p>
+            <div className="vs">VS</div>
+            <div className="player opponent">
+              <div className="player-label">
+                {opponent?.firstName || opponent?.username || "Raqib"}
+              </div>
+              <div className="choice-display">
+                {opponentChoice ? CHOICES[opponentChoice].emoji : "❓"}
               </div>
             </div>
           </div>
+          {/* Tanlov tugmalari */}
+          {!myChoice && !result && (
+            <div className="choices">
+              {Object.entries(CHOICES).map(([key, val]) => (
+                <button
+                  key={key}
+                  className="choice-btn"
+                  style={{ '--choice-color': val.color }}
+                  onClick={() => makeChoice(key)}
+                >
+                  <span className="emoji">{val.emoji}</span>
+                  <span className="name">{val.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Natija */}
+          {result && (
+            <div className={`result ${result}`}>
+              <h2>{getResultText()}</h2>
+              <div className="result-choices">
+                <span>{myChoice ? CHOICES[myChoice].emoji : "?"}</span>
+                <span>vs</span>
+                <span>{opponentChoice ? CHOICES[opponentChoice].emoji : "?"}</span>
+              </div>
+              <div className="result-buttons">
+                <button onClick={onBackToMenu}>Menyuga qaytish</button>
+                <button
+                  onClick={() => {
+                    ws.current?.send(JSON.stringify({
+                      type: 'join_queue',
+                      userId: user.id,
+                      username: user.username || `user_${user.id}`,
+                      firstName: user.first_name || 'Player'
+                    }));
+                    setGameId(null);
+                    setOpponent(null);
+                    setMyChoice(null);
+                    setOpponentChoice(null);
+                    setResult(null);
+                    setMessages([]);
+                    setInQueue(true);
+                  }}
+                >
+                  Yangi o'yin
+                </button>
+              </div>
+            </div>
+          )}
+          {/* Chat qismi */}
+          {gameId && (
+            <div className="chat-section">
+              <div className="chat-header">Chat (raqib bilan)</div>
+              <div className="chat-messages">
+                {messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`chat-message ${msg.sender === 'me' ? 'sent' : 'received'}`}
+                  >
+                    <div className="message-text">{msg.text}</div>
+                    <div className="message-time">{msg.time}</div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+              <form className="chat-input-form" onSubmit={sendChatMessage}>
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  placeholder="Xabar yozing..."
+                  disabled={!opponent}
+                />
+                <button type="submit" disabled={!chatInput.trim() || !opponent}>
+                  Yuborish
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       ) : (
-        <GameBoard game={currentGame} />
+        <div className="start-screen">
+          <h2>O'yinni boshlash uchun navbatga turing</h2>
+          <button
+            className="start-btn"
+            onClick={() => {
+              ws.current?.send(JSON.stringify({
+                type: 'join_queue',
+                userId: user.id,
+                username: user.username || `user_${user.id}`,
+                firstName: user.first_name || 'Player'
+              }));
+              setInQueue(true);
+            }}
+          >
+            O'yinni boshlash
+          </button>
+        </div>
       )}
-
-      {/* Invite Modal */}
-      <AnimatePresence>
-        {showInviteModal && selectedFriend && (
-          <GameInviteModal
-            friend={selectedFriend}
-            gameMode={gameMode}
-            rounds={rounds}
-            onSend={handleSendInvite}
-            onClose={() => setShowInviteModal(false)}
-            onChangeRounds={setRounds}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
-};
+}
 
 export default MultiplayerGame;
