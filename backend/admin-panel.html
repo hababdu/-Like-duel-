@@ -1,0 +1,3107 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Tosh-Qaychi-Qog'oz Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --success-color: #4cc9f0;
+            --danger-color: #f72585;
+            --warning-color: #f8961e;
+            --dark-color: #212529;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .sidebar {
+            background: linear-gradient(180deg, var(--dark-color) 0%, #343a40 100%);
+            min-height: 100vh;
+            box-shadow: 3px 0 15px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 250px;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+        
+        .nav-link {
+            color: #adb5bd;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 5px 0;
+            transition: all 0.3s;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            color: white;
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        .nav-link i {
+            width: 25px;
+            text-align: center;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .stat-card {
+            border-left: 4px solid;
+        }
+        
+        .stat-card.primary { border-left-color: var(--primary-color); }
+        .stat-card.success { border-left-color: var(--success-color); }
+        .stat-card.warning { border-left-color: var(--warning-color); }
+        .stat-card.danger { border-left-color: var(--danger-color); }
+        
+        .stat-icon {
+            font-size: 2.5rem;
+            opacity: 0.8;
+        }
+        
+        .table-responsive {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .badge-online { background-color: #38b000; }
+        .badge-offline { background-color: #6c757d; }
+        .badge-queued { background-color: #ffba08; }
+        .badge-in-game { background-color: #4361ee; }
+        
+        .log-error { color: var(--danger-color); background-color: rgba(247, 37, 133, 0.1); }
+        .log-warning { color: var(--warning-color); background-color: rgba(248, 150, 30, 0.1); }
+        .log-info { color: var(--primary-color); background-color: rgba(67, 97, 238, 0.1); }
+        .log-success { color: var(--success-color); background-color: rgba(76, 201, 240, 0.1); }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #4361ee, #4cc9f0);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .modal-header {
+            background: linear-gradient(90deg, var(--primary-color), #3a56d4);
+            color: white;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .btn-gradient {
+            background: linear-gradient(45deg, var(--primary-color), #4cc9f0);
+            border: none;
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .btn-gradient:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+            color: white;
+        }
+        
+        .refresh-btn {
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            transform: rotate(180deg);
+        }
+        
+        .real-time-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .realtime-on { background-color: #38b000; }
+        .realtime-off { background-color: #dc3545; }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar d-flex flex-column p-3">
+        <div class="d-flex align-items-center mb-4">
+            <div class="user-avatar me-3">A</div>
+            <div>
+                <h6 class="mb-0 text-white">Admin</h6>
+                <small class="text-muted">Server Administrator</small>
+            </div>
+        </div>
+        
+        <div class="nav flex-column mb-auto">
+            <a class="nav-link active" href="#" data-section="dashboard">
+                <i class="bi bi-speedometer2 me-2"></i> Dashboard
+            </a>
+            <a class="nav-link" href="#" data-section="users">
+                <i class="bi bi-people me-2"></i> Foydalanuvchilar
+            </a>
+            <a class="nav-link" href="#" data-section="games">
+                <i class="bi bi-controller me-2"></i> O'yinlar
+            </a>
+            <a class="nav-link" href="#" data-section="tournaments">
+                <i class="bi bi-trophy me-2"></i> Turnirlar
+            </a>
+            <a class="nav-link" href="#" data-section="logs">
+                <i class="bi bi-journal-text me-2"></i> Loglar
+            </a>
+            <a class="nav-link" href="#" data-section="system">
+                <i class="bi bi-hdd-stack me-2"></i> System
+            </a>
+            <a class="nav-link" href="#" data-section="broadcast">
+                <i class="bi bi-megaphone me-2"></i> Broadcast
+            </a>
+        </div>
+        
+        <div class="mt-auto pt-3 border-top">
+            <div class="mb-3">
+                <span class="real-time-indicator realtime-on"></span>
+                <small class="text-muted">Real-time yangilanmoqda</small>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" id="realtimeToggle" checked>
+                    <label class="form-check-label text-white" for="realtimeToggle">Real-time</label>
+                </div>
+            </div>
+            <button class="btn btn-outline-light btn-sm w-100" id="refreshBtn">
+                <i class="bi bi-arrow-clockwise"></i> Yangilash
+            </button>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h3 class="mb-1" id="pageTitle">Dashboard</h3>
+                <p class="text-muted mb-0" id="pageSubtitle">Server monitoring va boshqaruv paneli</p>
+            </div>
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    <span class="badge bg-success me-2">Server: ON</span>
+                    <span class="badge bg-info">API: Connected</span>
+                </div>
+                <div class="input-group" style="width: 300px;">
+                    <input type="text" class="form-control" placeholder="Qidirish...">
+                    <button class="btn btn-outline-primary" type="button">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dashboard Section -->
+        <section id="dashboardSection" class="section-content">
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stat-card primary">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="text-muted">Online O'yinchilar</h6>
+                                    <h2 id="onlinePlayers">0</h2>
+                                    <span class="text-success">
+                                        <i class="bi bi-arrow-up"></i> 
+                                        <span id="onlineChange">0</span> daqiqada
+                                    </span>
+                                </div>
+                                <div class="stat-icon text-primary">
+                                    <i class="bi bi-people-fill"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card success">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="text-muted">Aktiv O'yinlar</h6>
+                                    <h2 id="activeGames">0</h2>
+                                    <span class="text-success">
+                                        <i class="bi bi-controller"></i> 
+                                        <span id="gamesChange">0</span> o'yin
+                                    </span>
+                                </div>
+                                <div class="stat-icon text-success">
+                                    <i class="bi bi-controller"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card warning">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="text-muted">Navbatda</h6>
+                                    <h2 id="inQueue">0</h2>
+                                    <span class="text-warning">
+                                        <i class="bi bi-clock"></i> 
+                                        Kutmoqda
+                                    </span>
+                                </div>
+                                <div class="stat-icon text-warning">
+                                    <i class="bi bi-clock"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card danger">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="text-muted">Turnirlar</h6>
+                                    <h2 id="activeTournaments">0</h2>
+                                    <span class="text-danger">
+                                        <i class="bi bi-trophy"></i> 
+                                        Faol
+                                    </span>
+                                </div>
+                                <div class="stat-icon text-danger">
+                                    <i class="bi bi-trophy"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Server Faolligi (Soatlik)</h5>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary active" data-period="hour">Soat</button>
+                                <button class="btn btn-sm btn-outline-primary" data-period="day">Kun</button>
+                                <button class="btn btn-sm btn-outline-primary" data-period="week">Hafta</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="activityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Server Status</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <small class="text-muted">Server Uptime</small>
+                                <h4 id="serverUptime">00:00:00</h4>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" style="width: 95%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Memory Usage</small>
+                                <h4 id="memoryUsage">0 MB</h4>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-info" id="memoryBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Database Status</small>
+                                <div class="d-flex justify-content-between">
+                                    <span id="dbStatus">Checking...</span>
+                                    <span id="dbLatency">-</span>
+                                </div>
+                            </div>
+                            <div>
+                                <small class="text-muted">WebSocket Connections</small>
+                                <h4 id="wsConnections">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Eng Faol O'yinchilar</h5>
+                            <a href="#" class="btn btn-sm btn-link" data-section="users">Barchasini ko'rish</a>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>O'yinchi</th>
+                                            <th>ELO</th>
+                                            <th>O'yinlar</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="topPlayersTable">
+                                        <!-- Top players will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Oxirgi Loglar</h5>
+                            <a href="#" class="btn btn-sm btn-link" data-section="logs">Barchasini ko'rish</a>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Vaqt</th>
+                                            <th>Turi</th>
+                                            <th>Xabar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentLogsTable">
+                                        <!-- Recent logs will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Users Section -->
+        <section id="usersSection" class="section-content d-none">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Barcha Foydalanuvchilar</h5>
+                    <div class="d-flex">
+                        <input type="text" class="form-control me-2" id="userSearch" placeholder="ID yoki Ism bo'yicha qidirish" style="width: 250px;">
+                        <button class="btn btn-gradient" id="exportUsersBtn">
+                            <i class="bi bi-download me-1"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Ism</th>
+                                    <th>ELO</th>
+                                    <th>Level</th>
+                                    <th>Online</th>
+                                    <th>O'yinlar</th>
+                                    <th>G'alaba %</th>
+                                    <th>So'ngi Faollik</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="allUsersTable">
+                                <!-- All users will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                        <div>
+                            <span class="text-muted" id="userPaginationInfo">Ko'rsatilmoqda 0 dan 0 gacha, jami 0</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0" id="userPagination">
+                                <!-- Pagination will be loaded here -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Games Section -->
+        <section id="gamesSection" class="section-content d-none">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Aktiv O'yinlar</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>O'yin ID</th>
+                                            <th>O'yinchilar</th>
+                                            <th>Raund</th>
+                                            <th>Hisob</th>
+                                            <th>Kuzatuvchilar</th>
+                                            <th>Boshlangan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activeGamesTable">
+                                        <!-- Active games will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">O'yin Statistikasi</h5>
+                            <select class="form-select form-select-sm" style="width: 150px;" id="gameStatsPeriod">
+                                <option value="today">Bugun</option>
+                                <option value="week">Bu hafta</option>
+                                <option value="month">Bu oy</option>
+                                <option value="all">Barchasi</option>
+                            </select>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <h3 id="totalGamesToday">0</h3>
+                                    <small class="text-muted">Jami O'yinlar</small>
+                                </div>
+                                <div class="col-4">
+                                    <h3 id="avgGameTime">0s</h3>
+                                    <small class="text-muted">O'rtacha Davomiylik</small>
+                                </div>
+                                <div class="col-4">
+                                    <h3 id="drawPercentage">0%</h3>
+                                    <small class="text-muted">Durang Foizi</small>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="chart-container">
+                                <canvas id="gamesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">O'yinlar Tarixi</h5>
+                    <div class="d-flex">
+                        <input type="text" class="form-control me-2" id="gameSearch" placeholder="O'yinchi ID yoki o'yin ID bo'yicha qidirish" style="width: 300px;">
+                        <button class="btn btn-gradient" id="exportGamesBtn">
+                            <i class="bi bi-download me-1"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>O'yin ID</th>
+                                    <th>O'yinchilar</th>
+                                    <th>Natija</th>
+                                    <th>Hisob</th>
+                                    <th>ELO O'zgarish</th>
+                                    <th>Davomiylik</th>
+                                    <th>Vaqt</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gameHistoryTable">
+                                <!-- Game history will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                        <div>
+                            <span class="text-muted" id="gamePaginationInfo">Ko'rsatilmoqda 0 dan 0 gacha, jami 0</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0" id="gamePagination">
+                                <!-- Pagination will be loaded here -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Tournaments Section -->
+        <section id="tournamentsSection" class="section-content d-none">
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Aktiv Turnirlar</h5>
+                            <button class="btn btn-gradient btn-sm" data-bs-toggle="modal" data-bs-target="#createTournamentModal">
+                                <i class="bi bi-plus-circle me-1"></i> Yangi Turnir
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Turnir ID</th>
+                                            <th>Nomi</th>
+                                            <th>Ishtirokchilar</th>
+                                            <th>Boshlanish</th>
+                                            <th>Pul Fondi</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activeTournamentsTable">
+                                        <!-- Active tournaments will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Turnir Statistikasi</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <small class="text-muted">Bugun yaratilgan turnirlar</small>
+                                <h3 id="todayTournaments">0</h3>
+                            </div>
+                            <div class="mb-4">
+                                <small class="text-muted">Jami Pul Fondi</small>
+                                <h3 id="totalPrizePool">0</h3>
+                            </div>
+                            <div class="mb-4">
+                                <small class="text-muted">O'rtacha Ishtirokchilar</small>
+                                <h3 id="avgParticipants">0</h3>
+                            </div>
+                            <div>
+                                <small class="text-muted">Eng yirik turnir</small>
+                                <h5 id="biggestTournament">-</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Turnirlar Tarixi</h5>
+                    <div class="d-flex">
+                        <input type="text" class="form-control me-2" id="tournamentSearch" placeholder="Turnir nomi yoki ID bo'yicha qidirish" style="width: 250px;">
+                        <select class="form-select form-select-sm me-2" id="tournamentStatusFilter" style="width: 150px;">
+                            <option value="">Barcha Statuslar</option>
+                            <option value="open">Ochiq</option>
+                            <option value="full">To'ldi</option>
+                            <option value="in_progress">Jarayonda</option>
+                            <option value="finished">Yakunlandi</option>
+                        </select>
+                        <button class="btn btn-gradient" id="exportTournamentsBtn">
+                            <i class="bi bi-download me-1"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Turnir ID</th>
+                                    <th>Nomi</th>
+                                    <th>Yaratuvchi</th>
+                                    <th>Ishtirokchilar</th>
+                                    <th>Pul Fondi</th>
+                                    <th>Status</th>
+                                    <th>Boshlanish</th>
+                                    <th>Tugash</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tournamentHistoryTable">
+                                <!-- Tournament history will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                        <div>
+                            <span class="text-muted" id="tournamentPaginationInfo">Ko'rsatilmoqda 0 dan 0 gacha, jami 0</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0" id="tournamentPagination">
+                                <!-- Pagination will be loaded here -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Logs Section -->
+        <section id="logsSection" class="section-content d-none">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Server Loglari</h5>
+                    <div class="d-flex">
+                        <select class="form-select form-select-sm me-2" id="logTypeFilter" style="width: 150px;">
+                            <option value="">Barcha Tur</option>
+                            <option value="error">Xatolar</option>
+                            <option value="warning">Ogohlantirishlar</option>
+                            <option value="info">Ma'lumotlar</option>
+                            <option value="success">Muvaffaqiyatli</option>
+                            <option value="security">Xavfsizlik</option>
+                        </select>
+                        <input type="text" class="form-control me-2" id="logSearch" placeholder="Log xabarida qidirish" style="width: 200px;">
+                        <button class="btn btn-gradient" id="exportLogsBtn">
+                            <i class="bi bi-download me-1"></i> Export
+                        </button>
+                        <button class="btn btn-outline-danger ms-2" id="clearLogsBtn">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Vaqt</th>
+                                    <th>Turi</th>
+                                    <th>Xabar</th>
+                                    <th>IP</th>
+                                    <th>PID</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logsTable">
+                                <!-- Logs will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                        <div>
+                            <span class="text-muted" id="logPaginationInfo">Ko'rsatilmoqda 0 dan 0 gacha, jami 0</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0" id="logPagination">
+                                <!-- Pagination will be loaded here -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- System Section -->
+        <section id="systemSection" class="section-content d-none">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">System Ma'lumotlari</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <small class="text-muted">Node.js Versiya</small>
+                                    <h5 id="nodeVersion">-</h5>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <small class="text-muted">Platforma</small>
+                                    <h5 id="platform">-</h5>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <small class="text-muted">Process ID</small>
+                                    <h5 id="processId">-</h5>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <small class="text-muted">CPU Usage</small>
+                                    <h5 id="cpuUsage">-</h5>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <small class="text-muted">Uptime</small>
+                                    <h5 id="systemUptime">-</h5>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <small class="text-muted">Boshqaruvchi</small>
+                                    <h5 id="arch">-</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Memory Usage</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small>Heap Used</small>
+                                    <small id="heapUsedPercent">0%</small>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar" id="heapUsedBar" style="width: 0%"></div>
+                                </div>
+                                <small class="text-muted" id="heapUsedText">0 MB / 0 MB</small>
+                            </div>
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small>Heap Total</small>
+                                    <small id="heapTotalPercent">0%</small>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-info" id="heapTotalBar" style="width: 0%"></div>
+                                </div>
+                                <small class="text-muted" id="heapTotalText">0 MB</small>
+                            </div>
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small>External</small>
+                                    <small id="externalPercent">0%</small>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-warning" id="externalBar" style="width: 0%"></div>
+                                </div>
+                                <small class="text-muted" id="externalText">0 MB</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Session Management</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Foydalanuvchi</th>
+                                            <th>Status</th>
+                                            <th>IP</th>
+                                            <th>Connection Vaqti</th>
+                                            <th>Heartbeat</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sessionsTable">
+                                        <!-- Sessions will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Server Control</h5>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-success" id="restartServerBtn">
+                                    <i class="bi bi-arrow-repeat"></i> Restart
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" id="shutdownServerBtn">
+                                    <i class="bi bi-power"></i> Shutdown
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Maintenance Mode</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="maintenanceMode">
+                                    <label class="form-check-label" for="maintenanceMode">Yoqish</label>
+                                </div>
+                                <small class="text-muted">Yoqilganda, yangi o'yinlar boshlanmaydi</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Max O'yinlar</label>
+                                <input type="range" class="form-range" id="maxGamesSlider" min="10" max="1000" step="10" value="100">
+                                <div class="d-flex justify-content-between">
+                                    <small>10</small>
+                                    <small id="maxGamesValue">100 o'yin</small>
+                                    <small>1000</small>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Log Level</label>
+                                <select class="form-select" id="logLevelSelect">
+                                    <option value="debug">Debug</option>
+                                    <option value="info" selected>Info</option>
+                                    <option value="warn">Warning</option>
+                                    <option value="error">Error</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Cache Clear</label>
+                                <div class="d-flex">
+                                    <button class="btn btn-outline-warning btn-sm me-2" id="clearCacheBtn">
+                                        <i class="bi bi-trash"></i> Cache'ni tozalash
+                                    </button>
+                                    <button class="btn btn-outline-info btn-sm" id="refreshStatsBtn">
+                                        <i class="bi bi-arrow-clockwise"></i> Statistikani yangilash
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Broadcast Section -->
+        <section id="broadcastSection" class="section-content d-none">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Xabar Yuborish</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Xabar Turi</label>
+                                <select class="form-select" id="broadcastType">
+                                    <option value="info">Information</option>
+                                    <option value="warning">Warning</option>
+                                    <option value="maintenance">Maintenance</option>
+                                    <option value="update">Update</option>
+                                    <option value="promotion">Promotion</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Target</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="broadcastTarget" id="targetAll" value="all" checked>
+                                    <label class="form-check-label" for="targetAll">
+                                        Barcha foydalanuvchilar
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="broadcastTarget" id="targetOnline" value="online">
+                                    <label class="form-check-label" for="targetOnline">
+                                        Faqat online foydalanuvchilar
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="broadcastTarget" id="targetInGame" value="in_game">
+                                    <label class="form-check-label" for="targetInGame">
+                                        Faqat o'yindagilar
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="broadcastTarget" id="targetSpecific" value="specific">
+                                    <label class="form-check-label" for="targetSpecific">
+                                        Muayyan foydalanuvchi(lar)
+                                    </label>
+                                </div>
+                                <div class="mt-2" id="specificTargetInput" style="display: none;">
+                                    <input type="text" class="form-control" id="specificUserIds" placeholder="User ID larini vergul bilan ajratib kiriting (masalan: 123,456,789)">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Xabar Sarlavhasi</label>
+                                <input type="text" class="form-control" id="broadcastTitle" placeholder="Xabar sarlavhasi..." value="Server Yangilanishi">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Xabar Matni</label>
+                                <textarea class="form-control" id="broadcastMessage" rows="5" placeholder="Xabar matnini kiriting..."></textarea>
+                                <div class="form-text">
+                                    HTML formatlash mumkin. Maksimum 2000 belgi.
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Action URL (ixtiyoriy)</label>
+                                <input type="text" class="form-control" id="broadcastUrl" placeholder="https://example.com">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Ko'rsatish Vaqti</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="displayTime" value="10" min="5" max="60">
+                                    <span class="input-group-text">soniya</span>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button class="btn btn-outline-secondary" id="previewBroadcastBtn">
+                                    <i class="bi bi-eye me-1"></i> Preview
+                                </button>
+                                <button class="btn btn-gradient" id="sendBroadcastBtn">
+                                    <i class="bi bi-send me-1"></i> Xabar Yuborish
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Preview</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info" id="broadcastPreview">
+                                <h5 class="alert-heading" id="previewTitle">Sarlavha</h5>
+                                <p id="previewMessage">Xabar matni bu yerda ko'rinadi...</p>
+                                <hr>
+                                <small class="text-muted" id="previewFooter">Server Admin • Hozir</small>
+                            </div>
+                            <div class="mt-3">
+                                <h6>Oxirgi Xabarlar</h6>
+                                <div class="list-group" id="recentBroadcasts">
+                                    <!-- Recent broadcasts will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+    
+    <!-- Modals -->
+    <!-- User Detail Modal -->
+    <div class="modal fade" id="userDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Foydalanuvchi Ma'lumotlari</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <div class="user-avatar mb-3 mx-auto" style="width: 80px; height: 80px; font-size: 1.5rem;">
+                                <span id="userAvatar">A</span>
+                            </div>
+                            <h4 id="userName">Foydalanuvchi</h4>
+                            <span class="badge bg-primary" id="userRank">Bronze</span>
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-outline-primary w-100 mb-2" id="viewGamesBtn">
+                                    <i class="bi bi-controller me-1"></i> O'yinlarni ko'rish
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger w-100" id="banUserBtn">
+                                    <i class="bi bi-ban me-1"></i> Ban qilish
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted">User ID</small>
+                                    <h6 id="userId">-</h6>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Status</small>
+                                    <h6><span class="badge" id="userStatusBadge">-</span></h6>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted">Level</small>
+                                    <h6 id="userLevel">-</h6>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">XP</small>
+                                    <h6 id="userXP">-</h6>
+                                </div>
+                            </div>
+                            <hr>
+                            <h6>Statistika</h6>
+                            <div class="row mb-2">
+                                <div class="col-6">Jami O'yinlar</div>
+                                <div class="col-6 text-end" id="userTotalGames">0</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-6">G'alabalar</div>
+                                <div class="col-6 text-end" id="userWins">0</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-6">Mag'lubiyatlar</div>
+                                <div class="col-6 text-end" id="userLosses">0</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-6">Duranglar</div>
+                                <div class="col-6 text-end" id="userDraws">0</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-6">G'alaba %</div>
+                                <div class="col-6 text-end" id="userWinRate">0%</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-6">ELO Reyting</div>
+                                <div class="col-6 text-end" id="userElo">1000</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-6">Streak</div>
+                                <div class="col-6 text-end" id="userStreak">0</div>
+                            </div>
+                            <hr>
+                            <h6>Inventar</h6>
+                            <div class="row mb-2">
+                                <div class="col-6">Coins</div>
+                                <div class="col-6 text-end" id="userCoins">0</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-6">Gems</div>
+                                <div class="col-6 text-end" id="userGems">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Game Detail Modal -->
+    <div class="modal fade" id="gameDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">O'yin Tafsilotlari</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <div class="user-avatar mb-2 mx-auto" id="player1Avatar"></div>
+                                    <h5 id="player1Name">Player 1</h5>
+                                    <div class="d-flex justify-content-center mb-2">
+                                        <span class="badge bg-primary me-2" id="player1Elo">1000 ELO</span>
+                                        <span class="badge bg-success" id="player1Rank">Bronze</span>
+                                    </div>
+                                    <h2 class="text-primary" id="player1Score">0</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <div class="user-avatar mb-2 mx-auto" id="player2Avatar"></div>
+                                    <h5 id="player2Name">Player 2</h5>
+                                    <div class="d-flex justify-content-center mb-2">
+                                        <span class="badge bg-primary me-2" id="player2Elo">1000 ELO</span>
+                                        <span class="badge bg-success" id="player2Rank">Bronze</span>
+                                    </div>
+                                    <h2 class="text-primary" id="player2Score">0</h2>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Raund Natijalari</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Raund</th>
+                                            <th>Player 1 Tanlovi</th>
+                                            <th>Player 2 Tanlovi</th>
+                                            <th>Natija</th>
+                                            <th>Vaqt</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="roundResultsTable">
+                                        <!-- Round results will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>O'yin Ma'lumotlari</h6>
+                                    <div class="row">
+                                        <div class="col-6">O'yin ID</div>
+                                        <div class="col-6 text-end" id="gameIdDetail">-</div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6">Mode</div>
+                                        <div class="col-6 text-end" id="gameMode">.
+
+-</div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6">Status</div>
+                                        <div class="col-6 text-end"><span class="badge" id="gameStatusBadge">-</span></div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6">Davomiylik</div>
+                                        <div class="col-6 text-end" id="gameDuration">-</div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-6">Boshlangan</div>
+                                        <div class="col-6 text-end" id="gameStarted">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>Actions</h6>
+                                    <button class="btn btn-sm btn-outline-primary w-100 mb-2" id="spectateGameBtn">
+                                        <i class="bi bi-eye me-1"></i> Kuzatish (Simulyatsiya)
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning w-100 mb-2" id="forceEndGameBtn">
+                                        <i class="bi bi-stop-circle me-1"></i> O'yinni tugatish
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info w-100" id="rematchGameBtn">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Rematch boshlash
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Tournament Modal -->
+    <div class="modal fade" id="createTournamentModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Yangi Turnir Yaratish</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="tournamentForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Turnir Nomi *</label>
+                                    <input type="text" class="form-control" id="tournamentName" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Izoh</label>
+                                    <textarea class="form-control" id="tournamentDescription" rows="3"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Max Ishtirokchilar *</label>
+                                    <select class="form-select" id="maxPlayers" required>
+                                        <option value="8">8 o'yinchi</option>
+                                        <option value="16" selected>16 o'yinchi</option>
+                                        <option value="32">32 o'yinchi</option>
+                                        <option value="64">64 o'yinchi</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Entry Fee (coins)</label>
+                                    <input type="number" class="form-control" id="entryFee" value="0" min="0" max="10000">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Boshlang'ich Pul Fondi</label>
+                                    <input type="number" class="form-control" id="prizePool" value="1000" min="0">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Sovrin Tarqatish</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="prizeDistribution" id="dist50_30_20" value="50_30_20" checked>
+                                        <label class="form-check-label" for="dist50_30_20">
+                                            50% - 30% - 20% (1-2-3 o'rinlar)
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="prizeDistribution" id="dist60_30_10" value="60_30_10">
+                                        <label class="form-check-label" for="dist60_30_10">
+                                            60% - 30% - 10% (1-2-3 o'rinlar)
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="prizeDistribution" id="dist100_0_0" value="100_0_0">
+                                        <label class="form-check-label" for="dist100_0_0">
+                                            100% g'olibga
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">O'yin Mode</label>
+                                    <select class="form-select" id="tournamentGameMode">
+                                        <option value="ranked" selected>Ranked</option>
+                                        <option value="casual">Casual</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Raundlar per Match</label>
+                                    <select class="form-select" id="roundsPerMatch">
+                                        <option value="3" selected>3 raund</option>
+                                        <option value="5">5 raund</option>
+                                        <option value="7">7 raund</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Time Limit (sekund)</label>
+                                    <input type="number" class="form-control" id="timeLimit" value="60" min="30" max="300">
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="allowSpectators" checked>
+                                        <label class="form-check-label" for="allowSpectators">
+                                            Kuzatuvchilarga ruxsat berish
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="autoStart" checked>
+                                        <label class="form-check-label" for="autoStart">
+                                            Avtomatik boshlash (to'lganida)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Turnir yaratilgach, ishtirokchilar turnirni ko'rishlari va qo'shilishlari mumkin bo'ladi.
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="button" class="btn btn-gradient" id="createTournamentBtn">Turnir Yaratish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Ban User Modal -->
+    <div class="modal fade" id="banUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Foydalanuvchini Bloklash</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Foydalanuvchi ID</label>
+                        <input type="text" class="form-control" id="banUserId" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ism</label>
+                        <input type="text" class="form-control" id="banUserName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bloklash Sababi</label>
+                        <select class="form-select" id="banReason">
+                            <option value="cheating">Cheating</option>
+                            <option value="spam">Spam</option>
+                            <option value="abuse">So'kinish</option>
+                            <option value="other">Boshqa</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Izoh (ixtiyoriy)</label>
+                        <textarea class="form-control" id="banNotes" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bloklash Vaqti</label>
+                        <select class="form-select" id="banDuration">
+                            <option value="1h">1 soat</option>
+                            <option value="6h">6 soat</option>
+                            <option value="24h">1 kun</option>
+                            <option value="7d">1 hafta</option>
+                            <option value="30d">1 oy</option>
+                            <option value="permanent">Doimiy</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="button" class="btn btn-danger" id="confirmBanBtn">Bloklash</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:10000';
+        const ADMIN_TOKEN = 'admin-secret-key';
+        
+        // Global state
+        let currentSection = 'dashboard';
+        let realtimeEnabled = true;
+        let refreshInterval;
+        let activityChart, gamesChart;
+        let usersPage = 1;
+        let gamesPage = 1;
+        let tournamentsPage = 1;
+        let logsPage = 1;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            loadDashboard();
+            startRealtimeUpdates();
+            
+            // Initialize charts
+            initCharts();
+        });
+        
+        // Event Listeners
+        function setupEventListeners() {
+            // Navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const section = this.dataset.section;
+                    switchSection(section);
+                });
+            });
+            
+            // Real-time toggle
+            document.getElementById('realtimeToggle').addEventListener('change', function() {
+                realtimeEnabled = this.checked;
+                if (realtimeEnabled) {
+                    startRealtimeUpdates();
+                } else {
+                    stopRealtimeUpdates();
+                }
+            });
+            
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                refreshCurrentSection();
+            });
+            
+            // Period buttons for activity chart
+            document.querySelectorAll('[data-period]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('[data-period]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    loadActivityData(this.dataset.period);
+                });
+            });
+            
+            // User search
+            document.getElementById('userSearch').addEventListener('input', debounce(function() {
+                loadUsers();
+            }, 500));
+            
+            // Game search
+            document.getElementById('gameSearch').addEventListener('input', debounce(function() {
+                loadGameHistory();
+            }, 500));
+            
+            // Tournament search
+            document.getElementById('tournamentSearch').addEventListener('input', debounce(function() {
+                loadTournamentHistory();
+            }, 500));
+            
+            // Log search
+            document.getElementById('logSearch').addEventListener('input', debounce(function() {
+                loadLogs();
+            }, 500));
+            
+            // Broadcast target
+            document.querySelectorAll('input[name="broadcastTarget"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const specificInput = document.getElementById('specificTargetInput');
+                    specificInput.style.display = this.value === 'specific' ? 'block' : 'none';
+                });
+            });
+            
+            // Broadcast preview
+            document.getElementById('previewBroadcastBtn').addEventListener('click', function() {
+                previewBroadcast();
+            });
+            
+            // Send broadcast
+            document.getElementById('sendBroadcastBtn').addEventListener('click', function() {
+                sendBroadcast();
+            });
+            
+            // Create tournament
+            document.getElementById('createTournamentBtn').addEventListener('click', function() {
+                createTournament();
+            });
+            
+            // System controls
+            document.getElementById('restartServerBtn').addEventListener('click', function() {
+                if (confirm('Server qayta ishga tushiriladi. Davom ettirishni xohlaysizmi?')) {
+                    restartServer();
+                }
+            });
+            
+            document.getElementById('shutdownServerBtn').addEventListener('click', function() {
+                if (confirm('Server ochiriladi. Davom ettirishni xohlaysizmi?')) {
+                    shutdownServer();
+                }
+            });
+            
+            document.getElementById('clearCacheBtn').addEventListener('click', function() {
+                clearCache();
+            });
+            
+            // Export buttons
+            document.getElementById('exportUsersBtn').addEventListener('click', function() {
+                exportToCSV('users');
+            });
+            
+            document.getElementById('exportGamesBtn').addEventListener('click', function() {
+                exportToCSV('games');
+            });
+            
+            document.getElementById('exportTournamentsBtn').addEventListener('click', function() {
+                exportToCSV('tournaments');
+            });
+            
+            document.getElementById('exportLogsBtn').addEventListener('click', function() {
+                exportToCSV('logs');
+            });
+            
+            // Clear logs
+            document.getElementById('clearLogsBtn').addEventListener('click', function() {
+                if (confirm('Barcha loglarni tozalashni xohlaysizmi?')) {
+                    clearLogs();
+                }
+            });
+        }
+        
+        // Section switching
+        function switchSection(section) {
+            // Update navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+                if (link.dataset.section === section) {
+                    link.classList.add('active');
+                }
+            });
+            
+            // Hide all sections
+            document.querySelectorAll('.section-content').forEach(sec => {
+                sec.classList.add('d-none');
+            });
+            
+            // Show selected section
+            document.getElementById(section + 'Section').classList.remove('d-none');
+            
+            // Update page title
+            const titles = {
+                dashboard: 'Dashboard',
+                users: 'Foydalanuvchilar',
+                games: 'O\'yinlar',
+                tournaments: 'Turnirlar',
+                logs: 'Loglar',
+                system: 'System',
+                broadcast: 'Broadcast'
+            };
+            
+            const subtitles = {
+                dashboard: 'Server monitoring va boshqaruv paneli',
+                users: 'Barcha foydalanuvchilarni boshqarish',
+                games: 'O\'yinlarni kuzatish va boshqarish',
+                tournaments: 'Turnirlarni boshqarish',
+                logs: 'Server loglari va xatolar',
+                system: 'System ma\'lumotlari va sozlamalar',
+                broadcast: 'Barcha foydalanuvchilarga xabar yuborish'
+            };
+            
+            document.getElementById('pageTitle').textContent = titles[section];
+            document.getElementById('pageSubtitle').textContent = subtitles[section];
+            
+            // Load section data
+            currentSection = section;
+            refreshCurrentSection();
+        }
+        
+        // Refresh current section
+        function refreshCurrentSection() {
+            switch(currentSection) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'games':
+                    loadActiveGames();
+                    loadGameStats();
+                    loadGameHistory();
+                    break;
+                case 'tournaments':
+                    loadActiveTournaments();
+                    loadTournamentStats();
+                    loadTournamentHistory();
+                    break;
+                case 'logs':
+                    loadLogs();
+                    break;
+                case 'system':
+                    loadSystemInfo();
+                    loadSessions();
+                    break;
+                case 'broadcast':
+                    loadRecentBroadcasts();
+                    break;
+            }
+        }
+        
+        // Real-time updates
+        function startRealtimeUpdates() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            
+            refreshInterval = setInterval(() => {
+                if (realtimeEnabled) {
+                    updateRealTimeStats();
+                    
+                    // Update current section if it's dashboard
+                    if (currentSection === 'dashboard') {
+                        loadDashboardData();
+                    }
+                }
+            }, 5000); // Every 5 seconds
+        }
+        
+        function stopRealtimeUpdates() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+        
+        // API Helper
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const url = `${API_BASE_URL}${endpoint}`;
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-token': ADMIN_TOKEN
+                }
+            };
+            
+            if (body && (method === 'POST' || method === 'PUT')) {
+                options.body = JSON.stringify(body);
+            }
+            
+            try {
+                const response = await fetch(url, options);
+                
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API Call failed:', error);
+                showError('API ulanishida xatolik');
+                throw error;
+            }
+        }
+        
+        // Dashboard Functions
+        async function loadDashboard() {
+            loadDashboardData();
+            loadTopPlayers();
+            loadRecentLogs();
+        }
+        
+        async function loadDashboardData() {
+            try {
+                const [stats, system] = await Promise.all([
+                    apiCall('/api/stats'),
+                    apiCall('/admin/api/system')
+                ]);
+                
+                if (stats.success) {
+                    updateDashboardStats(stats.stats);
+                }
+                
+                if (system.success) {
+                    updateSystemInfo(system.system);
+                }
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+            }
+        }
+        
+        function updateDashboardStats(stats) {
+            document.getElementById('onlinePlayers').textContent = stats.onlineNow;
+            document.getElementById('activeGames').textContent = stats.activeGames;
+            document.getElementById('inQueue').textContent = stats.inQueue;
+            document.getElementById('activeTournaments').textContent = stats.activeTournaments;
+            document.getElementById('wsConnections').textContent = stats.onlineNow;
+            
+            // Update change indicators (simulated)
+            document.getElementById('onlineChange').textContent = Math.floor(Math.random() * 5);
+            document.getElementById('gamesChange').textContent = Math.floor(Math.random() * 3);
+        }
+        
+        function updateSystemInfo(system) {
+            // Uptime
+            const uptime = formatUptime(system.uptime);
+            document.getElementById('serverUptime').textContent = uptime;
+            document.getElementById('systemUptime').textContent = uptime;
+            
+            // Memory
+            const memoryUsed = system.memory.used;
+            const memoryTotal = system.memory.total;
+            const memoryPercent = system.memory.percent;
+            
+            document.getElementById('memoryUsage').textContent = memoryUsed;
+            document.getElementById('memoryBar').style.width = memoryPercent;
+            document.getElementById('memoryBar').textContent = memoryPercent;
+            
+            // Other info
+            document.getElementById('nodeVersion').textContent = system.nodeVersion;
+            document.getElementById('platform').textContent = system.platform;
+            document.getElementById('processId').textContent = system.pid;
+            document.getElementById('cpuUsage').textContent = `${(system.cpu.user / 1000000).toFixed(2)}%`;
+            document.getElementById('arch').textContent = system.arch || 'Unknown';
+            
+            // Database status
+            const dbStatus = document.getElementById('dbStatus');
+            const dbLatency = document.getElementById('dbLatency');
+            
+            // Simulate database status
+            dbStatus.textContent = 'Connected';
+            dbStatus.className = 'badge bg-success';
+            dbLatency.textContent = `${Math.floor(Math.random() * 50 + 10)}ms`;
+            
+            // Update memory bars
+            updateMemoryBars(system.memory);
+        }
+        
+        function updateMemoryBars(memoryInfo) {
+            // Parse memory values
+            const heapUsed = parseFloat(memoryInfo.used);
+            const heapTotal = parseFloat(memoryInfo.total);
+            const heapPercent = parseFloat(memoryInfo.percent);
+            
+            // Heap Used
+            document.getElementById('heapUsedBar').style.width = heapPercent + '%';
+            document.getElementById('heapUsedPercent').textContent = heapPercent + '%';
+            document.getElementById('heapUsedText').textContent = memoryInfo.used + ' / ' + memoryInfo.total;
+            
+            // Heap Total (simulated)
+            const heapTotalPercent = Math.min(100, (heapTotal / 512) * 100); // Assuming 512MB max
+            document.getElementById('heapTotalBar').style.width = heapTotalPercent + '%';
+            document.getElementById('heapTotalPercent').textContent = heapTotalPercent.toFixed(1) + '%';
+            document.getElementById('heapTotalText').textContent = memoryInfo.total;
+            
+            // External (simulated)
+            const external = heapUsed * 0.1;
+            const externalPercent = (external / heapTotal) * 100;
+            document.getElementById('externalBar').style.width = externalPercent.toFixed(1) + '%';
+            document.getElementById('externalPercent').textContent = externalPercent.toFixed(1) + '%';
+            document.getElementById('externalText').textContent = external.toFixed(2) + ' MB';
+        }
+        
+        async function loadTopPlayers() {
+            try {
+                const response = await apiCall('/api/leaderboard?limit=5');
+                
+                if (response.success) {
+                    const tbody = document.getElementById('topPlayersTable');
+                    tbody.innerHTML = '';
+                    
+                    response.leaderboard.forEach((player, index) => {
+                        const row = document.createElement('tr');
+                        
+                        const initials = player.name ? player.name.charAt(0).toUpperCase() : 'U';
+                        const avatarColor = getAvatarColor(player.id);
+                        
+                        row.innerHTML = `
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="user-avatar me-2" style="background: ${avatarColor}">${initials}</div>
+                                    <div>
+                                        <div class="fw-bold">${player.name || `User_${player.id}`}</div>
+                                        <small class="text-muted">@${player.username || 'no_username'}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">${player.stats.elo}</span>
+                            </td>
+                            <td>${player.stats.totalGames || 0}</td>
+                            <td>
+                                <span class="badge ${player.isOnline ? 'badge-online' : 'badge-offline'}">
+                                    ${player.isOnline ? 'Online' : 'Offline'}
+                                </span>
+                            </td>
+                        `;
+                        
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load top players:', error);
+            }
+        }
+        
+        async function loadRecentLogs() {
+            try {
+                const response = await apiCall('/admin/api/logs?limit=5');
+                
+                if (response.success) {
+                    const tbody = document.getElementById('recentLogsTable');
+                    tbody.innerHTML = '';
+                    
+                    response.logs.forEach(log => {
+                        const row = document.createElement('tr');
+                        const time = new Date(log.timestamp).toLocaleTimeString();
+                        const logClass = `log-${log.type}`;
+                        
+                        row.innerHTML = `
+                            <td><small>${time}</small></td>
+                            <td>
+                                <span class="badge ${getLogBadgeClass(log.type)}">
+                                    ${log.type.toUpperCase()}
+                                </span>
+                            </td>
+                            <td>
+                                <small>${log.message.substring(0, 50)}${log.message.length > 50 ? '...' : ''}</small>
+                            </td>
+                        `;
+                        
+                        row.className = logClass;
+                        tbody.appendChild(row);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load recent logs:', error);
+            }
+        }
+        
+        function getLogBadgeClass(type) {
+            switch(type) {
+                case 'error': return 'bg-danger';
+                case 'warning': return 'bg-warning text-dark';
+                case 'info': return 'bg-info text-dark';
+                case 'success': return 'bg-success';
+                case 'security': return 'bg-dark';
+                default: return 'bg-secondary';
+            }
+        }
+        
+        // Users Functions
+        async function loadUsers() {
+            try {
+                const search = document.getElementById('userSearch').value;
+                let endpoint = `/api/leaderboard?limit=20&page=${usersPage}`;
+                
+                if (search) {
+                    // In real implementation, you would need a search endpoint
+                    // For now, we'll just filter client-side
+                }
+                
+                const response = await apiCall(endpoint);
+                
+                if (response.success) {
+                    updateUsersTable(response.leaderboard);
+                    updateUsersPagination(response.pagination);
+                }
+            } catch (error) {
+                console.error('Failed to load users:', error);
+            }
+        }
+        
+        function updateUsersTable(users) {
+            const tbody = document.getElementById('allUsersTable');
+            tbody.innerHTML = '';
+            
+            users.forEach(user => {
+                const winRate = user.stats.totalGames > 0 
+                    ? ((user.stats.wins / user.stats.totalGames) * 100).toFixed(1)
+                    : 0;
+                
+                const row = document.createElement('tr');
+                const initials = user.name ? user.name.charAt(0).toUpperCase() : 'U';
+                const avatarColor = getAvatarColor(user.id);
+                
+                row.innerHTML = `
+                    <td>${user.id}</td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="user-avatar me-2" style="background: ${avatarColor}">${initials}</div>
+                            <div>
+                                <div class="fw-bold">${user.name || `User_${user.id}`}</div>
+                                <small class="text-muted">@${user.username || 'no_username'}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-primary">${user.stats.elo || 1000}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${user.level || 1}</span>
+                    </td>
+                    <td>
+                        <span class="badge ${user.isOnline ? 'badge-online' : 'badge-offline'}">
+                            ${user.isOnline ? 'Online' : 'Offline'}
+                        </span>
+                    </td>
+                    <td>${user.stats.totalGames || 0}</td>
+                    <td>${winRate}%</td>
+                    <td>
+                        <small>${user.isOnline ? 'Hozir' : '1 soat oldin'}</small>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewUserDetails(${user.id})">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning ms-1" onclick="messageUser(${user.id})">
+                            <i class="bi bi-chat"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        function updateUsersPagination(pagination) {
+            const info = document.getElementById('userPaginationInfo');
+            const paginationEl = document.getElementById('userPagination');
+            
+            const start = (pagination.page - 1) * pagination.limit + 1;
+            const end = Math.min(pagination.page * pagination.limit, pagination.total);
+            
+            info.textContent = `Ko'rsatilmoqda ${start} dan ${end} gacha, jami ${pagination.total}`;
+            
+            // Generate pagination buttons
+            paginationEl.innerHTML = '';
+            
+            // Previous button
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${pagination.page === 1 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<a class="page-link" href="#" onclick="changeUsersPage(${pagination.page - 1})">&laquo;</a>`;
+            paginationEl.appendChild(prevLi);
+            
+            // Page buttons
+            const maxVisible = 5;
+            let startPage = Math.max(1, pagination.page - Math.floor(maxVisible / 2));
+            let endPage = Math.min(pagination.totalPages, startPage + maxVisible - 1);
+            
+            if (endPage - startPage + 1 < maxVisible) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const pageLi = document.createElement('li');
+                pageLi.className = `page-item ${i === pagination.page ? 'active' : ''}`;
+                pageLi.innerHTML = `<a class="page-link" href="#" onclick="changeUsersPage(${i})">${i}</a>`;
+                paginationEl.appendChild(pageLi);
+            }
+            
+            // Next button
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${pagination.page === pagination.totalPages ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<a class="page-link" href="#" onclick="changeUsersPage(${pagination.page + 1})">&raquo;</a>`;
+            paginationEl.appendChild(nextLi);
+        }
+        
+        function changeUsersPage(page) {
+            usersPage = page;
+            loadUsers();
+        }
+        
+        // Games Functions
+        async function loadActiveGames() {
+            try {
+                const response = await apiCall('/admin/api/games');
+                
+                if (response.success) {
+                    updateActiveGamesTable(response.games);
+                }
+            } catch (error) {
+                console.error('Failed to load active games:', error);
+            }
+        }
+        
+        function updateActiveGamesTable(games) {
+            const tbody = document.getElementById('activeGamesTable');
+            tbody.innerHTML = '';
+            
+            games.forEach(game => {
+                const row = document.createElement('tr');
+                const started = new Date(game.createdAt).toLocaleTimeString();
+                
+                row.innerHTML = `
+                    <td><small>${game.gameId.substring(0, 8)}...</small></td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="user-avatar me-1" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                ${game.player1.firstName ? game.player1.firstName.charAt(0).toUpperCase() : 'P1'}
+                            </div>
+                            <span class="me-1">${game.player1.firstName || `User_${game.player1.id}`}</span>
+                            <small class="text-muted">vs</small>
+                            <div class="user-avatar ms-1 me-1" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                ${game.player2.firstName ? game.player2.firstName.charAt(0).toUpperCase() : 'P2'}
+                            </div>
+                            <span>${game.player2.firstName || `User_${game.player2.id}`}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${game.currentRound}/${game.rounds || 3}</span>
+                    </td>
+                    <td>
+                        <span class="fw-bold">${game.scores?.player1 || 0} - ${game.scores?.player2 || 0}</span>
+                    </td>
+                    <td>${game.spectators || 0}</td>
+                    <td><small>${started}</small></td>
+                `;
+                
+                row.addEventListener('click', () => viewGameDetails(game.gameId));
+                row.style.cursor = 'pointer';
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        async function loadGameStats() {
+            try {
+                // Simulate game stats
+                const period = document.getElementById('gameStatsPeriod').value;
+                
+                // These would come from API in real implementation
+                const stats = {
+                    totalGames: Math.floor(Math.random() * 100) + 50,
+                    avgGameTime: Math.floor(Math.random() * 120) + 60,
+                    drawPercentage: Math.floor(Math.random() * 20) + 5
+                };
+                
+                document.getElementById('totalGamesToday').textContent = stats.totalGames;
+                document.getElementById('avgGameTime').textContent = `${stats.avgGameTime}s`;
+                document.getElementById('drawPercentage').textContent = `${stats.drawPercentage}%`;
+                
+            } catch (error) {
+                console.error('Failed to load game stats:', error);
+            }
+        }
+        
+        async function loadGameHistory() {
+            try {
+                const search = document.getElementById('gameSearch').value;
+                let endpoint = `/api/games?page=${gamesPage}&limit=20`;
+                
+                if (search) {
+                    if (!isNaN(search)) {
+                        endpoint += `&userId=${search}`;
+                    }
+                }
+                
+                const response = await apiCall(endpoint);
+                
+                if (response.success) {
+                    updateGameHistoryTable(response.games);
+                    updateGamePagination(response.pagination);
+                }
+            } catch (error) {
+                console.error('Failed to load game history:', error);
+            }
+        }
+        
+        function updateGameHistoryTable(games) {
+            const tbody = document.getElementById('gameHistoryTable');
+            tbody.innerHTML = '';
+            
+            games.forEach(game => {
+                const row = document.createElement('tr');
+                const time = new Date(game.finishedAt || game.createdAt).toLocaleTimeString();
+                
+                // Determine result
+                let resultText = 'Draw';
+                let resultClass = 'text-warning';
+                
+                if (game.result === 'player1_win') {
+                    resultText = `${game.player1.firstName || 'Player 1'} won`;
+                    resultClass = 'text-success';
+                } else if (game.result === 'player2_win') {
+                    resultText = `${game.player2.firstName || 'Player 2'} won`;
+                    resultClass = 'text-success';
+                } else if (game.result === 'timeout') {
+                    resultText = 'Timeout';
+                    resultClass = 'text-danger';
+                } else if (game.result === 'abandoned') {
+                    resultText = 'Abandoned';
+                    resultClass = 'text-danger';
+                }
+                
+                row.innerHTML = `
+                    <td><small>${game.gameId.substring(0, 8)}...</small></td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="user-avatar me-1" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                ${game.player1.firstName ? game.player1.firstName.charAt(0).toUpperCase() : 'P1'}
+                            </div>
+                            <small>vs</small>
+                            <div class="user-avatar ms-1 me-1" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                ${game.player2.firstName ? game.player2.firstName.charAt(0).toUpperCase() : 'P2'}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="${resultClass}">${resultText}</td>
+                    <td>${game.player1.score || 0} - ${game.player2.score || 0}</td>
+                    <td>
+                        ${game.eloChanges ? 
+                            `<span class="badge ${game.eloChanges.player1 > 0 ? 'bg-success' : 'bg-danger'}">${game.eloChanges.player1 > 0 ? '+' : ''}${game.eloChanges.player1}</span>
+                             <span class="badge ${game.eloChanges.player2 > 0 ? 'bg-success' : 'bg-danger'}">${game.eloChanges.player2 > 0 ? '+' : ''}${game.eloChanges.player2}</span>` 
+                            : '-'}
+                    </td>
+                    <td>${game.duration ? Math.floor(game.duration / 1000) + 's' : '-'}</td>
+                    <td><small>${time}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewGameDetails('${game.gameId}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        function updateGamePagination(pagination) {
+            const info = document.getElementById('gamePaginationInfo');
+            const paginationEl = document.getElementById('gamePagination');
+            
+            const start = (pagination.page - 1) * pagination.limit + 1;
+            const end = Math.min(pagination.page * pagination.limit, pagination.total);
+            
+            info.textContent = `Ko'rsatilmoqda ${start} dan ${end} gacha, jami ${pagination.total}`;
+            
+            // Generate pagination buttons (similar to users pagination)
+            // Implementation would be similar to updateUsersPagination
+        }
+        
+        function changeGamesPage(page) {
+            gamesPage = page;
+            loadGameHistory();
+        }
+        
+        // Tournaments Functions
+        async function loadActiveTournaments() {
+            try {
+                const response = await apiCall('/api/tournaments?status=in_progress,open,full&limit=10');
+                
+                if (response.success) {
+                    updateActiveTournamentsTable(response.tournaments);
+                }
+            } catch (error) {
+                console.error('Failed to load active tournaments:', error);
+            }
+        }
+        
+        function updateActiveTournamentsTable(tournaments) {
+            const tbody = document.getElementById('activeTournamentsTable');
+            tbody.innerHTML = '';
+            
+            tournaments.forEach(tournament => {
+                const row = document.createElement('tr');
+                const startTime = tournament.startedAt 
+                    ? new Date(tournament.startedAt).toLocaleString()
+                    : 'Kutmoqda...';
+                
+                // Status badge
+                let statusBadge = 'bg-secondary';
+                switch(tournament.status) {
+                    case 'open': statusBadge = 'bg-success'; break;
+                    case 'full': statusBadge = 'bg-warning'; break;
+                    case 'in_progress': statusBadge = 'bg-primary'; break;
+                    case 'finished': statusBadge = 'bg-info'; break;
+                    case 'cancelled': statusBadge = 'bg-danger'; break;
+                }
+                
+                row.innerHTML = `
+                    <td><small>${tournament.tournamentId.substring(0, 8)}...</small></td>
+                    <td>${tournament.name}</td>
+                    <td>${tournament.currentPlayers}/${tournament.maxPlayers}</td>
+                    <td><small>${startTime}</small></td>
+                    <td>${tournament.prizePool || 0} coins</td>
+                    <td><span class="badge ${statusBadge}">${tournament.status}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewTournamentDetails('${tournament.tournamentId}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning ms-1" onclick="manageTournament('${tournament.tournamentId}')">
+                            <i class="bi bi-gear"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        async function loadTournamentStats() {
+            try {
+                // Simulate tournament stats
+                const today = Math.floor(Math.random() * 5) + 1;
+                const total = Math.floor(Math.random() * 1000) + 500;
+                const avg = Math.floor(Math.random() * 12) + 8;
+                const biggest = `T${Math.floor(Math.random() * 1000)} (${Math.floor(Math.random() * 500) + 100} coins)`;
+                
+                document.getElementById('todayTournaments').textContent = today;
+                document.getElementById('totalPrizePool').textContent = total + ' coins';
+                document.getElementById('avgParticipants').textContent = avg;
+                document.getElementById('biggestTournament').textContent = biggest;
+                
+            } catch (error) {
+                console.error('Failed to load tournament stats:', error);
+            }
+        }
+        
+        async function loadTournamentHistory() {
+            try {
+                const search = document.getElementById('tournamentSearch').value;
+                const status = document.getElementById('tournamentStatusFilter').value;
+                let endpoint = `/api/tournaments?page=${tournamentsPage}&limit=20`;
+                
+                if (status) {
+                    endpoint += `&status=${status}`;
+                }
+                
+                const response = await apiCall(endpoint);
+                
+                if (response.success) {
+                    updateTournamentHistoryTable(response.tournaments);
+                    updateTournamentPagination(response.pagination);
+                }
+            } catch (error) {
+                console.error('Failed to load tournament history:', error);
+            }
+        }
+        
+        function updateTournamentHistoryTable(tournaments) {
+            const tbody = document.getElementById('tournamentHistoryTable');
+            tbody.innerHTML = '';
+            
+            tournaments.forEach(tournament => {
+                const row = document.createElement('tr');
+                
+                // Status badge
+                let statusBadge = 'bg-secondary';
+                switch(tournament.status) {
+                    case 'open': statusBadge = 'bg-success'; break;
+                    case 'full': statusBadge = 'bg-warning'; break;
+                    case 'in_progress': statusBadge = 'bg-primary'; break;
+                    case 'finished': statusBadge = 'bg-info'; break;
+                    case 'cancelled': statusBadge = 'bg-danger'; break;
+                }
+                
+                row.innerHTML = `
+                    <td><small>${tournament.tournamentId.substring(0, 8)}...</small></td>
+                    <td>${tournament.name}</td>
+                    <td>${tournament.creatorId || 'System'}</td>
+                    <td>${tournament.currentPlayers}/${tournament.maxPlayers}</td>
+                    <td>${tournament.prizePool || 0} coins</td>
+                    <td><span class="badge ${statusBadge}">${tournament.status}</span></td>
+                    <td><small>${new Date(tournament.createdAt).toLocaleDateString()}</small></td>
+                    <td><small>${tournament.finishedAt ? new Date(tournament.finishedAt).toLocaleDateString() : '-'}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewTournamentDetails('${tournament.tournamentId}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        function updateTournamentPagination(pagination) {
+            const info = document.getElementById('tournamentPaginationInfo');
+            const paginationEl = document.getElementById('tournamentPagination');
+            
+            const start = (pagination.page - 1) * pagination.limit + 1;
+            const end = Math.min(pagination.page * pagination.limit, pagination.total);
+            
+            info.textContent = `Ko'rsatilmoqda ${start} dan ${end} gacha, jami ${pagination.total}`;
+        }
+        
+        function changeTournamentsPage(page) {
+            tournamentsPage = page;
+            loadTournamentHistory();
+        }
+        
+        // Logs Functions
+        async function loadLogs() {
+            try {
+                const type = document.getElementById('logTypeFilter').value;
+                const search = document.getElementById('logSearch').value;
+                let endpoint = `/admin/api/logs?page=${logsPage}&limit=20`;
+                
+                if (type) {
+                    endpoint += `&type=${type}`;
+                }
+                
+                const response = await apiCall(endpoint);
+                
+                if (response.success) {
+                    updateLogsTable(response.logs);
+                    updateLogsPagination(response.pagination || { total: response.logs.length, page: 1, limit: 20 });
+                }
+            } catch (error) {
+                console.error('Failed to load logs:', error);
+            }
+        }
+        
+        function updateLogsTable(logs) {
+            const tbody = document.getElementById('logsTable');
+            tbody.innerHTML = '';
+            
+            logs.forEach(log => {
+                const row = document.createElement('tr');
+                const time = new Date(log.timestamp).toLocaleString();
+                const logClass = `log-${log.type}`;
+                
+                row.innerHTML = `
+                    <td><small>${time}</small></td>
+                    <td>
+                        <span class="badge ${getLogBadgeClass(log.type)}">
+                            ${log.type.toUpperCase()}
+                        </span>
+                    </td>
+                    <td>
+                        <div>${log.message}</div>
+                        <small class="text-muted">${log.data ? JSON.stringify(log.data).substring(0, 100) : ''}</small>
+                    </td>
+                    <td><small>${log.data?.ip || '-'}</small></td>
+                    <td><small>${log.pid || '-'}</small></td>
+                `;
+                
+                row.className = logClass;
+                tbody.appendChild(row);
+            });
+        }
+        
+        function updateLogsPagination(pagination) {
+            const info = document.getElementById('logPaginationInfo');
+            const paginationEl = document.getElementById('logPagination');
+            
+            const start = (pagination.page - 1) * pagination.limit + 1;
+            const end = Math.min(pagination.page * pagination.limit, pagination.total);
+            
+            info.textContent = `Ko'rsatilmoqda ${start} dan ${end} gacha, jami ${pagination.total}`;
+        }
+        
+        function changeLogsPage(page) {
+            logsPage = page;
+            loadLogs();
+        }
+        
+        // System Functions
+        async function loadSystemInfo() {
+            try {
+                const response = await apiCall('/admin/api/system');
+                
+                if (response.success) {
+                    updateSystemInfo(response.system);
+                }
+            } catch (error) {
+                console.error('Failed to load system info:', error);
+            }
+        }
+        
+        async function loadSessions() {
+            try {
+                const response = await apiCall('/admin/api/sessions');
+                
+                if (response.success) {
+                    updateSessionsTable(response.sessions);
+                }
+            } catch (error) {
+                console.error('Failed to load sessions:', error);
+            }
+        }
+        
+        function updateSessionsTable(sessions) {
+            const tbody = document.getElementById('sessionsTable');
+            tbody.innerHTML = '';
+            
+            sessions.forEach(session => {
+                const row = document.createElement('tr');
+                const connectedTime = formatDuration(session.connectedFor);
+                
+                // Status badge
+                let statusBadge = 'badge-online';
+                switch(session.status) {
+                    case 'online': statusBadge = 'badge-online'; break;
+                    case 'offline': statusBadge = 'badge-offline'; break;
+                    case 'queued': statusBadge = 'badge-queued'; break;
+                    case 'in_game': statusBadge = 'badge-in-game'; break;
+                }
+                
+                row.innerHTML = `
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="user-avatar me-2" style="background: ${getAvatarColor(session.userId)}">
+                                ${session.firstName ? session.firstName.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                            <div>
+                                <div class="fw-bold">${session.firstName || `User_${session.userId}`}</div>
+                                <small class="text-muted">ID: ${session.userId}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge ${statusBadge}">${session.status}</span>
+                    </td>
+                    <td><small>${session.ip || '-'}</small></td>
+                    <td><small>${connectedTime}</small></td>
+                    <td><small>${new Date(session.lastHeartbeat).toLocaleTimeString()}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="disconnectSession(${session.userId})">
+                            <i class="bi bi-plug"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Broadcast Functions
+        function previewBroadcast() {
+            const title = document.getElementById('broadcastTitle').value || 'Server Yangilanishi';
+            const message = document.getElementById('broadcastMessage').value || 'Xabar matni bu yerda ko\'rinadi...';
+            
+            document.getElementById('previewTitle').textContent = title;
+            document.getElementById('previewMessage').innerHTML = message.replace(/\n/g, '<br>');
+        }
+        
+        async function sendBroadcast() {
+            const type = document.getElementById('broadcastType').value;
+            const target = document.querySelector('input[name="broadcastTarget"]:checked').value;
+            const title = document.getElementById('broadcastTitle').value;
+            const message = document.getElementById('broadcastMessage').value;
+            const url = document.getElementById('broadcastUrl').value;
+            const displayTime = document.getElementById('displayTime').value;
+            
+            if (!title.trim() || !message.trim()) {
+                showError('Sarlavha va xabar matni talab qilinadi');
+                return;
+            }
+            
+            let specificIds = [];
+            if (target === 'specific') {
+                const idsInput = document.getElementById('specificUserIds').value;
+                if (!idsInput.trim()) {
+                    showError('Foydalanuvchi ID larini kiriting');
+                    return;
+                }
+                specificIds = idsInput.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            }
+            
+            try {
+                const response = await apiCall('/admin/api/broadcast', 'POST', {
+                    type,
+                    target,
+                    message: {
+                        title,
+                        message,
+                        url,
+                        displayTime: parseInt(displayTime)
+                    },
+                    specificIds: target === 'specific' ? specificIds : undefined
+                });
+                
+                if (response.success) {
+                    showSuccess(`Xabar ${response.sentTo} foydalanuvchiga yuborildi`);
+                    loadRecentBroadcasts();
+                    
+                    // Clear form
+                    document.getElementById('broadcastMessage').value = '';
+                }
+            } catch (error) {
+                console.error('Failed to send broadcast:', error);
+                showError('Xabar yuborishda xatolik');
+            }
+        }
+        
+        async function loadRecentBroadcasts() {
+            // Simulate loading recent broadcasts
+            const container = document.getElementById('recentBroadcasts');
+            container.innerHTML = `
+                <div class="list-group-item">
+                    <small class="text-muted">Server yangilanishi - 5 daqiqa oldin</small>
+                    <p class="mb-1">Server yangi versiyaga o'tkazildi.</p>
+                </div>
+                <div class="list-group-item">
+                    <small class="text-muted">Turnir e'lon - 1 soat oldin</small>
+                    <p class="mb-1">Yangi turnir ochildi. Qatnashing!</p>
+                </div>
+            `;
+        }
+        
+        // User Functions
+        async function viewUserDetails(userId) {
+            try {
+                const response = await apiCall(`/api/users/${userId}`);
+                
+                if (response.success) {
+                    const user = response.user;
+                    
+                    // Update modal
+                    const avatar = document.getElementById('userAvatar');
+                    avatar.textContent = user.firstName ? user.firstName.charAt(0).toUpperCase() : 'U';
+                    avatar.parentElement.style.background = getAvatarColor(userId);
+                    
+                    document.getElementById('userName').textContent = user.firstName || `User_${userId}`;
+                    document.getElementById('userRank').textContent = user.rank;
+                    document.getElementById('userId').textContent = userId;
+                    
+                    // Status
+                    const statusBadge = document.getElementById('userStatusBadge');
+                    statusBadge.textContent = user.isOnline ? 'Online' : 'Offline';
+                    statusBadge.className = `badge ${user.isOnline ? 'bg-success' : 'bg-secondary'}`;
+                    
+                    // Stats
+                    document.getElementById('userLevel').textContent = user.level;
+                    document.getElementById('userXP').textContent = user.xp;
+                    document.getElementById('userTotalGames').textContent = user.gameStats.totalGames;
+                    document.getElementById('userWins').textContent = user.gameStats.wins;
+                    document.getElementById('userLosses').textContent = user.gameStats.losses;
+                    document.getElementById('userDraws').textContent = user.gameStats.draws;
+                    document.getElementById('userWinRate').textContent = user.gameStats.totalGames > 0 
+                        ? ((user.gameStats.wins / user.gameStats.totalGames) * 100).toFixed(1) + '%'
+                        : '0%';
+                    document.getElementById('userElo').textContent = user.gameStats.elo;
+                    document.getElementById('userStreak').textContent = user.gameStats.streak;
+                    
+                    // Inventory
+                    document.getElementById('userCoins').textContent = user.inventory.coins;
+                    document.getElementById('userGems').textContent = user.inventory.gems;
+                    
+                    // Setup buttons
+                    document.getElementById('viewGamesBtn').onclick = () => {
+                        switchSection('games');
+                        document.getElementById('gameSearch').value = userId;
+                        loadGameHistory();
+                        bootstrap.Modal.getInstance(document.getElementById('userDetailModal')).hide();
+                    };
+                    
+                    document.getElementById('banUserBtn').onclick = () => {
+                        document.getElementById('banUserId').value = userId;
+                        document.getElementById('banUserName').value = user.firstName || `User_${userId}`;
+                        
+                        const banModal = new bootstrap.Modal(document.getElementById('banUserModal'));
+                        banModal.show();
+                    };
+                    
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('userDetailModal'));
+                    modal.show();
+                }
+            } catch (error) {
+                console.error('Failed to load user details:', error);
+                showError('Foydalanuvchi ma\'lumotlarini olishda xatolik');
+            }
+        }
+        
+        function messageUser(userId) {
+            switchSection('broadcast');
+            document.getElementById('targetSpecific').checked = true;
+            document.getElementById('specificTargetInput').style.display = 'block';
+            document.getElementById('specificUserIds').value = userId;
+            document.getElementById('broadcastTitle').value = `Xabar: User_${userId}`;
+        }
+        
+        async function confirmBan() {
+            const userId = document.getElementById('banUserId').value;
+            const reason = document.getElementById('banReason').value;
+            const notes = document.getElementById('banNotes').value;
+            const duration = document.getElementById('banDuration').value;
+            
+            try {
+                // In real implementation, you would call a ban API
+                // For now, just show success message
+                showSuccess(`Foydalanuvchi ${userId} bloklandi`);
+                
+                const banModal = bootstrap.Modal.getInstance(document.getElementById('banUserModal'));
+                banModal.hide();
+                
+                const userModal = bootstrap.Modal.getInstance(document.getElementById('userDetailModal'));
+                userModal.hide();
+                
+            } catch (error) {
+                console.error('Failed to ban user:', error);
+                showError('Bloklashda xatolik');
+            }
+        }
+        
+        // Game Functions
+        async function viewGameDetails(gameId) {
+            try {
+                // In real implementation, you would have a game details API
+                // For now, simulate with mock data
+                const mockGame = {
+                    gameId,
+                    player1: {
+                        id: 12345,
+                        firstName: 'John',
+                        username: 'john123',
+                        elo: 1450,
+                        score: 2
+                    },
+                    player2: {
+                        id: 67890,
+                        firstName: 'Alice',
+                        username: 'alice456',
+                        elo: 1380,
+                        score: 1
+                    },
+                    status: 'finished',
+                    mode: 'ranked',
+                    rounds: 3,
+                    roundResults: [
+                        {
+                            round: 1,
+                            player1Choice: 'rock',
+                            player2Choice: 'scissors',
+                            result: 'player1_win',
+                            timestamp: new Date(Date.now() - 300000)
+                        },
+                        {
+                            round: 2,
+                            player1Choice: 'paper',
+                            player2Choice: 'rock',
+                            result: 'player1_win',
+                            timestamp: new Date(Date.now() - 280000)
+                        },
+                        {
+                            round: 3,
+                            player1Choice: 'scissors',
+                            player2Choice: 'paper',
+                            result: 'player2_win',
+                            timestamp: new Date(Date.now() - 260000)
+                        }
+                    ],
+                    duration: 45000,
+                    startedAt: new Date(Date.now() - 300000)
+                };
+                
+                // Update modal
+                document.getElementById('gameIdDetail').textContent = gameId;
+                document.getElementById('gameMode').textContent = mockGame.mode;
+                
+                // Status
+                const statusBadge = document.getElementById('gameStatusBadge');
+                statusBadge.textContent = mockGame.status;
+                statusBadge.className = `badge ${mockGame.status === 'playing' ? 'bg-success' : mockGame.status === 'finished' ? 'bg-info' : 'bg-warning'}`;
+                
+                // Player 1
+                const p1Avatar = document.getElementById('player1Avatar');
+                p1Avatar.textContent = mockGame.player1.firstName.charAt(0).toUpperCase();
+                p1Avatar.style.background = getAvatarColor(mockGame.player1.id);
+                
+                document.getElementById('player1Name').textContent = mockGame.player1.firstName;
+                document.getElementById('player1Elo').textContent = mockGame.player1.elo + ' ELO';
+                document.getElementById('player1Score').textContent = mockGame.player1.score;
+                document.getElementById('player1Rank').textContent = getRankFromELO(mockGame.player1.elo);
+                
+                // Player 2
+                const p2Avatar = document.getElementById('player2Avatar');
+                p2Avatar.textContent = mockGame.player2.firstName.charAt(0).toUpperCase();
+                p2Avatar.style.background = getAvatarColor(mockGame.player2.id);
+                
+                document.getElementById('player2Name').textContent = mockGame.player2.firstName;
+                document.getElementById('player2Elo').textContent = mockGame.player2.elo + ' ELO';
+                document.getElementById('player2Score').textContent = mockGame.player2.score;
+                document.getElementById('player2Rank').textContent = getRankFromELO(mockGame.player2.elo);
+                
+                // Round results
+                const resultsTbody = document.getElementById('roundResultsTable');
+                resultsTbody.innerHTML = '';
+                
+                mockGame.roundResults.forEach(result => {
+                    const row = document.createElement('tr');
+                    const time = new Date(result.timestamp).toLocaleTimeString();
+                    
+                    row.innerHTML = `
+                        <td>${result.round}</td>
+                        <td>
+                            <span class="badge bg-secondary">${result.player1Choice}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">${result.player2Choice}</span>
+                        </td>
+                        <td>
+                            <span class="badge ${result.result === 'player1_win' ? 'bg-success' : result.result === 'player2_win' ? 'bg-danger' : 'bg-warning'}">
+                                ${result.result === 'player1_win' ? 'Player 1 wins' : result.result === 'player2_win' ? 'Player 2 wins' : 'Draw'}
+                            </span>
+                        </td>
+                        <td><small>${time}</small></td>
+                    `;
+                    
+                    resultsTbody.appendChild(row);
+                });
+                
+                // Game info
+                document.getElementById('gameDuration').textContent = Math.floor(mockGame.duration / 1000) + ' seconds';
+                document.getElementById('gameStarted').textContent = new Date(mockGame.startedAt).toLocaleString();
+                
+                // Setup action buttons
+                document.getElementById('spectateGameBtn').onclick = () => {
+                    showInfo('Kuzatish rejimi faollashtirildi (simulyatsiya)');
+                };
+                
+                document.getElementById('forceEndGameBtn').onclick = async () => {
+                    if (confirm('O\'yni majburiy tugatishni xohlaysizmi?')) {
+                        try {
+                            // Call force end API
+                            await apiCall(`/admin/api/games/${gameId}/end`, 'POST');
+                            showSuccess('O\'yni tugatildi');
+                            bootstrap.Modal.getInstance(document.getElementById('gameDetailModal')).hide();
+                            loadActiveGames();
+                        } catch (error) {
+                            showError('O\'yni tugatishda xatolik');
+                        }
+                    }
+                };
+                
+                document.getElementById('rematchGameBtn').onclick = () => {
+                    showInfo('Rematch boshlash (simulyatsiya)');
+                };
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('gameDetailModal'));
+                modal.show();
+                
+            } catch (error) {
+                console.error('Failed to load game details:', error);
+                showError('O\'yni ma\'lumotlarini olishda xatolik');
+            }
+        }
+        
+        // Tournament Functions
+        async function createTournament() {
+            const form = document.getElementById('tournamentForm');
+            
+            if (!form.checkValidity()) {
+                form.classList.add('was-validated');
+                return;
+            }
+            
+            const tournamentData = {
+                name: document.getElementById('tournamentName').value,
+                description: document.getElementById('tournamentDescription').value,
+                maxPlayers: parseInt(document.getElementById('maxPlayers').value),
+                entryFee: parseInt(document.getElementById('entryFee').value),
+                prizePool: parseInt(document.getElementById('prizePool').value),
+                settings: {
+                    gameMode: document.getElementById('tournamentGameMode').value,
+                    roundsPerMatch: parseInt(document.getElementById('roundsPerMatch').value),
+                    timeLimit: parseInt(document.getElementById('timeLimit').value),
+                    allowSpectators: document.getElementById('allowSpectators').checked
+                }
+            };
+            
+            try {
+                // In real implementation, call tournament creation API
+                // For now, simulate success
+                showSuccess(`Turnir "${tournamentData.name}" yaratildi!`);
+                
+                const modal = bootstrap.Modal.getInstance(document.getElementById('createTournamentModal'));
+                modal.hide();
+                
+                // Reset form
+                form.reset();
+                form.classList.remove('was-validated');
+                
+                // Refresh tournaments
+                loadActiveTournaments();
+                
+            } catch (error) {
+                console.error('Failed to create tournament:', error);
+                showError('Turnir yaratishda xatolik');
+            }
+        }
+        
+        function viewTournamentDetails(tournamentId) {
+            showInfo(`Turnir ${tournamentId} tafsilotlari (hali amalga oshirilmagan)`);
+        }
+        
+        function manageTournament(tournamentId) {
+            showInfo(`Turnir ${tournamentId} boshqaruvi (hali amalga oshirilmagan)`);
+        }
+        
+        // System Control Functions
+        async function restartServer() {
+            try {
+                // In real implementation, call restart API
+                // For now, simulate
+                showWarning('Server qayta ishga tushirilmoqda...', 5000);
+                
+                // Simulate restart delay
+                setTimeout(() => {
+                    showSuccess('Server qayta ishga tushirildi');
+                    loadDashboard();
+                }, 3000);
+                
+            } catch (error) {
+                console.error('Failed to restart server:', error);
+                showError('Server qayta ishga tushirishda xatolik');
+            }
+        }
+        
+        async function shutdownServer() {
+            try {
+                // In real implementation, call shutdown API
+                showWarning('Server ochirilmoqda...', 5000);
+                
+            } catch (error) {
+                console.error('Failed to shutdown server:', error);
+                showError('Server ochirishda xatolik');
+            }
+        }
+        
+        async function clearCache() {
+            try {
+                // In real implementation, call cache clear API
+                showSuccess('Cache tozalandi');
+                
+                // Refresh stats
+                refreshCurrentSection();
+                
+            } catch (error) {
+                console.error('Failed to clear cache:', error);
+                showError('Cache tozalashda xatolik');
+            }
+        }
+        
+        async function clearLogs() {
+            try {
+                // In real implementation, call logs clear API
+                showSuccess('Loglar tozalandi');
+                
+                // Refresh logs
+                if (currentSection === 'logs') {
+                    loadLogs();
+                }
+                
+            } catch (error) {
+                console.error('Failed to clear logs:', error);
+                showError('Loglarni tozalashda xatolik');
+            }
+        }
+        
+        async function disconnectSession(userId) {
+            if (confirm(`Foydalanuvchi ${userId} ulanishini uzishni xohlaysizmi?`)) {
+                try {
+                    // In real implementation, call disconnect API
+                    showSuccess(`Foydalanuvchi ${userId} ulanishi uzildi`);
+                    
+                    // Refresh sessions
+                    loadSessions();
+                    
+                } catch (error) {
+                    console.error('Failed to disconnect session:', error);
+                    showError('Ulanishni uzishda xatolik');
+                }
+            }
+        }
+        
+        // Utility Functions
+        function getAvatarColor(userId) {
+            const colors = [
+                '#4361ee', '#4cc9f0', '#f72585', '#7209b7',
+                '#3a0ca3', '#3a86ff', '#ff006e', '#fb5607',
+                '#8338ec', '#ff006e', '#ffbe0b', '#38b000'
+            ];
+            
+            const index = userId % colors.length;
+            return colors[index];
+        }
+        
+        function getRankFromELO(elo) {
+            if (elo >= 2000) return 'Grandmaster';
+            if (elo >= 1800) return 'Master';
+            if (elo >= 1600) return 'Diamond';
+            if (elo >= 1400) return 'Platinum';
+            if (elo >= 1200) return 'Gold';
+            if (elo >= 1000) return 'Silver';
+            return 'Bronze';
+        }
+        
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (days > 0) return `${days}d ${hours}h`;
+            if (hours > 0) return `${hours}h ${minutes}m`;
+            return `${minutes}m ${secs}s`;
+        }
+        
+        function formatDuration(milliseconds) {
+            const seconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) return `${hours} soat`;
+            if (minutes > 0) return `${minutes} daqiqa`;
+            return `${seconds} soniya`;
+        }
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        function exportToCSV(type) {
+            showInfo(`${type} ma'lumotlari eksport qilinmoqda...`);
+            // In real implementation, implement CSV export
+        }
+        
+        // Notification Functions
+        function showSuccess(message, duration = 3000) {
+            showNotification(message, 'success', duration);
+        }
+        
+        function showError(message, duration = 5000) {
+            showNotification(message, 'danger', duration);
+        }
+        
+        function showWarning(message, duration = 4000) {
+            showNotification(message, 'warning', duration);
+        }
+        
+        function showInfo(message, duration = 3000) {
+            showNotification(message, 'info', duration);
+        }
+        
+        function showNotification(message, type, duration) {
+            // Remove existing notifications
+            const existing = document.querySelector('.toast-container');
+            if (existing) existing.remove();
+            
+            // Create toast container
+            const container = document.createElement('div');
+            container.className = 'toast-container position-fixed top-0 end-0 p-3';
+            
+            // Create toast
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            document.body.appendChild(container);
+            
+            // Show toast
+            const bsToast = new bootstrap.Toast(toast, { delay: duration });
+            bsToast.show();
+            
+            // Remove container after toast hides
+            toast.addEventListener('hidden.bs.toast', () => {
+                container.remove();
+            });
+        }
+        
+        // Chart Functions
+        function initCharts() {
+            // Activity Chart
+            const activityCtx = document.getElementById('activityChart').getContext('2d');
+            activityChart = new Chart(activityCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                    datasets: [{
+                        label: 'Online Players',
+                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 100) + 50),
+                        borderColor: '#4361ee',
+                        backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Games Chart
+            const gamesCtx = document.getElementById('gamesChart').getContext('2d');
+            gamesChart = new Chart(gamesCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Ranked', 'Casual', 'Tournament', 'Friendly'],
+                    datasets: [{
+                        data: [40, 30, 20, 10],
+                        backgroundColor: ['#4361ee', '#4cc9f0', '#f72585', '#7209b7']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        function loadActivityData(period) {
+            // In real implementation, load data based on period
+            // For now, just update with random data
+            const labels = period === 'hour' 
+                ? Array.from({length: 60}, (_, i) => `${i} min`)
+                : period === 'day'
+                ? Array.from({length: 24}, (_, i) => `${i}:00`)
+                : Array.from({length: 7}, (_, i) => `Day ${i+1}`);
+            
+            activityChart.data.labels = labels;
+            activityChart.data.datasets[0].data = labels.map(() => Math.floor(Math.random() * 100) + 50);
+            activityChart.update();
+        }
+        
+        // Real-time updates
+        function updateRealTimeStats() {
+            // Update online players (simulate small changes)
+            const onlineEl = document.getElementById('onlinePlayers');
+            let current = parseInt(onlineEl.textContent);
+            const change = Math.floor(Math.random() * 5) - 2;
+            current = Math.max(0, current + change);
+            onlineEl.textContent = current;
+            
+            // Update active games
+            const gamesEl = document.getElementById('activeGames');
+            current = parseInt(gamesEl.textContent);
+            const gamesChange = Math.floor(Math.random() * 3) - 1;
+            current = Math.max(0, current + gamesChange);
+            gamesEl.textContent = current;
+            
+            // Update heartbeat time
+            const now = new Date();
+            document.querySelectorAll('.last-heartbeat').forEach(el => {
+                el.textContent = now.toLocaleTimeString();
+            });
+        }
+        
+        // Make functions global for HTML onclick handlers
+        window.viewUserDetails = viewUserDetails;
+        window.messageUser = messageUser;
+        window.confirmBan = confirmBan;
+        window.viewGameDetails = viewGameDetails;
+        window.viewTournamentDetails = viewTournamentDetails;
+        window.manageTournament = manageTournament;
+        window.disconnectSession = disconnectSession;
+        window.changeUsersPage = changeUsersPage;
+        window.changeGamesPage = changeGamesPage;
+        window.changeTournamentsPage = changeTournamentsPage;
+        window.changeLogsPage = changeLogsPage;
+        
+        // Initialize ban button
+        document.getElementById('confirmBanBtn').addEventListener('click', confirmBan);
+        
+    </script>
+</body>
+</html>
