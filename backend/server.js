@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 10000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEB_APP_URL = process.env.WEB_APP_URL || 'https://your-mini-app-domain.com';
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin-secret-key';
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'Habibullox';
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 // Timeout konfiguratsiyalari
