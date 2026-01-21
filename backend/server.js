@@ -16,7 +16,7 @@ const cors = require('cors');
 const TelegramBot = require('node-telegram-bot-api');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
-
+const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -3881,16 +3881,27 @@ app.post('/admin/api/broadcast', async (req, res) => {
   }
 });
 // Server faylida (server.js yoki app.js)
-app.use('/admin', express.static('admin'));
+app.use('/admin', express.static(path.join(__dirname, 'admin')));
 
 // Admin panel login qo'shish (ixtiyoriy)
+// Admin login route
 app.get('/admin/login', (req, res) => {
   const token = req.query.token;
+  
   if (token === ADMIN_TOKEN) {
+    // Token to'g'ri bo'lsa, admin panel HTML'ni yuborish
     res.sendFile(path.join(__dirname, 'admin/index.html'));
   } else {
-    res.status(403).send('Access denied');
+    res.status(403).json({ 
+      success: false, 
+      error: 'Forbidden',
+      message: 'Invalid or missing admin token'
+    });
   }
+});
+// Admin panel root - redirect to login
+app.get('/admin', (req, res) => {
+  res.redirect('/admin/login');
 });
 // Server monitoring
 app.get('/admin/api/system', (req, res) => {
