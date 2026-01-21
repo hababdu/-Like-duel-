@@ -1,464 +1,460 @@
+/* MultiplayerGame.css */
 .multiplayer-game-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
+  max-width: 100%;
   height: 100vh;
-  width: 100vw;
-  background: linear-gradient(to bottom, #1a1a2e, #0f0f1f); /* Qorong'i kosmik fon, o'yin atrofini his qilish uchun */
-  color: #e0e0e0;
-  font-family: 'Press Start 2P', cursive; /* Retro o'yin font, 8-bit uslubida */
-  overflow: hidden;
-  position: relative;
-  padding: 0;
-  margin: 0;
-  box-sizing: border-box;
-}
-
-.multiplayer-game-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.05)"/></svg>') repeat; /* Yulduzcha pattern, o'yin kosmosini his qilish uchun */
-  opacity: 0.3;
-  animation: starry-background 60s linear infinite; /* Yulduzlar sekin harakatlanishi */
-}
-
-@keyframes starry-background {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(-100px); }
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .game-header {
-  width: 100%;
   display: flex;
-  justify-content: flex-start;
-  padding: 10px 20px;
-  background: rgba(0, 0, 0, 0.5); /* Shaffof qorong'i panel */
-  border-bottom: 2px solid #ffcc00; /* Sariq chiziq, energiya effekti */
-  box-shadow: 0 4px 10px rgba(255, 204, 0, 0.3);
-  z-index: 10;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
 }
 
 .back-btn {
-  background: linear-gradient(to right, #ff4500, #ff8c00); /* Olovli gradient, o'yin tugmasi uslubi */
-  color: #fff;
-  border: 3px solid #ffd700;
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 0 10px #ff4500, inset 0 0 5px #ffd700; /* Yorqinlik effekti */
+  font-size: 16px;
+  transition: all 0.3s;
 }
 
 .back-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 20px #ff4500, inset 0 0 10px #ffd700;
-  animation: pulse 1s infinite; /* Yurak urishi effekti */
+  background: rgba(255, 255, 255, 0.2);
 }
 
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+.connection-status {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
 }
 
 .connecting-screen,
 .waiting-screen,
 .start-screen {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 80vh;
   text-align: center;
-  animation: fade-in 0.5s ease-in;
-}
-
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  padding-top: 100px;
 }
 
 .spinner {
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top: 4px solid #ffcc00;
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-  margin-bottom: 20px;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+  margin: 0 auto 20px;
 }
 
 .spinner.large {
-  width: 60px;
-  height: 60px;
-  border-width: 6px;
-  animation: spin 0.8s linear infinite; /* Tezroq aylanish */
+  width: 80px;
+  height: 80px;
+  border-width: 8px;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
-.cancel-btn,
-.start-btn {
-  background: linear-gradient(to bottom, #4caf50, #2e7d32); /* Yashil o'yin tugmasi, RPG uslubi */
-  color: #fff;
-  border: 3px solid #81c784;
+.game-info {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px;
   border-radius: 10px;
-  padding: 12px 24px;
-  font-size: 18px;
-  cursor: pointer;
-  margin-top: 20px;
-  transition: all 0.3s;
-  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.2); /* 3D effekti */
-}
-
-.cancel-btn:hover,
-.start-btn:hover {
-  background: linear-gradient(to bottom, #66bb6a, #388e3c);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(76, 175, 80, 0.7);
-}
-
-.game-area {
+  margin-bottom: 20px;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 800px;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.6); /* Shaffof o'yin paneli */
-  border: 4px solid #ffd700;
-  border-radius: 15px;
-  box-shadow: 0 0 30px #ffd700, inset 0 0 10px #fff; /* Yorqin ramka */
-  margin-top: 20px;
-  animation: glow-panel 2s infinite alternate; /* Yorqinlik o'zgarishi */
-}
-
-@keyframes glow-panel {
-  0% { box-shadow: 0 0 20px #ffd700; }
-  100% { box-shadow: 0 0 40px #ffd700; }
+  justify-content: space-between;
+  font-size: 14px;
 }
 
 .players-container {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  width: 100%;
-  margin-bottom: 30px;
+  margin: 40px 0;
 }
 
 .player {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 40%;
-  padding: 15px;
-  background: rgba(255, 255, 255, 0.1); /* Shaffof fon */
-  border: 2px solid #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
-  transition: transform 0.3s;
-}
-
-.player.you {
-  border-color: #00ff00; /* Yashil, o'zingiz uchun */
-  box-shadow: 0 0 15px #00ff00;
-}
-
-.player.opponent {
-  border-color: #ff0000; /* Qizil, raqib uchun */
-  box-shadow: 0 0 15px #ff0000;
-}
-
-.player:hover {
-  transform: scale(1.05);
+  text-align: center;
+  flex: 1;
 }
 
 .player-label {
+  margin-bottom: 20px;
+}
+
+.player-name {
+  display: block;
   font-size: 18px;
   font-weight: bold;
-  margin-bottom: 10px;
-  text-shadow: 1px 1px 2px #000; /* Soyali matn */
+  margin-bottom: 5px;
+}
+
+.player-score {
+  background: rgba(255, 255, 255, 0.2);
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  border-radius: 50%;
+  display: inline-block;
+  font-size: 20px;
+  font-weight: bold;
 }
 
 .choice-display {
-  font-size: 60px; /* Katta emoji */
-  width: 100px;
-  height: 100px;
+  width: 120px;
+  height: 120px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle, rgba(255,255,255,0.2), transparent); /* Yorqin markaz */
-  border-radius: 50%;
-  box-shadow: 0 0 20px rgba(255,255,255,0.3);
-  animation: bounce 1s infinite alternate; /* Sekin sakrash */
-}
-
-@keyframes bounce {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(-5px); }
+  font-size: 60px;
+  margin: 0 auto;
+  border: 5px solid rgba(255, 255, 255, 0.2);
 }
 
 .vs {
-  font-size: 40px;
-  color: #ffd700;
-  text-shadow: 2px 2px 4px #000;
-  margin: 0 20px;
-  animation: vs-pulse 1.5s infinite;
-}
-
-@keyframes vs-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.2); opacity: 0.8; }
+  font-size: 32px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0 30px;
 }
 
 .choices {
   display: flex;
-  justify-content: space-around;
-  width: 100%;
-  margin-bottom: 20px;
+  justify-content: center;
+  gap: 20px;
+  margin: 40px 0;
 }
 
 .choice-btn {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: var(--choice-color);
-  color: #fff;
-  border: 3px solid #fff;
-  border-radius: 50%;
-  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 3px solid var(--choice-color);
+  border-radius: 15px;
+  padding: 20px;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 0 15px var(--choice-color), inset 0 0 5px #fff;
+  min-width: 100px;
 }
 
 .choice-btn:hover {
-  transform: rotate(5deg) scale(1.1);
-  box-shadow: 0 0 25px var(--choice-color);
-  animation: shake 0.5s;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-5px);
 }
 
-@keyframes shake {
-  0% { transform: rotate(0); }
-  25% { transform: rotate(5deg); }
-  50% { transform: rotate(0); }
-  75% { transform: rotate(-5deg); }
-  100% { transform: rotate(0); }
-}
-
-.emoji {
+.choice-btn .emoji {
   font-size: 40px;
-  margin-bottom: 5px;
+  display: block;
+  margin-bottom: 10px;
 }
 
-.name {
-  font-size: 14px;
-  text-transform: uppercase;
+.choice-btn .name {
+  font-size: 16px;
+  font-weight: bold;
 }
 
 .result {
   text-align: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.7);
-  border: 3px solid #fff;
-  border-radius: 15px;
-  box-shadow: 0 0 20px #fff;
-  margin-top: 20px;
-  animation: result-pop 0.5s ease-out;
-}
-
-@keyframes result-pop {
-  0% { transform: scale(0.5); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.result.draw {
-  border-color: #ffd700;
-  box-shadow: 0 0 20px #ffd700;
-}
-
-.result.player1_win,
-.result.player2_win {
-  border-color: #00ff00; /* G'alaba uchun yashil */
-  box-shadow: 0 0 20px #00ff00;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 30px;
+  border-radius: 20px;
+  margin: 30px 0;
 }
 
 .result h2 {
-  font-size: 32px;
-  margin-bottom: 10px;
-  text-shadow: 2px 2px 4px #000;
+  font-size: 36px;
+  margin-bottom: 20px;
 }
 
 .result-choices {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 40px;
-  margin-bottom: 15px;
-}
-
-.result-choices span {
-  margin: 0 10px;
+  gap: 30px;
+  font-size: 50px;
+  margin: 30px 0;
 }
 
 .result-buttons {
   display: flex;
-  justify-content: space-around;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 30px;
 }
 
 .result-buttons button {
-  background: linear-gradient(to right, #2196f3, #1976d2); /* Moviy o'yin tugmasi */
-  color: #fff;
-  border: 3px solid #64b5f6;
+  padding: 15px 30px;
+  border: none;
   border-radius: 10px;
-  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.5);
 }
 
-.result-buttons button:hover {
-  background: linear-gradient(to right, #42a5f5, #1e88e5);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(33, 150, 243, 0.7);
+.menu-btn {
+  background: #e74c3c;
+  color: white;
+}
+
+.new-game-btn {
+  background: #2ecc71;
+  color: white;
 }
 
 .chat-section {
-  width: 100%;
-  max-width: 600px;
-  margin-top: 30px;
-  background: rgba(0, 0, 0, 0.8); /* Qorong'i chat paneli */
-  border: 3px solid #00bfff;
+  margin-top: 40px;
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 15px;
-  box-shadow: 0 0 20px #00bfff;
   overflow: hidden;
 }
 
 .chat-header {
-  background: linear-gradient(to right, #00bfff, #00ffff);
-  color: #000;
-  padding: 10px;
-  text-align: center;
-  font-size: 16px;
-  font-weight: bold;
-  border-bottom: 2px solid #fff;
-  text-shadow: 1px 1px 2px #000;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .chat-messages {
   height: 200px;
   overflow-y: auto;
-  padding: 10px;
-  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="rgba(255,255,255,0.02)"/></svg>') repeat; /* Chat fon pattern */
-  scrollbar-width: thin;
-  scrollbar-color: #00bfff #000;
-}
-
-.chat-messages::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb {
-  background: #00bfff;
-  border-radius: 3px;
+  padding: 15px;
 }
 
 .chat-message {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
   max-width: 80%;
-  padding: 8px 12px;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  animation: message-slide 0.3s ease-in;
-}
-
-@keyframes message-slide {
-  from { transform: translateX(-20px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
 }
 
 .chat-message.sent {
-  align-self: flex-end;
-  background: linear-gradient(to bottom, #4caf50, #388e3c); /* Yashil, o'z xabari */
-  color: #fff;
-  border: 1px solid #81c784;
   margin-left: auto;
 }
 
 .chat-message.received {
-  align-self: flex-start;
-  background: linear-gradient(to bottom, #f44336, #d32f2f); /* Qizil, raqib xabari */
-  color: #fff;
-  border: 1px solid #ef9a9a;
   margin-right: auto;
 }
 
-.message-text {
-  font-size: 14px;
-  word-break: break-word;
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 12px;
+  opacity: 0.7;
 }
 
-.message-time {
-  font-size: 10px;
-  color: rgba(255,255,255,0.7);
-  align-self: flex-end;
-  margin-top: 4px;
+.message-text {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px 15px;
+  border-radius: 15px;
+  word-wrap: break-word;
+}
+
+.chat-message.sent .message-text {
+  background: #2ecc71;
 }
 
 .chat-input-form {
   display: flex;
-  padding: 10px;
-  background: rgba(0,0,0,0.5);
-  border-top: 1px solid #00bfff;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .chat-input-form input {
   flex: 1;
-  background: #1a1a1a;
-  color: #fff;
-  border: 2px solid #00bfff;
-  border-radius: 8px 0 0 8px;
-  padding: 8px 12px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.3s;
-}
-
-.chat-input-form input:focus {
-  border-color: #00ffff;
-  box-shadow: 0 0 10px #00ffff;
-}
-
-.chat-input-form button {
-  background: linear-gradient(to right, #00bfff, #00ffff);
-  color: #000;
+  padding: 12px 15px;
   border: none;
-  border-radius: 0 8px 8px 0;
-  padding: 8px 16px;
-  cursor: pointer;
+  border-radius: 25px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
   font-size: 14px;
+}
+
+.chat-input-form input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.send-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 0 25px;
+  margin-left: 10px;
+  cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 2px 4px rgba(0,191,255,0.5);
 }
 
-.chat-input-form button:hover {
-  background: linear-gradient(to right, #00ffff, #00bfff);
-  box-shadow: 0 4px 8px rgba(0,191,255,0.7);
-}
-
-.chat-input-form button:disabled {
-  background: #555;
+.send-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #2980b9;
+}
+
+.round-history {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 15px;
+  border-radius: 10px;
+  margin: 20px 0;
+}
+
+.round-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.round-item {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+.round-result.player1_win,
+.round-result.player2_win {
+  color: #2ecc71;
+  font-weight: bold;
+}
+
+.round-result.draw {
+  color: #f39c12;
+}
+
+.waiting-opponent {
+  text-align: center;
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  margin: 30px 0;
+}
+
+.queue-stats {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 15px;
+  border-radius: 10px;
+  margin: 20px auto;
+  max-width: 300px;
+}
+
+.stats-card {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  border-radius: 15px;
+  margin: 30px 0;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-top: 15px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 14px;
+  opacity: 0.8;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.start-btn {
+  background: linear-gradient(to right, #2ecc71, #27ae60);
+  color: white;
+  border: none;
+  padding: 20px 40px;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin: 10px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.start-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.how-to-play-btn {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 15px 30px;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 20px;
+}
+
+.how-to-play-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cancel-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  font-size: 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 20px;
+}
+
+.cancel-btn:hover {
+  background: #c0392b;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .players-container {
+    flex-direction: column;
+    gap: 30px;
+  }
+  
+  .vs {
+    padding: 20px 0;
+  }
+  
+  .choices {
+    flex-wrap: wrap;
+  }
+  
+  .choice-btn {
+    min-width: 80px;
+    padding: 15px;
+  }
+  
+  .result-buttons {
+    flex-direction: column;
+  }
 }
