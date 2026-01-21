@@ -3778,7 +3778,9 @@ app.get('/api/users/:id', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
+});
 // Admin API (faqat admin uchun)
 app.use('/admin/api/*', (req, res, next) => {
   const token = req.headers['x-admin-token'];
