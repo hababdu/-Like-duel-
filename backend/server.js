@@ -937,100 +937,103 @@ async function handleMessage(ws, data, session) {
 }
 
 async function handleAuthentication(ws, data, session) {
-  console.log('🔐 Authentication kelmoqda:', {
-    userId: data.userId,
-    hasInitData: !!data.initData,
-    initDataLength: data.initData?.length || 0
-  });
+  console.log('Auth keldi:', data);
 
-  // ✅ Agar initData bo'lmasa, lekin user maʼlumotlari boʻlsa
-  if (!data.initData || data.initData.trim() === '') {
-    console.log('⚠️ initData yoʻq, alternative auth...');
-    
-    // Demo user uchun oddiy authentication
-    if (!data.userId) {
-      safeSend(ws, { 
-        type: 'error', 
-        code: 'AUTH_REQUIRED',
-        message: 'Autentifikatsiya talab qilinadi' 
-      });
-      return;
-    }
-    
+  // 1. Agar initData bo‘lsa — Telegram autentifikatsiyasi
+  if (data.initData && data.initData.trim() !== '') {
     try {
-      const userId = data.userId;
-      
-      // Database'dan foydalanuvchini topish yoki yaratish
-      let user = await User.findOne({ telegramId: userId });
-      
-      if (!user) {
-        user = new User({
-          telegramId: userId,
-          firstName: data.firstName || 'Demo',
-          username: data.username || `demo_${userId}`,
-          languageCode: data.languageCode || 'uz'
+      const isValid = verifyTelegramInitData(data.initData, BOT_TOKEN);
+
+      if (!isValid) {
+        safeSend(ws, {
+          type: 'error',
+          code: 'INVALID_INIT_DATA',
+          message: 'Telegram ma‘lumotlari noto‘g‘ri'
         });
-        await user.save();
-        console.log('✅ Yangi demo user yaratildi:', userId);
+        ws.close(1008, 'Invalid auth');
+        return;
       }
-      
-      // Session yaratish
-      session.userId = userId;
+
+      // initData dan user ma'lumotlarini olish
+      const urlParams = new URLSearchParams(data.initData);
+      const userJson = urlParams.get('user');
+      if (!userJson) throw new Error('user parametri yo‘q');
+
+      const tgUser = JSON.parse(decodeURIComponent(userJson));
+
+      const telegramId = Number(tgUser.id);
+
+      // Database'da topish yoki yaratish
+      let userDoc = await User.findOne({ telegramId });
+      if (!userDoc) {
+        userDoc = new User({
+          telegramId,
+          firstName: tgUser.first_name,
+          username: tgUser.username,
+          languageCode: tgUser.language_code || 'uz',
+          isPremium: tgUser.is_premium || false,
+          joinedAt: new Date()
+        });
+        await userDoc.save();
+      }
+
+      // Sessionni yangilash
+      session.userId = telegramId;
       session.authenticated = true;
       session.user = {
-        id: userId,
-        firstName: user.firstName,
-        username: user.username
+        id: telegramId,
+        firstName: userDoc.firstName,
+        username: userDoc.username
       };
-      
-      playerSessions.set(userId, session);
-      
-      // Javob yuborish
+
+      playerSessions.set(telegramId, session);
+
       safeSend(ws, {
         type: 'authenticated',
         user: {
-          id: user.telegramId,
-          firstName: user.firstName,
-          username: user.username,
-          isDemo: true
+          id: telegramId,
+          firstName: userDoc.firstName,
+          username: userDoc.username,
+          isPremium: userDoc.isPremium
         }
       });
-      
-      console.log('✅ Demo user authenticated:', userId);
+
+      console.log(`✅ Telegram user authenticated: ${telegramId}`);
       return;
-      
-    } catch (error) {
-      console.error('Demo auth error:', error);
-      safeSend(ws, { 
-        type: 'error', 
-        code: 'AUTH_FAILED',
-        message: 'Autentifikatsiya muvaffaqiyatsiz' 
-      });
+    } catch (err) {
+      console.error('Telegram auth xatosi:', err);
+      safeSend(ws, { type: 'error', code: 'AUTH_FAILED', message: 'Telegram autentifikatsiya xatosi' });
       return;
     }
   }
-  
-  // ✅ Agar initData bo'lsa (asl Telegram auth)
-  try {
-    const urlParams = new URLSearchParams(data.initData);
-    const userParam = urlParams.get('user');
-    
-    if (!userParam) {
-      throw new Error('User param topilmadi');
-    }
-    
-    const userData = JSON.parse(decodeURIComponent(userParam));
-    const userId = userData.id;
-    
-    // ... qolgan Telegram auth kodi
-  } catch (error) {
-    console.error('Telegram auth error:', error);
-    safeSend(ws, { 
-      type: 'error', 
-      code: 'AUTH_FAILED',
-      message: 'Telegram autentifikatsiya xatosi' 
-    });
+
+  // 2. Agar initData yo‘q bo‘lsa — demo rejim (faqat test uchun)
+  if (data.userId && process.env.NODE_ENV !== 'production') {
+    // ... hozirgi demo logikangizni saqlab qo‘ying
+    // lekin productionda bu qismni o‘chirib qo‘ying!
+  } else {
+    safeSend(ws, { type: 'error', code: 'AUTH_REQUIRED', message: 'Autentifikatsiya ma‘lumotlari yo‘q' });
   }
+}
+
+// Telegram initData ni tekshiruvchi funksiya (crypto bilan)
+function verifyTelegramInitData(initDataString, botToken) {
+  const dataCheckArr = initDataString.split('&').filter(kv => !kv.startsWith('hash='));
+  dataCheckArr.sort();
+
+  const dataCheckString = dataCheckArr.join('\n');
+
+  const secretKey = crypto.createHmac('sha256', 'WebAppData')
+    .update(botToken)
+    .digest();
+
+  const computedHash = crypto.createHmac('sha256', secretKey)
+    .update(dataCheckString)
+    .digest('hex');
+
+  const receivedHash = new URLSearchParams(initDataString).get('hash');
+
+  return computedHash === receivedHash;
 }
 
 async function handleJoinQueue(ws, data, session) {
