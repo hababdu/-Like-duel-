@@ -89,9 +89,20 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
 
     socket.onmessage = (event) => {
       console.log('📩 Serverdan:', event.data);
+      
       try {
         const data = JSON.parse(event.data);
-
+        console.log('Parsed data:', data);
+    
+        if (data.type === 'authenticated') {
+          console.log('🎉 AUTHENTICATED KELDI!', data.user);
+          setAuthenticated(true);
+          setAuthAttempts(0);
+          setDebugInfo(`Muvaffaqiyatli kirildi: ${data.user?.firstName || 'Foydalanuvchi'}`);
+          showNotif(`Xush kelibsiz, ${data.user?.firstName}!`, 'success');
+        } else {
+          console.log('Boshqa xabar turi:', data.type, data);
+        }
         switch (data.type) {
           case 'authenticated':
             setAuthenticated(true);
