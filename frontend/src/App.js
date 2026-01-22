@@ -20,71 +20,85 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Telegram Mini App ni ishga tushirish
-  useEffect(() => {
-    console.log('🚀 App yuklanmoqda...');
+// Telegram Mini App ni ishga tushirish
+useEffect(() => {
+  console.log('🚀 App yuklanmoqda...');
+  
+  // 1. Telegram muhitini tekshirish
+  if (window.Telegram && window.Telegram.WebApp) {
+    const tg = window.Telegram.WebApp;
+    console.log('✅ Telegram WebApp mavjud');
     
-    // 1. Telegram muhitini tekshirish
-    if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp;
-      console.log('✅ Telegram WebApp mavjud');
+    // Telegram WebApp ni to'liq ishga tushirish
+    tg.ready();
+    tg.expand();
+    tg.enableClosingConfirmation();
+    
+    // Back button ni yoqish
+    tg.BackButton.show();
+    tg.BackButton.onClick(() => {
+      tg.close();
+    });
+    
+    // Telegramdan foydalanuvchi ma'lumotlarini olish
+    const initData = tg.initDataUnsafe;
+    console.log('📋 Telegram initData:', initData);
+    
+    if (initData?.user) {
+      // Telegram user ma'lumotlarini olish
+      const tgUser = {
+        id: initData.user.id,
+        first_name: initData.user.first_name || 'User',
+        last_name: initData.user.last_name || '',
+        username: initData.user.username || `user_${initData.user.id}`,
+        language_code: initData.user.language_code || 'uz',
+        is_premium: initData.user.is_premium || false,
+        photo_url: initData.user.photo_url || null,
+        // ✅ initData ni saqlash (autentifikatsiya uchun)
+        initData: tg.initData
+      };
       
-      tg.ready();
-      tg.expand();
+      console.log('👤 Telegram user:', tgUser);
+      setUser(tgUser);
       
-      // Telegramdan foydalanuvchi ma'lumotlarini olish
-      const initData = tg.initDataUnsafe;
-      
-      if (initData?.user) {
-        // Telegram user ma'lumotlarini olish
-        const tgUser = {
-          id: initData.user.id,
-          first_name: initData.user.first_name || 'User',
-          last_name: initData.user.last_name || '',
-          username: initData.user.username || `user_${initData.user.id}`,
-          language_code: initData.user.language_code || 'uz',
-          is_premium: initData.user.is_premium || false,
-          photo_url: initData.user.photo_url || null
-        };
-        
-        console.log('👤 Telegram user:', tgUser);
-        setUser(tgUser);
-        
-        // Telegramda haptic feedback
-        tg.HapticFeedback.impactOccurred('light');
-      } else {
-        // Demo user yaratish
-        console.log('⚠️ Telegram user yoʻq, demo yaratilmoqda');
-        setUser({
-          id: Date.now(),
-          first_name: 'Demo',
-          last_name: 'Player',
-          username: 'demo_player',
-          language_code: 'uz',
-          is_premium: false,
-          photo_url: null
-        });
-      }
+      // Telegramda haptic feedback
+      tg.HapticFeedback.impactOccurred('light');
     } else {
-      // Oddiy brauzer uchun
-      console.log('🌐 Oddiy brauzer rejimi');
+      // Demo user yaratish
+      console.log('⚠️ Telegram user yoʻq, demo yaratilmoqda');
       setUser({
-        id: Math.floor(Math.random() * 1000000) + 1000,
-        first_name: 'Browser',
-        last_name: 'User',
-        username: 'browser_user',
-        language_code: navigator.language.split('-')[0] || 'en',
+        id: Date.now(),
+        first_name: 'Demo',
+        last_name: 'Player',
+        username: 'demo_player',
+        language_code: 'uz',
         is_premium: false,
-        photo_url: null
+        photo_url: null,
+        initData: '' // Empty initData
       });
     }
-    
-    // Loading ni tugatish
-    setTimeout(() => {
-      setIsLoading(false);
-      console.log('✅ App yuklandi, user:', user);
-    }, 1000);
-    
-  }, []);
+  } else {
+    // Oddiy brauzer uchun
+    console.log('🌐 Oddiy brauzer rejimi');
+    setUser({
+      id: Math.floor(Math.random() * 1000000) + 1000,
+      first_name: 'Browser',
+      last_name: 'User',
+      username: 'browser_user',
+      language_code: navigator.language.split('-')[0] || 'en',
+      is_premium: false,
+      photo_url: null,
+      initData: '' // Empty initData
+    });
+  }
+  
+  // Loading ni tugatish
+  setTimeout(() => {
+    setIsLoading(false);
+    console.log('✅ App yuklandi');
+  }, 1000);
+  
+}, []);
 
   // Notification funksiyasi
   const showNotif = (text, type = 'info') => {

@@ -937,8 +937,13 @@ async function handleMessage(ws, data, session) {
 }
 
 async function handleAuthentication(ws, data, session) {
+
   const { initData, deviceInfo } = data;
   
+  
+  
+
+
   if (!initData) {
     safeSend(ws, { 
       type: 'error', 

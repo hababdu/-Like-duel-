@@ -26,37 +26,107 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const messagesEndRef = useRef(null);
   
   // ✅ AUTENTIFIKATSIYA FUNKTSIYASI
-  const sendAuthentication = () => {
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      console.log('❌ WebSocket ochiq emas, auth yuborilmaydi');
-      return false;
+// AUTENTIFIKATSIYA FUNKTSIYASINI YANGILANG
+const sendAuthentication = () => {
+  if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
+    console.log('❌ WebSocket ochiq emas, auth yuborilmaydi');
+    return false;
+  }
+
+  if (!user?.id) {
+    console.log('❌ User ID yoʻq, auth yuborilmaydi');
+    return false;
+  }
+
+  // TELEGRAM initData ni olish (agar mavjud bo'lsa)
+  let initData = '';
+  
+  if (window.Telegram?.WebApp?.initData) {
+    initData = window.Telegram.WebApp.initData;
+    console.log('✅ Telegram initData mavjud');
+  } else {
+    // Agar Telegram emas brauzerda bo'lsa
+    console.log('⚠️ Telegram initData yoʻq, demo malumotlar yuborilmoqda');
+    // Demo autentifikatsiya uchun hash yaratish
+    const demoData = JSON.stringify({
+      id: user.id,
+      first_name: user.first_name,
+      username: user.username,
+      auth_date: Math.floor(Date.now() / 1000)
+    });
+    initData = `query_id=&user=${encodeURIComponent(demoData)}&auth_date=${Math.floor(Date.now() / 1000)}`;
+  }
+
+  const authData = {
+    type: 'authenticate',
+    userId: user.id,
+    username: user.username || `user_${user.id}`,
+    firstName: user.first_name || 'Player',
+    telegramId: user.id,
+    languageCode: user.language_code || 'uz',
+    isPremium: user.is_premium || false,
+    timestamp: Date.now(),
+    version: '1.0',
+    initData: initData, // ✅ CRITICAL: initData ni qo'shing
+    deviceInfo: {
+      platform: navigator.platform,
+      userAgent: navigator.userAgent,
+      language: navigator.language
     }
-    
-    if (!user?.id) {
-      console.log('❌ User ID yoʻq, auth yuborilmaydi');
-      return false;
-    }
-    
-    const authData = {
-      type: 'authenticate',
-      userId: user.id,
-      username: user.username || `user_${user.id}`,
-      firstName: user.first_name || 'Player',
-      telegramId: user.id,
-      languageCode: user.language_code || 'uz',
-      isPremium: user.is_premium || false,
-      timestamp: Date.now(),
-      version: '1.0'
-    };
-    
-    console.log('📤 AUTHENTICATION YUBORILMOQDA:', authData);
-    setDebugInfo(`Auth yuborildi (${authAttempts + 1})...`);
-    
-    ws.current.send(JSON.stringify(authData));
-    setAuthAttempts(prev => prev + 1);
-    
-    return true;
   };
+
+  console.log('📤 AUTHENTICATION YUBORILMOQDA:', authData);
+  setDebugInfo(`Auth yuborildi (${authAttempts + 1})...`);
+
+  ws.current.send(JSON.stringify(authData));
+  setAuthAttempts(prev => prev + 1);
+
+  return true;
+};
+
+// YANGI FUNKSIYA: AUTHENTICATION FUNKTSIYASINI TEKSHIRISH
+const validateAndRetryAuth = () => {
+  if (!authenticated && ws.current?.readyState === WebSocket.OPEN) {
+    console.log('🔄 Auth tekshirilmoqda, qayta urinilmoqda...');
+    
+    // Birinchi marta urinish
+    setTimeout(() => {
+      sendAuthentication();
+    }, 1000);
+    
+    // Ikkinchi marta urinish (agar kerak bo'lsa)
+    setTimeout(() => {
+      if (!authenticated) {
+        console.log('🔄 Ikkinchi auth urinishi...');
+        sendAuthentication();
+      }
+    }, 3000);
+    
+    // Demo mode (agar auth muvaffaqiyatsiz bo'lsa)
+    setTimeout(() => {
+      if (!authenticated) {
+        console.log('🔄 Auth muvaffaqiyatsiz, demo rejimga otilmoqda...');
+        setAuthenticated(true);
+        showNotif('Demo rejimda davom eting', 'warning');
+      }
+    }, 5000);
+  }
+};
+
+// WebSocket onopen funksiyasini yangilang
+socket.onopen = () => {
+  console.log('✅✅✅ WebSocket OCHILDI!');
+  console.log('📊 ReadyState:', socket.readyState);
+  setConnected(true);
+  setDebugInfo('WebSocket ochildi, auth yuborilmoqda...');
+  showNotif('Serverga ulandi!', 'success');
+
+  // Darhol authentication yuborish
+  sendAuthentication();
+
+  // Auth tekshirish va qayta urinish
+  validateAndRetryAuth();
+};
   
   // ✅ WEB SOCKET ULANISHI
   useEffect(() => {
