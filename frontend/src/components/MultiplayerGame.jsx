@@ -23,7 +23,16 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const [authAttempts, setAuthAttempts] = useState(0);
   const [debugInfo, setDebugInfo] = useState('Dastur yuklanmoqda...');
   const messagesEndRef = useRef(null);
-  
+  useEffect(() => {
+    console.log("=== TELEGRAM DIAGNOS ==========");
+    console.log("window.Telegram mavjudmi?       ", !!window.Telegram);
+    console.log("window.Telegram.WebApp mavjudmi?", !!window.Telegram?.WebApp);
+    console.log("initData borligi:               ", !!window.Telegram?.WebApp?.initData);
+    console.log("initData uzunligi:              ", window.Telegram?.WebApp?.initData?.length || 0);
+    console.log("initData namunasi (birinchi 80):", window.Telegram?.WebApp?.initData?.substring(0, 80) || '(bo‘sh)');
+    console.log("initDataUnsafe user:            ", window.Telegram?.WebApp?.initDataUnsafe?.user);
+    console.log("================================");
+  }, []);
   // ✅ TO'G'RI AUTENTIFIKATSIYA FUNKTSIYASI
   const sendAuthentication = () => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
