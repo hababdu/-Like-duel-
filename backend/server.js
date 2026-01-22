@@ -1068,21 +1068,48 @@ function verifyTelegramInitData(initDataString, botToken) {
 }
 
 // Telegram initData ni tekshiruvchi funksiya (crypto bilan)
+const crypto = require('crypto');
+
 function verifyTelegramInitData(initDataString, botToken) {
-  const dataCheckArr = initDataString.split('&').filter(kv => !kv.startsWith('hash='));
-  dataCheckArr.sort();
+  if (!initDataString || typeof initDataString !== 'string' || !botToken) {
+    console.log('[VERIFY ERROR] initData yoki botToken yo‘q');
+    return false;
+  }
 
-  const dataCheckString = dataCheckArr.join('\n');
+  // Loglar – sababni aniqlash uchun juda muhim
+  console.log('[VERIFY] initData uzunligi:', initDataString.length);
+  console.log('[VERIFY] initData boshlanishi:', initDataString.substring(0, 150) + '...');
 
+  // 1. Parametrlarni ajratamiz va hash ni olib tashlaymiz
+  const pairs = initDataString.split('&');
+  const dataPairs = pairs
+    .filter(pair => pair && !pair.startsWith('hash='))
+    .sort((a, b) => a.localeCompare(b));  // localeCompare – platforma farqini hal qiladi
+
+  if (dataPairs.length < 4) {
+    console.log('[VERIFY ERROR] Juda kam parametr:', dataPairs.length);
+    return false;
+  }
+
+  const dataCheckString = dataPairs.join('\n');
+
+  // 2. Secret key hosil qilish – eng muhim qism
   const secretKey = crypto.createHmac('sha256', 'WebAppData')
-    .update(botToken)
-    .digest();
+    .update(botToken.trim())  // trim() – bo‘sh joylarni olib tashlaydi
+    .digest();  // RAW BYTES (hex emas!)
 
+  // 3. Computed hash
   const computedHash = crypto.createHmac('sha256', secretKey)
     .update(dataCheckString)
     .digest('hex');
 
-  const receivedHash = new URLSearchParams(initDataString).get('hash');
+  // 4. Kelgan hash
+  const receivedHash = new URLSearchParams(initDataString).get('hash') || '';
+
+  // Log – bu yerni ko‘rsangiz, sabab darhol aniq bo‘ladi
+  console.log('[VERIFY] Computed hash:', computedHash);
+  console.log('[VERIFY] Received hash :', receivedHash);
+  console.log('[VERIFY] Natija        :', computedHash === receivedHash ? 'TO‘G‘RI ✅' : 'XATO ❌');
 
   return computedHash === receivedHash;
 }
