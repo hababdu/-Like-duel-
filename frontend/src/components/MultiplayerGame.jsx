@@ -96,15 +96,7 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
         }
       }, 3000);
       
-      // 3. 6 soniyadan keyin agar auth bo'lmasa, demo rejim
-      setTimeout(() => {
-        if (!authenticated) {
-          console.log('⚠️ 6 soniya otdi, demo rejimga otilmoqda');
-          setAuthenticated(true); // Force authentication
-          setDebugInfo('Demo rejimda kirildi');
-          showNotif('Demo rejimda o`ynaysiz', 'info');
-        }
-      }, 6000);
+     
     };
     
     // ✅ ONMESSAGE - Serverdan xabar kelganda
@@ -142,9 +134,8 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
           }
           // Agar "AUTH_FAILED" bo'lsa
           else if (data.code === 'AUTH_FAILED') {
-            console.log('⚠️ Auth muvaffaqiyatsiz, demo rejim');
-            setAuthenticated(true); // Force demo mode
-            showNotif('Demo rejimda davom eting', 'warning');
+            console.log('⚠️ Auth muvaffaqiyatsiz,');
+           
           }
         }
         
@@ -412,17 +403,10 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
             <button className="retry-auth-btn" onClick={sendAuthentication}>
               Auth qayta yuborish
             </button>
-            <button className="demo-btn" onClick={() => {
-              setAuthenticated(true);
-              showNotif('Demo rejimda kirildi', 'info');
-            }}>
-              Demo rejim
-            </button>
+           
           </div>
           
-          <p className="hint">
-            Agar 10 soniya kutganingizda kirilmasa, "Demo rejim" tugmasini bosing
-          </p>
+         
         </div>
       </div>
     );
