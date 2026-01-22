@@ -4,12 +4,12 @@ import BotGame from './components/BotGame';
 import MultiplayerGame from './components/MultiplayerGame';
 import MenuScreen from './components/MenuScreen';
 import DifficultySelect from './components/DifficultySelect';
-import './App.css'
+import './App.css';
 
 export const CHOICES = {
-  rock: { emoji: '✊', name: 'Tosh', color: '#64748b' },
-  paper: { emoji: '✋', name: 'Qog‘oz', color: '#3b82f6' },
-  scissors: { emoji: '✌️', name: 'Qaychi', color: '#10b981' }
+  rock: { emoji: '✊', name: 'Tosh', color: '#e74c3c' },
+  paper: { emoji: '✋', name: 'Qog‘oz', color: '#3498db' },
+  scissors: { emoji: '✌️', name: 'Qaychi', color: '#2ecc71' }
 };
 
 function App() {
@@ -17,50 +17,43 @@ function App() {
   const [coins, setCoins] = useState(1500);
   const [mode, setMode] = useState('menu');
   const [difficulty, setDifficulty] = useState('medium');
-  const [isLoading, setIsLoading] = useState(true); // Yangi: loading holati
-  const [telegramData, setTelegramData] = useState(null); // Yangi: Telegram ma'lumotlari
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Telegram Mini App yuklanishi va user olish
+  // Telegram Mini App ni ishga tushirish
   useEffect(() => {
-    console.log('🚀 App component yuklanmoqda...');
+    console.log('🚀 App yuklanmoqda...');
     
-    // Telegram WebApp mavjudligini tekshirish
+    // 1. Telegram muhitini tekshirish
     if (window.Telegram && window.Telegram.WebApp) {
       const tg = window.Telegram.WebApp;
-      console.log('✅ Telegram WebApp mavjud:', tg);
+      console.log('✅ Telegram WebApp mavjud');
       
-      // Telegram ilovasini ishga tushirish
       tg.ready();
-      tg.expand(); // To'liq ekran
+      tg.expand();
       
       // Telegramdan foydalanuvchi ma'lumotlarini olish
       const initData = tg.initDataUnsafe;
-      console.log('📱 Telegram initData:', initData);
       
-      if (initData && initData.user) {
-        // Telegram user ma'lumotlarini o'z formatimizga o'tkazish
+      if (initData?.user) {
+        // Telegram user ma'lumotlarini olish
         const tgUser = {
           id: initData.user.id,
-          first_name: initData.user.first_name || '',
+          first_name: initData.user.first_name || 'User',
           last_name: initData.user.last_name || '',
           username: initData.user.username || `user_${initData.user.id}`,
           language_code: initData.user.language_code || 'uz',
           is_premium: initData.user.is_premium || false,
-          is_bot: initData.user.is_bot || false
+          photo_url: initData.user.photo_url || null
         };
         
-        console.log('👤 Telegram user olingan:', tgUser);
+        console.log('👤 Telegram user:', tgUser);
         setUser(tgUser);
-        setTelegramData(initData);
         
-        // Agar coinlar yo'qsa, Telegram user ID ga asoslangan boshlang'ich coinlar
-        if (coins === 1500) {
-          const userCoins = 1500 + (initData.user.id % 1000); // Har bir user uchun bir oz farqli
-          setCoins(userCoins);
-        }
+        // Telegramda haptic feedback
+        tg.HapticFeedback.impactOccurred('light');
       } else {
-        console.log('⚠️ Telegram user ma\'lumotlari topilmadi. Demo rejimda ishlaymiz.');
-        // Demo foydalanuvchi yaratish
+        // Demo user yaratish
+        console.log('⚠️ Telegram user yoʻq, demo yaratilmoqda');
         setUser({
           id: Date.now(),
           first_name: 'Demo',
@@ -68,166 +61,170 @@ function App() {
           username: 'demo_player',
           language_code: 'uz',
           is_premium: false,
-          is_bot: false
+          photo_url: null
         });
       }
     } else {
-      console.log('🌐 Telegram muhiti topilmadi. Brauzer rejimida ishlaymiz.');
-      // Brauzer uchun demo foydalanuvchi
+      // Oddiy brauzer uchun
+      console.log('🌐 Oddiy brauzer rejimi');
       setUser({
-        id: Math.floor(Math.random() * 10000) + 1000,
+        id: Math.floor(Math.random() * 1000000) + 1000,
         first_name: 'Browser',
         last_name: 'User',
         username: 'browser_user',
-        language_code: navigator.language || 'uz',
+        language_code: navigator.language.split('-')[0] || 'en',
         is_premium: false,
-        is_bot: false
+        photo_url: null
       });
     }
     
     // Loading ni tugatish
     setTimeout(() => {
       setIsLoading(false);
+      console.log('✅ App yuklandi, user:', user);
     }, 1000);
     
-  }, []); // Faqat birinchi renderda ishlaydi
+  }, []);
 
+  // Notification funksiyasi
   const showNotif = (text, type = 'info') => {
     console.log(`[${type.toUpperCase()}] ${text}`);
     
-    // Telegramda notification ko'rsatish
-    if (window.Telegram && window.Telegram.WebApp) {
+    // Telegram uchun vibration
+    if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       
-      if (type === 'error') {
-        tg.showAlert(text);
-      } else if (type === 'success') {
-        tg.showPopup({
-          title: 'Muvaffaqiyat!',
-          message: text,
-          buttons: [{ type: 'ok' }]
-        });
-      } else {
-        tg.showPopup({
-          title: 'Xabar',
-          message: text,
-          buttons: [{ type: 'ok' }]
-        });
+      switch(type) {
+        case 'error':
+          tg.HapticFeedback.notificationOccurred('error');
+          break;
+        case 'success':
+          tg.HapticFeedback.notificationOccurred('success');
+          break;
+        case 'warning':
+          tg.HapticFeedback.impactOccurred('medium');
+          break;
       }
+    }
+    
+    // Keyinchalik UI notification qo'shishingiz mumkin
+    const notificationEl = document.getElementById('notification');
+    if (notificationEl) {
+      notificationEl.textContent = text;
+      notificationEl.className = `notification ${type}`;
+      notificationEl.style.display = 'block';
+      
+      setTimeout(() => {
+        notificationEl.style.display = 'none';
+      }, 3000);
     }
   };
 
-  // Loading holatida
+  // Loading holati
   if (isLoading) {
     return (
       <div className="app-loading">
-        <div className="loading-spinner"></div>
-        <h2>Telegram o'yini yuklanmoqda...</h2>
-        <p>Iltimos, kuting</p>
+        <div className="spinner"></div>
+        <h2>Telegram O'yini</h2>
+        <p>Yuklanmoqda...</p>
       </div>
     );
   }
 
-  // Agar user hali ham null bo'lsa (xatolik holati)
+  // Agar user bo'lmasa
   if (!user) {
     return (
       <div className="app-error">
-        <h2>❌ Xatolik yuz berdi</h2>
-        <p>Foydalanuvchi ma'lumotlarini olish mumkin emas</p>
-        <button 
-          className="retry-btn" 
-          onClick={() => window.location.reload()}
-        >
-          Qayta yuklash
-        </button>
-        <button 
-          className="demo-btn" 
-          onClick={() => {
-            setUser({
-              id: 9999,
-              first_name: 'Demo',
-              username: 'demo_mode'
-            });
-            setIsLoading(false);
-          }}
-        >
-          Demo rejimda davom etish
-        </button>
+        <h2>❌ Xatolik</h2>
+        <p>Foydalanuvchi ma'lumotlari olinmadi</p>
+        <button onClick={() => window.location.reload()}>Qayta yuklash</button>
       </div>
     );
   }
 
   return (
     <div className="app-container">
-      {/* App header - foydalanuvchi ma'lumotlari va coins */}
+      {/* Notification area */}
+      <div id="notification" className="notification"></div>
+      
+      {/* App Header */}
       <div className="app-header">
-        <div className="user-info">
+        <div className="user-section">
           <div className="user-avatar">
-            {user.first_name?.charAt(0) || 'U'}
+            {user.first_name.charAt(0)}
           </div>
-          <div className="user-details">
+          <div className="user-info">
             <div className="user-name">
-              {user.first_name} {user.last_name || ''}
+              {user.first_name} {user.last_name}
             </div>
-            <div className="user-username">@{user.username}</div>
+            <div className="user-id">ID: {user.id}</div>
           </div>
         </div>
-        <div className="coins-display">
-          <span className="coins-icon">🪙</span>
-          <span className="coins-amount">{coins}</span>
+        
+        <div className="coins-section">
+          <div className="coins-icon">🪙</div>
+          <div className="coins-amount">{coins}</div>
         </div>
       </div>
 
-      {/* Asosiy kontent */}
-      {mode === 'menu' && (
-        <MenuScreen
-          user={user}
-          onMultiplayer={() => setMode('multiplayer')}
-          onBotGame={() => setMode('bot-select')}
-          coins={coins}
-        />
-      )}
+      {/* Main Content */}
+      <div className="app-content">
+        {mode === 'menu' && (
+          <MenuScreen
+            user={user}
+            coins={coins}
+            onMultiplayer={() => {
+              console.log('🎮 Multiplayer tanlandi');
+              setMode('multiplayer');
+            }}
+            onBotGame={() => {
+              console.log('🤖 Bot game tanlandi');
+              setMode('bot-select');
+            }}
+          />
+        )}
 
-      {mode === 'bot-select' && (
-        <DifficultySelect
-          onSelect={diff => {
-            setDifficulty(diff);
-            setMode('playing-bot');
-          }}
-          onBack={() => setMode('menu')}
-        />
-      )}
+        {mode === 'bot-select' && (
+          <DifficultySelect
+            onSelect={(diff) => {
+              console.log('📊 Difficulty:', diff);
+              setDifficulty(diff);
+              setMode('playing-bot');
+            }}
+            onBack={() => setMode('menu')}
+          />
+        )}
 
-      {mode === 'playing-bot' && (
-        <BotGame
-          difficulty={difficulty}
-          coins={coins}
-          setCoins={setCoins}
-          CHOICES={CHOICES}
-          onBackToMenu={() => setMode('menu')}
-          showNotif={showNotif}
-          user={user} // User ma'lumotlarini BotGame ga ham yuborish
-        />
-      )}
+        {mode === 'playing-bot' && (
+          <BotGame
+            difficulty={difficulty}
+            coins={coins}
+            setCoins={setCoins}
+            CHOICES={CHOICES}
+            onBackToMenu={() => setMode('menu')}
+            showNotif={showNotif}
+            user={user}
+          />
+        )}
 
-      {mode === 'multiplayer' && (
-        <MultiplayerGame
-          user={user} // ✅ Endi user to'g'ri keladi!
-          coins={coins}
-          setCoins={setCoins}
-          CHOICES={CHOICES}
-          onBackToMenu={() => setMode('menu')}
-          showNotif={showNotif}
-          telegramData={telegramData} // Qo'shimcha Telegram ma'lumotlari
-        />
-      )}
+        {mode === 'multiplayer' && (
+          <MultiplayerGame
+            user={user}
+            coins={coins}
+            setCoins={setCoins}
+            CHOICES={CHOICES}
+            onBackToMenu={() => setMode('menu')}
+            showNotif={showNotif}
+          />
+        )}
+      </div>
 
-      {/* App footer */}
+      {/* App Footer */}
       <div className="app-footer">
-        <div className="mode-indicator">
+        <div className="mode-info">
           {window.Telegram ? 'Telegram App' : 'Web Browser'}
         </div>
-        <div className="user-id">ID: {user.id}</div>
+        <div className="version">v1.0.0</div>
       </div>
     </div>
   );
