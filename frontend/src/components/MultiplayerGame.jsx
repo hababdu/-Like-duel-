@@ -10,6 +10,7 @@ const CHOICES = {
 function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const ws = useRef(null);
   const reconnectTimer = useRef(null);
+
   const [connected, setConnected] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [inQueue, setInQueue] = useState(false);
@@ -22,9 +23,10 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [debugInfo, setDebugInfo] = useState('Yuklanmoqda...');
+
   const messagesEndRef = useRef(null);
 
-  // ==================== TELEGRAM INITDATA KUTISH ====================
+  // ==================== TELEGRAM INITDATA + WS ULASH ====================
   useEffect(() => {
     if (!user?.id) {
       setDebugInfo('Foydalanuvchi ma‘lumotlari topilmadi');
@@ -32,7 +34,6 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     }
 
     const tryConnect = () => {
-      // Telegram WebApp ni majburiy ishga tushirish
       if (window.Telegram?.WebApp) {
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
@@ -44,14 +45,16 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
 
       connectWebSocket();
 
-      // Agar 8 soniyada authenticated bo‘lmasa – demo rejim
-      setTimeout(() => {
+      // 10 soniyadan keyin demo rejimga o'tish
+      const demoTimer = setTimeout(() => {
         if (!authenticated) {
           setAuthenticated(true);
           setDebugInfo('Demo rejimda davom etilmoqda (Telegram initData topilmadi)');
           showNotif('Demo rejimda o‘ynaysiz', 'warning');
         }
-      }, 8000);
+      }, 10000);
+
+      return () => clearTimeout(demoTimer);
     };
 
     tryConnect();
@@ -60,9 +63,9 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
       if (ws.current) ws.current.close(1000, 'Komponent yopildi');
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
-  }, [user?.id]);
+  }, [user?.id, authenticated, showNotif]);
 
-  // ==================== WEBSOCKET ULASH ====================
+  // ==================== WEBSOCKET LOGIKASI ====================
   const connectWebSocket = () => {
     if (ws.current) {
       ws.current.close();
@@ -108,8 +111,8 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
             setScores(data.scores || { player1: 0, player2: 0 });
             setResult(data.result);
             if (data.choices) {
-              const oppChoice = data.choices.player1?.id === user.id
-                ? data.choices.player2?.choice
+              const oppChoice = data.choices.player1?.id === user.id 
+                ? data.choices.player2?.choice 
                 : data.choices.player1?.choice;
               setOpponentChoice(oppChoice);
             }
@@ -118,6 +121,7 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
           case 'game_result':
             setResult(data.result);
             setScores(data.scores || { player1: 0, player2: 0 });
+
             if (data.result === 'draw') {
               showNotif('🤝 Durang! +25 coins', 'info');
               setCoins(c => c + 25);
@@ -136,7 +140,7 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
               sender: String(msg.senderId) === String(user.id) ? 'me' : 'opponent',
               text: msg.text || msg.content?.text || '...',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              senderName: msg.senderName || (msg.senderId === user.id ? 'Siz' : 'Raqib')
+              senderName: msg.senderName || (String(msg.senderId) === String(user.id) ? 'Siz' : 'Raqib')
             }]);
             break;
 
@@ -158,12 +162,11 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
       setConnected(false);
       setDebugInfo('Ulanish uzildi. Qayta ulanmoqda...');
 
-      // Avto reconnect
       if (event.code !== 1000) { // normal yopilish emas
         reconnectTimer.current = setTimeout(() => {
           setDebugInfo('Qayta ulanish urinish...');
           connectWebSocket();
-        }, 3000);
+        }, 4000);
       }
     };
 
@@ -177,7 +180,6 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return;
 
     const initData = window.Telegram?.WebApp?.initData || '';
-
     const payload = {
       type: 'authenticate',
       userId: String(user.id),
@@ -198,7 +200,6 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
       showNotif('Serverga ulanmagan yoki autentifikatsiya yo‘q', 'error');
       return;
     }
-
     ws.current.send(JSON.stringify({ type: 'join_queue', mode: 'casual' }));
     setInQueue(true);
     setDebugInfo('Navbatga qo‘shildingiz');
@@ -209,11 +210,7 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     if (!ws.current?.OPEN) return;
 
     setMyChoice(choice);
-    ws.current.send(JSON.stringify({
-      type: 'make_choice',
-      gameId,
-      choice
-    }));
+    ws.current.send(JSON.stringify({ type: 'make_choice', gameId, choice }));
   };
 
   const sendChatMessage = (e) => {
@@ -241,7 +238,7 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ==================== RENDER ====================
+  // ==================== RENDER QISMI ====================
   if (!connected) {
     return (
       <div className="loading-screen">
@@ -257,11 +254,12 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
       <div className="auth-screen">
         <h2>Autentifikatsiya...</h2>
         <p>{debugInfo}</p>
-        <p>Urinishlar: {authAttempts}</p>
-        <button onClick={() => {
-          setAuthenticated(true);
-          showNotif('Demo rejimda davom etilmoqda', 'info');
-        }}>
+        <button
+          onClick={() => {
+            setAuthenticated(true);
+            showNotif('Demo rejimda davom etilmoqda', 'info');
+          }}
+        >
           Demo rejimda o‘ynash
         </button>
       </div>
@@ -274,12 +272,14 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
         <h2>Raqib qidirilmoqda...</h2>
         <div className="spinner"></div>
         <p>{debugInfo}</p>
-        <button onClick={() => {
-          if (ws.current?.OPEN) {
-            ws.current.send(JSON.stringify({ type: 'leave_queue' }));
-          }
-          setInQueue(false);
-        }}>
+        <button
+          onClick={() => {
+            if (ws.current?.OPEN) {
+              ws.current.send(JSON.stringify({ type: 'leave_queue' }));
+            }
+            setInQueue(false);
+          }}
+        >
           Navbatdan chiqish
         </button>
       </div>
@@ -306,7 +306,9 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
 
         <div className="player opponent">
           <div className="name">{opponent?.firstName || 'Raqib'}</div>
-          <div className="choice-display">{opponentChoice ? CHOICES[opponentChoice]?.emoji || '❓' : '❓'}</div>
+          <div className="choice-display">
+            {opponentChoice ? CHOICES[opponentChoice]?.emoji || '❓' : '❓'}
+          </div>
           <div className="score">{scores.player2}</div>
         </div>
       </div>
@@ -341,8 +343,7 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
       {result && (
         <div className="result-section">
           <h2 className={result === 'draw' ? 'draw' : scores.player1 > scores.player2 ? 'win' : 'lose'}>
-            {result === 'draw' ? 'Durang 🤝' :
-             scores.player1 > scores.player2 ? 'G‘alaba! 🎉' : 'Mag‘lubiyat 😔'}
+            {result === 'draw' ? 'Durang 🤝' : scores.player1 > scores.player2 ? 'G‘alaba! 🎉' : 'Mag‘lubiyat 😔'}
           </h2>
 
           <div className="result-choices">
@@ -353,14 +354,16 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
 
           <div className="result-buttons">
             <button onClick={onBackToMenu}>Menyuga</button>
-            <button onClick={() => {
-              setGameId(null);
-              setMyChoice(null);
-              setOpponentChoice(null);
-              setResult(null);
-              setScores({ player1: 0, player2: 0 });
-              joinQueue();
-            }}>
+            <button
+              onClick={() => {
+                setGameId(null);
+                setMyChoice(null);
+                setOpponentChoice(null);
+                setResult(null);
+                setScores({ player1: 0, player2: 0 });
+                joinQueue();
+              }}
+            >
               Yangi o‘yin
             </button>
           </div>
@@ -389,9 +392,9 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
             value={chatInput}
             onChange={e => setChatInput(e.target.value)}
             placeholder="Xabar yozing..."
-            disabled={!gameId || result}
+            disabled={!gameId || !!result}
           />
-          <button type="submit" disabled={!chatInput.trim() || !gameId || result}>
+          <button type="submit" disabled={!chatInput.trim() || !gameId || !!result}>
             ▶
           </button>
         </form>
