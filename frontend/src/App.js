@@ -4,6 +4,7 @@ import BotGame from './components/BotGame';
 import MultiplayerGame from './components/MultiplayerGame';
 import MenuScreen from './components/MenuScreen';
 import DifficultySelect from './components/DifficultySelect';
+import './App.css'
 
 export const CHOICES = {
   rock: { emoji: '✊', name: 'Tosh', color: '#64748b' },
