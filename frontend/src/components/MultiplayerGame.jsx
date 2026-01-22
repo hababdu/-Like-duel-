@@ -9,6 +9,7 @@ const CHOICES = {
 
 function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const ws = useRef(null);
+  const reconnectTimer = useRef(null);
   const [connected, setConnected] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [inQueue, setInQueue] = useState(false);
@@ -21,43 +22,57 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [debugInfo, setDebugInfo] = useState('Yuklanmoqda...');
-
   const messagesEndRef = useRef(null);
-  const reconnectTimeout = useRef(null);
 
   // ==================== TELEGRAM INITDATA KUTISH ====================
   useEffect(() => {
-    if (!user?.id) return;
-
-    const waitForTelegram = () => {
-      if (window.Telegram?.WebApp?.initData) {
-        console.log('Telegram initData topildi:', window.Telegram.WebApp.initData.length);
-        connectWebSocket();
-      } else {
-        console.log('Telegram initData kutilmoqda...');
-        setTimeout(waitForTelegram, 500);
-      }
-    };
-
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
+    if (!user?.id) {
+      setDebugInfo('Foydalanuvchi ma‘lumotlari topilmadi');
+      return;
     }
 
-    waitForTelegram();
+    const tryConnect = () => {
+      // Telegram WebApp ni majburiy ishga tushirish
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+        console.log('Telegram WebApp ready() chaqirildi');
+      }
+
+      const initData = window.Telegram?.WebApp?.initData || '';
+      console.log('initData uzunligi:', initData.length);
+
+      connectWebSocket();
+
+      // Agar 8 soniyada authenticated bo‘lmasa – demo rejim
+      setTimeout(() => {
+        if (!authenticated) {
+          setAuthenticated(true);
+          setDebugInfo('Demo rejimda davom etilmoqda (Telegram initData topilmadi)');
+          showNotif('Demo rejimda o‘ynaysiz', 'warning');
+        }
+      }, 8000);
+    };
+
+    tryConnect();
 
     return () => {
-      if (ws.current) ws.current.close();
-      if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
+      if (ws.current) ws.current.close(1000, 'Komponent yopildi');
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
   }, [user?.id]);
 
-  // ==================== WEBSOCKET ====================
+  // ==================== WEBSOCKET ULASH ====================
   const connectWebSocket = () => {
+    if (ws.current) {
+      ws.current.close();
+    }
+
     const socket = new WebSocket('wss://telegram-bot-server-2-matj.onrender.com');
     ws.current = socket;
 
     socket.onopen = () => {
+      console.log('✅ WebSocket ulandi');
       setConnected(true);
       setDebugInfo('Serverga ulandi');
       sendAuthentication();
@@ -66,32 +81,34 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Serverdan keldi:', data.type);
+        console.log('📩 Serverdan:', data.type, data);
 
         switch (data.type) {
           case 'authenticated':
             setAuthenticated(true);
-            setDebugInfo('Muvaffaqiyatli kirildi!');
-            showNotif('Xush kelibsiz!', 'success');
+            setDebugInfo(`Kirildi: ${data.user?.firstName || 'Foydalanuvchi'}`);
+            showNotif('Muvaffaqiyatli kirdingiz!', 'success');
             break;
 
           case 'joined_queue':
             setInQueue(true);
-            setDebugInfo('Navbatda...');
+            setDebugInfo('Navbatda... Raqib qidirilmoqda');
+            showNotif('Navbatga qo‘shildingiz', 'info');
             break;
 
           case 'match_found':
             setGameId(data.gameId);
             setOpponent(data.opponent);
             setInQueue(false);
-            setDebugInfo('O‘yin topildi!');
+            setDebugInfo(`O‘yin topildi! vs ${data.opponent?.firstName}`);
+            showNotif(`Raqib topildi: ${data.opponent?.firstName}`, 'success');
             break;
 
           case 'round_result':
-            setScores(data.scores);
+            setScores(data.scores || { player1: 0, player2: 0 });
             setResult(data.result);
             if (data.choices) {
-              const oppChoice = user.id === data.choices.player1?.id
+              const oppChoice = data.choices.player1?.id === user.id
                 ? data.choices.player2?.choice
                 : data.choices.player1?.choice;
               setOpponentChoice(oppChoice);
@@ -100,90 +117,108 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
 
           case 'game_result':
             setResult(data.result);
+            setScores(data.scores || { player1: 0, player2: 0 });
             if (data.result === 'draw') {
+              showNotif('🤝 Durang! +25 coins', 'info');
               setCoins(c => c + 25);
-              showNotif('Durang! +25 coins');
             } else if (data.winnerId === user.id) {
+              showNotif('🎉 G‘alaba! +50 coins', 'success');
               setCoins(c => c + 50);
-              showNotif('G‘alaba! +50 coins 🎉');
             } else {
-              showNotif('Mag‘lubiyat 😔');
+              showNotif('😔 Mag‘lubiyat', 'error');
             }
             break;
 
           case 'chat_message':
-            const msg = data.message;
+            const msg = data.message || data;
             setMessages(prev => [...prev, {
               id: Date.now(),
-              sender: msg.senderId === user.id ? 'me' : 'opponent',
-              text: msg.text,
+              sender: String(msg.senderId) === String(user.id) ? 'me' : 'opponent',
+              text: msg.text || msg.content?.text || '...',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               senderName: msg.senderName || (msg.senderId === user.id ? 'Siz' : 'Raqib')
             }]);
             break;
 
           case 'error':
-            showNotif(data.message || 'Xatolik', 'error');
+            showNotif(data.message || 'Xatolik yuz berdi', 'error');
+            setDebugInfo(`Xato: ${data.message}`);
             break;
 
           default:
-            console.log('Noma‘lum xabar:', data.type);
+            console.log('Noma‘lum xabar turi:', data.type);
         }
       } catch (err) {
-        console.error('Xabar parse xatosi:', err);
+        console.error('Xabar parse xatosi:', err, event.data);
       }
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
+      console.log(`WebSocket yopildi: ${event.code} - ${event.reason}`);
       setConnected(false);
       setDebugInfo('Ulanish uzildi. Qayta ulanmoqda...');
-      reconnectTimeout.current = setTimeout(connectWebSocket, 3000);
+
+      // Avto reconnect
+      if (event.code !== 1000) { // normal yopilish emas
+        reconnectTimer.current = setTimeout(() => {
+          setDebugInfo('Qayta ulanish urinish...');
+          connectWebSocket();
+        }, 3000);
+      }
     };
 
     socket.onerror = (err) => {
-      console.error('WS xatosi:', err);
+      console.error('WebSocket xatosi:', err);
       setDebugInfo('Ulanish xatosi');
     };
   };
 
   const sendAuthentication = () => {
+    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return;
+
     const initData = window.Telegram?.WebApp?.initData || '';
 
-    const authData = {
+    const payload = {
       type: 'authenticate',
-      userId: user.id,
+      userId: String(user.id),
       firstName: user.first_name || 'Player',
       username: user.username || `user_${user.id}`,
       languageCode: user.language_code || 'uz',
-      isPremium: user.is_premium || false,
-      initData
+      isPremium: !!user.is_premium,
+      initData: initData,
+      timestamp: Date.now()
     };
 
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify(authData));
-      setDebugInfo('Autentifikatsiya yuborildi');
-    }
+    console.log('Auth yuborilmoqda:', payload);
+    ws.current.send(JSON.stringify(payload));
   };
 
   const joinQueue = () => {
     if (!authenticated || !ws.current?.OPEN) {
-      showNotif('Serverga ulanmagan', 'error');
+      showNotif('Serverga ulanmagan yoki autentifikatsiya yo‘q', 'error');
       return;
     }
 
     ws.current.send(JSON.stringify({ type: 'join_queue', mode: 'casual' }));
     setInQueue(true);
+    setDebugInfo('Navbatga qo‘shildingiz');
   };
 
   const makeChoice = (choice) => {
     if (!gameId || myChoice || result) return;
-    ws.current.send(JSON.stringify({ type: 'make_choice', gameId, choice }));
+    if (!ws.current?.OPEN) return;
+
     setMyChoice(choice);
+    ws.current.send(JSON.stringify({
+      type: 'make_choice',
+      gameId,
+      choice
+    }));
   };
 
-  const sendMessage = (e) => {
+  const sendChatMessage = (e) => {
     e.preventDefault();
-    if (!chatInput.trim() || !gameId) return;
+    if (!chatInput.trim() || !gameId || !ws.current?.OPEN) return;
 
     ws.current.send(JSON.stringify({
       type: 'chat_message',
@@ -206,11 +241,13 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // ==================== RENDER ====================
   if (!connected) {
     return (
-      <div className="loading">
+      <div className="loading-screen">
         <div className="spinner"></div>
-        <p>{debugInfo}</p>
+        <h3>{debugInfo}</h3>
+        <button onClick={() => window.location.reload()}>Qayta yuklash</button>
       </div>
     );
   }
@@ -218,89 +255,149 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   if (!authenticated) {
     return (
       <div className="auth-screen">
-        <h2>Kirish...</h2>
+        <h2>Autentifikatsiya...</h2>
         <p>{debugInfo}</p>
+        <p>Urinishlar: {authAttempts}</p>
         <button onClick={() => {
           setAuthenticated(true);
           showNotif('Demo rejimda davom etilmoqda', 'info');
         }}>
-          Demo rejim
+          Demo rejimda o‘ynash
+        </button>
+      </div>
+    );
+  }
+
+  if (inQueue) {
+    return (
+      <div className="queue-screen">
+        <h2>Raqib qidirilmoqda...</h2>
+        <div className="spinner"></div>
+        <p>{debugInfo}</p>
+        <button onClick={() => {
+          if (ws.current?.OPEN) {
+            ws.current.send(JSON.stringify({ type: 'leave_queue' }));
+          }
+          setInQueue(false);
+        }}>
+          Navbatdan chiqish
         </button>
       </div>
     );
   }
 
   return (
-    <div className="game-container">
-      <button className="back-btn" onClick={onBackToMenu}>← Orqaga</button>
+    <div className="game-screen">
+      <button className="back-btn" onClick={onBackToMenu}>← Menyuga</button>
 
-      {inQueue ? (
-        <div className="queue">
-          <div className="spinner"></div>
-          <h2>Raqib qidirilmoqda...</h2>
-          <button onClick={() => setInQueue(false)}>Chiqish</button>
+      <div className="game-header">
+        <span>O'yin #{gameId ? gameId.slice(0, 8) : '---'}</span>
+        <span className="coins">🪙 {coins}</span>
+      </div>
+
+      <div className="players">
+        <div className="player you">
+          <div className="name">SIZ</div>
+          <div className="choice-display">{myChoice ? CHOICES[myChoice].emoji : '?'}</div>
+          <div className="score">{scores.player1}</div>
         </div>
-      ) : gameId ? (
-        <div className="game">
-          <div className="players">
-            <div className="player">
-              <h3>Siz</h3>
-              <div className="choice">{myChoice ? CHOICES[myChoice].emoji : '?'}</div>
-              <p>{scores.player1}</p>
-            </div>
-            <div className="vs">VS</div>
-            <div className="player">
-              <h3>{opponent?.firstName || 'Raqib'}</h3>
-              <div className="choice">{opponentChoice ? CHOICES[opponentChoice].emoji : '?'}</div>
-              <p>{scores.player2}</p>
-            </div>
-          </div>
 
-          {!myChoice && !result && (
-            <div className="choices">
-              {Object.keys(CHOICES).map(key => (
-                <button key={key} onClick={() => makeChoice(key)}>
-                  {CHOICES[key].emoji} {CHOICES[key].name}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="vs">VS</div>
 
-          {result && (
-            <div className="result">
-              <h2>{result === 'draw' ? 'Durang!' : 'G‘alaba!'}</h2>
-              <button onClick={() => setGameId(null)}>Yangi o‘yin</button>
-            </div>
-          )}
-
-          <div className="chat">
-            <div className="messages">
-              {messages.map(m => (
-                <div key={m.id} className={m.sender}>
-                  <strong>{m.senderName}</strong>: {m.text}
-                  <small>{m.time}</small>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-            <form onSubmit={sendMessage}>
-              <input
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                placeholder="Xabar yozing..."
-              />
-              <button type="submit">Yuborish</button>
-            </form>
-          </div>
+        <div className="player opponent">
+          <div className="name">{opponent?.firstName || 'Raqib'}</div>
+          <div className="choice-display">{opponentChoice ? CHOICES[opponentChoice]?.emoji || '❓' : '❓'}</div>
+          <div className="score">{scores.player2}</div>
         </div>
-      ) : (
-        <div className="menu">
-          <h2>O‘yin boshlash</h2>
-          <button onClick={joinQueue}>O‘ynash</button>
+      </div>
+
+      {!myChoice && !result && (
+        <div className="choices-section">
+          <h3>Tanlov qiling:</h3>
+          <div className="choices">
+            {Object.entries(CHOICES).map(([key, val]) => (
+              <button
+                key={key}
+                className="choice-btn"
+                style={{ borderColor: val.color }}
+                onClick={() => makeChoice(key)}
+              >
+                <span className="emoji">{val.emoji}</span>
+                <span>{val.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="debug">{debugInfo}</div>
+      {myChoice && !opponentChoice && !result && (
+        <div className="waiting">
+          <div className="spinner"></div>
+          <p>Siz tanladingiz: {CHOICES[myChoice].name}</p>
+          <p>Raqib tanlovini kuting...</p>
+        </div>
+      )}
+
+      {result && (
+        <div className="result-section">
+          <h2 className={result === 'draw' ? 'draw' : scores.player1 > scores.player2 ? 'win' : 'lose'}>
+            {result === 'draw' ? 'Durang 🤝' :
+             scores.player1 > scores.player2 ? 'G‘alaba! 🎉' : 'Mag‘lubiyat 😔'}
+          </h2>
+
+          <div className="result-choices">
+            <span>{myChoice ? CHOICES[myChoice].emoji : '?'}</span>
+            <span>vs</span>
+            <span>{opponentChoice ? CHOICES[opponentChoice]?.emoji : '?'}</span>
+          </div>
+
+          <div className="result-buttons">
+            <button onClick={onBackToMenu}>Menyuga</button>
+            <button onClick={() => {
+              setGameId(null);
+              setMyChoice(null);
+              setOpponentChoice(null);
+              setResult(null);
+              setScores({ player1: 0, player2: 0 });
+              joinQueue();
+            }}>
+              Yangi o‘yin
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="chat-section">
+        <div className="chat-header">
+          <span>💬 Suhbat</span>
+        </div>
+
+        <div className="chat-messages">
+          {messages.map(msg => (
+            <div key={msg.id} className={`message ${msg.sender}`}>
+              <div className="sender">{msg.senderName}</div>
+              <div className="text">{msg.text}</div>
+              <div className="time">{msg.time}</div>
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <form className="chat-form" onSubmit={sendChatMessage}>
+          <input
+            type="text"
+            value={chatInput}
+            onChange={e => setChatInput(e.target.value)}
+            placeholder="Xabar yozing..."
+            disabled={!gameId || result}
+          />
+          <button type="submit" disabled={!chatInput.trim() || !gameId || result}>
+            ▶
+          </button>
+        </form>
+      </div>
+
+      <div className="debug-info">{debugInfo}</div>
     </div>
   );
 }
