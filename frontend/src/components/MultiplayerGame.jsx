@@ -1,4 +1,3 @@
-// MultiplayerGame.jsx - TO'LIQ ISHLAYDI
 import React, { useState, useEffect, useRef } from 'react';
 import './MultiplayerGame.css';
 
@@ -9,7 +8,7 @@ const CHOICES = {
 };
 
 function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
-  const ws = useRef(null);
+  const ws = useRef(null); // ✅ useRef ishlatildi
   const [connected, setConnected] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [inQueue, setInQueue] = useState(false);
@@ -25,110 +24,40 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const [debugInfo, setDebugInfo] = useState('Initializing...');
   const messagesEndRef = useRef(null);
   
-  // ✅ AUTENTIFIKATSIYA FUNKTSIYASI
-// AUTENTIFIKATSIYA FUNKTSIYASINI YANGILANG
-const sendAuthentication = () => {
-  if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-    console.log('❌ WebSocket ochiq emas, auth yuborilmaydi');
-    return false;
-  }
-
-  if (!user?.id) {
-    console.log('❌ User ID yoʻq, auth yuborilmaydi');
-    return false;
-  }
-
-  // TELEGRAM initData ni olish (agar mavjud bo'lsa)
-  let initData = '';
-  
-  if (window.Telegram?.WebApp?.initData) {
-    initData = window.Telegram.WebApp.initData;
-    console.log('✅ Telegram initData mavjud');
-  } else {
-    // Agar Telegram emas brauzerda bo'lsa
-    console.log('⚠️ Telegram initData yoʻq, demo malumotlar yuborilmoqda');
-    // Demo autentifikatsiya uchun hash yaratish
-    const demoData = JSON.stringify({
-      id: user.id,
-      first_name: user.first_name,
-      username: user.username,
-      auth_date: Math.floor(Date.now() / 1000)
-    });
-    initData = `query_id=&user=${encodeURIComponent(demoData)}&auth_date=${Math.floor(Date.now() / 1000)}`;
-  }
-
-  const authData = {
-    type: 'authenticate',
-    userId: user.id,
-    username: user.username || `user_${user.id}`,
-    firstName: user.first_name || 'Player',
-    telegramId: user.id,
-    languageCode: user.language_code || 'uz',
-    isPremium: user.is_premium || false,
-    timestamp: Date.now(),
-    version: '1.0',
-    initData: initData, // ✅ CRITICAL: initData ni qo'shing
-    deviceInfo: {
-      platform: navigator.platform,
-      userAgent: navigator.userAgent,
-      language: navigator.language
+  // ✅ AUTENTIFIKATSIYA FUNKTSIYASI (useRef bilan)
+  const sendAuthentication = () => {
+    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
+      console.log('❌ WebSocket ochiq emas, auth yuborilmaydi');
+      return false;
     }
+    
+    if (!user?.id) {
+      console.log('❌ User ID yoʻq, auth yuborilmaydi');
+      return false;
+    }
+    
+    const authData = {
+      type: 'authenticate',
+      userId: user.id,
+      username: user.username || `user_${user.id}`,
+      firstName: user.first_name || 'Player',
+      telegramId: user.id,
+      languageCode: user.language_code || 'uz',
+      isPremium: user.is_premium || false,
+      timestamp: Date.now(),
+      version: '1.0'
+    };
+    
+    console.log('📤 AUTHENTICATION YUBORILMOQDA:', authData);
+    setDebugInfo(`Auth yuborildi (${authAttempts + 1})...`);
+    
+    ws.current.send(JSON.stringify(authData));
+    setAuthAttempts(prev => prev + 1);
+    
+    return true;
   };
-
-  console.log('📤 AUTHENTICATION YUBORILMOQDA:', authData);
-  setDebugInfo(`Auth yuborildi (${authAttempts + 1})...`);
-
-  ws.current.send(JSON.stringify(authData));
-  setAuthAttempts(prev => prev + 1);
-
-  return true;
-};
-
-// YANGI FUNKSIYA: AUTHENTICATION FUNKTSIYASINI TEKSHIRISH
-const validateAndRetryAuth = () => {
-  if (!authenticated && ws.current?.readyState === WebSocket.OPEN) {
-    console.log('🔄 Auth tekshirilmoqda, qayta urinilmoqda...');
-    
-    // Birinchi marta urinish
-    setTimeout(() => {
-      sendAuthentication();
-    }, 1000);
-    
-    // Ikkinchi marta urinish (agar kerak bo'lsa)
-    setTimeout(() => {
-      if (!authenticated) {
-        console.log('🔄 Ikkinchi auth urinishi...');
-        sendAuthentication();
-      }
-    }, 3000);
-    
-    // Demo mode (agar auth muvaffaqiyatsiz bo'lsa)
-    setTimeout(() => {
-      if (!authenticated) {
-        console.log('🔄 Auth muvaffaqiyatsiz, demo rejimga otilmoqda...');
-        setAuthenticated(true);
-        showNotif('Demo rejimda davom eting', 'warning');
-      }
-    }, 5000);
-  }
-};
-
-// WebSocket onopen funksiyasini yangilang
-socket.onopen = () => {
-  console.log('✅✅✅ WebSocket OCHILDI!');
-  console.log('📊 ReadyState:', socket.readyState);
-  setConnected(true);
-  setDebugInfo('WebSocket ochildi, auth yuborilmoqda...');
-  showNotif('Serverga ulandi!', 'success');
-
-  // Darhol authentication yuborish
-  sendAuthentication();
-
-  // Auth tekshirish va qayta urinish
-  validateAndRetryAuth();
-};
   
-  // ✅ WEB SOCKET ULANISHI
+  // ✅ WEB SOCKET ULANISHI (useEffect ichida to'g'ri)
   useEffect(() => {
     if (!user?.id) {
       console.log('❌ User ID yoʻq');
@@ -143,7 +72,7 @@ socket.onopen = () => {
     console.log('📡 URL:', WS_URL);
     
     const socket = new WebSocket(WS_URL);
-    ws.current = socket;
+    ws.current = socket; // ✅ ref ga saqlash
     
     // ✅ ONOPEN - WebSocket ochilganda
     socket.onopen = () => {
@@ -170,7 +99,7 @@ socket.onopen = () => {
       setTimeout(() => {
         if (!authenticated) {
           console.log('⚠️ 6 soniya otdi, demo rejimga otilmoqda');
-          setAuthenticated(true); // Force authentication
+          setAuthenticated(true);
           setDebugInfo('Demo rejimda kirildi');
           showNotif('Demo rejimda o`ynaysiz', 'info');
         }
@@ -186,47 +115,36 @@ socket.onopen = () => {
         const data = JSON.parse(event.data);
         console.log('📊 XABAR TURI:', data.type);
         
-        // ✅ AUTHENTICATED - Muvaffaqiyatli autentifikatsiya
         if (data.type === 'authenticated') {
           console.log('🎉🎉🎉 AUTHENTICATION MUVAFFAQIYATLI!');
-          console.log('👤 User data:', data.user);
           setAuthenticated(true);
           setAuthAttempts(0);
           setDebugInfo('Authentication OK!');
           showNotif(`Xush kelibsiz, ${data.user?.firstName || user.first_name}!`, 'success');
         }
-        
-        // ✅ ERROR - Server xatosi
         else if (data.type === 'error') {
           console.error('❌ SERVER XATOSI:', data.code, data.message);
           
-          // Agar "UNAUTHENTICATED" xatosi bo'lsa
           if (data.code === 'UNAUTHENTICATED') {
             console.log('🔄 Authentication talab qilinmoqda...');
             showNotif('Autentifikatsiya qilinmoqda...', 'info');
             
-            // Authentication ni qayta yuborish
             setTimeout(() => {
               sendAuthentication();
             }, 1000);
           }
-          // Agar "AUTH_FAILED" bo'lsa
           else if (data.code === 'AUTH_FAILED') {
             console.log('⚠️ Auth muvaffaqiyatsiz, demo rejim');
-            setAuthenticated(true); // Force demo mode
+            setAuthenticated(true);
             showNotif('Demo rejimda davom eting', 'warning');
           }
         }
-        
-        // ✅ JOINED_QUEUE - Navbatga qo'shilgan
         else if (data.type === 'joined_queue') {
           console.log('⏳ Navbatga qo\'shildingiz');
           setInQueue(true);
           setDebugInfo('Navbatda, raqib qidirilmoqda...');
           showNotif('Raqib qidirilmoqda...', 'info');
         }
-        
-        // ✅ MATCH_FOUND - Raqib topilgan
         else if (data.type === 'match_found') {
           console.log('🎮🎮🎮 MATCH TOPILDI!', data);
           setGameId(data.gameId);
@@ -235,8 +153,6 @@ socket.onopen = () => {
           setDebugInfo(`Match: vs ${data.opponent?.firstName || 'Raqib'}`);
           showNotif(`Raqib topildi: ${data.opponent?.firstName || data.opponent?.username || 'Raqib'}`, 'success');
         }
-        
-        // ✅ ROUND_RESULT - Raund natijasi
         else if (data.type === 'round_result') {
           console.log('📊 Round natijasi:', data);
           setOpponentChoice(
@@ -247,8 +163,6 @@ socket.onopen = () => {
           setScores(data.scores || { player1: 0, player2: 0 });
           showNotif('Raund tugadi!', 'info');
         }
-        
-        // ✅ GAME_RESULT - O'yin natijasi
         else if (data.type === 'game_result') {
           console.log('🏁 O\'yin tugadi:', data);
           setResult(data.result);
@@ -264,8 +178,6 @@ socket.onopen = () => {
             showNotif('Magʻlubiyat', 'error');
           }
         }
-        
-        // ✅ CHAT_MESSAGE - Chat xabari
         else if (data.type === 'chat_message') {
           console.log('💬 Chat:', data);
           const msg = data.message || data;
@@ -277,13 +189,9 @@ socket.onopen = () => {
             senderName: msg.senderName || (msg.senderId === user.id ? 'Siz' : 'Raqib')
           }]);
         }
-        
-        // ✅ HEARTBEAT yoki boshqa xabarlar
         else if (data.type === 'heartbeat' || data.type === 'pong') {
           // Ignore heartbeat
         }
-        
-        // ✅ BOSHQA XABARLAR
         else {
           console.log('🔍 Boshqa xabar:', data.type);
         }
@@ -329,7 +237,7 @@ socket.onopen = () => {
     };
   }, [user?.id]);
   
-  // ✅ NAVBATGA QO'SHILISH
+  // ✅ NAVBATGA QO'SHILISH (ws.current bilan)
   const joinQueue = () => {
     console.log('🎮 Navbatga qo\'shilish boshlanmoqda...');
     
@@ -361,6 +269,7 @@ socket.onopen = () => {
         console.log('📤 Queue yuborilmoqda:', queueData);
         ws.current.send(JSON.stringify(queueData));
         setDebugInfo('Navbat so\'rovi yuborildi');
+        setInQueue(true);
       }, 2000);
       
       return;
@@ -377,10 +286,12 @@ socket.onopen = () => {
     
     console.log('📤 Queue yuborilmoqda:', queueData);
     ws.current.send(JSON.stringify(queueData));
+    setInQueue(true);
     setDebugInfo('Navbatga qo\'shildingiz');
+    showNotif('Raqib qidirilmoqda...', 'info');
   };
   
-  // ✅ TANLOV QILISH
+  // ✅ TANLOV QILISH (ws.current bilan)
   const makeChoice = (choice) => {
     if (!gameId || !ws.current || ws.current.readyState !== WebSocket.OPEN) {
       showNotif('Serverga ulanmagan', 'error');
@@ -418,7 +329,7 @@ socket.onopen = () => {
     }, 500);
   };
   
-  // ✅ CHAT YUBORISH
+  // ✅ CHAT YUBORISH (ws.current bilan)
   const sendMessage = (e) => {
     e.preventDefault();
     const trimmed = chatInput.trim();
@@ -446,6 +357,11 @@ socket.onopen = () => {
     
     setChatInput('');
   };
+  
+  // ✅ CHAT AUTOSCROLL
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
   
   // ✅ RENDER
   if (!connected) {
@@ -672,7 +588,7 @@ socket.onopen = () => {
           </div>
           <div className="status-item">
             <span>Auth:</span>
-            <span className="status-success">✅ {authenticated ? 'Kirildi' : 'Kutilmoqda'}</span>
+            <span className="status-success">✅ Kirildi</span>
           </div>
           <div className="status-item">
             <span>User ID:</span>
