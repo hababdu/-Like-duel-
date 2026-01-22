@@ -937,83 +937,134 @@ async function handleMessage(ws, data, session) {
 }
 
 async function handleAuthentication(ws, data, session) {
-  console.log('Auth keldi:', data);
+  console.log('[AUTH] Keldi →', {
+    userId: data.userId,
+    firstName: data.firstName,
+    initDataLength: data.initData?.length || 0,
+    initDataPreview: data.initData ? data.initData.substring(0, 120) + '...' : '(yo‘q)'
+  });
 
-  // 1. Agar initData bo‘lsa — Telegram autentifikatsiyasi
-  if (data.initData && data.initData.trim() !== '') {
-    try {
-      const isValid = verifyTelegramInitData(data.initData, BOT_TOKEN);
+  // Agar initData bo‘lmasa — xato
+  if (!data.initData || data.initData.trim() === '') {
+    safeSend(ws, {
+      type: 'error',
+      code: 'INIT_DATA_REQUIRED',
+      message: 'Telegram initData yuborilmadi'
+    });
+    return;
+  }
 
-      if (!isValid) {
-        safeSend(ws, {
-          type: 'error',
-          code: 'INVALID_INIT_DATA',
-          message: 'Telegram ma‘lumotlari noto‘g‘ri'
-        });
-        ws.close(1008, 'Invalid auth');
-        return;
-      }
+  try {
+    const isValid = verifyTelegramInitData(data.initData, BOT_TOKEN);
 
-      // initData dan user ma'lumotlarini olish
-      const urlParams = new URLSearchParams(data.initData);
-      const userJson = urlParams.get('user');
-      if (!userJson) throw new Error('user parametri yo‘q');
+    console.log('[AUTH] Hash tekshiruvi natijasi:', isValid ? 'TO‘G‘RI' : 'XATO');
 
-      const tgUser = JSON.parse(decodeURIComponent(userJson));
-
-      const telegramId = Number(tgUser.id);
-
-      // Database'da topish yoki yaratish
-      let userDoc = await User.findOne({ telegramId });
-      if (!userDoc) {
-        userDoc = new User({
-          telegramId,
-          firstName: tgUser.first_name,
-          username: tgUser.username,
-          languageCode: tgUser.language_code || 'uz',
-          isPremium: tgUser.is_premium || false,
-          joinedAt: new Date()
-        });
-        await userDoc.save();
-      }
-
-      // Sessionni yangilash
-      session.userId = telegramId;
-      session.authenticated = true;
-      session.user = {
-        id: telegramId,
-        firstName: userDoc.firstName,
-        username: userDoc.username
-      };
-
-      playerSessions.set(telegramId, session);
-
+    if (!isValid) {
       safeSend(ws, {
-        type: 'authenticated',
-        user: {
-          id: telegramId,
-          firstName: userDoc.firstName,
-          username: userDoc.username,
-          isPremium: userDoc.isPremium
-        }
+        type: 'error',
+        code: 'INVALID_INIT_DATA',
+        message: 'Telegram ma‘lumotlari noto‘g‘ri (hash mos kelmadi)'
       });
-
-      console.log(`✅ Telegram user authenticated: ${telegramId}`);
-      return;
-    } catch (err) {
-      console.error('Telegram auth xatosi:', err);
-      safeSend(ws, { type: 'error', code: 'AUTH_FAILED', message: 'Telegram autentifikatsiya xatosi' });
+      ws.close(1008, 'Invalid Telegram data');
       return;
     }
+
+    // initData dan user ma'lumotlarini olish
+    const urlParams = new URLSearchParams(data.initData);
+    const userRaw = urlParams.get('user');
+
+    if (!userRaw) {
+      throw new Error('user parametri topilmadi initData ichida');
+    }
+
+    const tgUser = JSON.parse(decodeURIComponent(userRaw));
+    const telegramId = Number(tgUser.id);
+
+    if (!telegramId || isNaN(telegramId)) {
+      throw new Error('Telegram ID noto‘g‘ri');
+    }
+
+    // Database'da izlash / yaratish
+    let userDoc = await User.findOne({ telegramId });
+    if (!userDoc) {
+      userDoc = new User({
+        telegramId,
+        firstName: tgUser.first_name || data.firstName || 'NoName',
+        username: tgUser.username || data.username,
+        languageCode: tgUser.language_code || data.languageCode || 'uz',
+        isPremium: tgUser.is_premium || false,
+        joinedAt: new Date()
+      });
+      await userDoc.save();
+      console.log('[AUTH] Yangi user yaratildi:', telegramId);
+    }
+
+    // Session yangilash
+    session.userId = telegramId;
+    session.authenticated = true;
+    session.user = {
+      id: telegramId,
+      firstName: userDoc.firstName,
+      username: userDoc.username
+    };
+
+    playerSessions.set(telegramId, session);
+
+    safeSend(ws, {
+      type: 'authenticated',
+      user: {
+        id: telegramId,
+        firstName: userDoc.firstName,
+        username: userDoc.username,
+        isPremium: userDoc.isPremium
+      }
+    });
+
+    console.log(`[AUTH] Muvaffaqiyatli: ${telegramId} (${userDoc.firstName})`);
+  } catch (err) {
+    console.error('[AUTH] Xato:', err.message, err.stack?.substring(0, 200));
+    safeSend(ws, {
+      type: 'error',
+      code: 'AUTH_FAILED',
+      message: 'Autentifikatsiya xatosi: ' + (err.message || 'noma‘lum xato')
+    });
+  }
+}
+
+// To‘g‘ri va barqaror hash tekshirish funksiyasi
+function verifyTelegramInitData(initDataString, botToken) {
+  if (!botToken) {
+    console.error('[VERIFY] BOT_TOKEN yo‘q yoki bo‘sh');
+    return false;
   }
 
-  // 2. Agar initData yo‘q bo‘lsa — demo rejim (faqat test uchun)
-  if (data.userId && process.env.NODE_ENV !== 'production') {
-    // ... hozirgi demo logikangizni saqlab qo‘ying
-    // lekin productionda bu qismni o‘chirib qo‘ying!
-  } else {
-    safeSend(ws, { type: 'error', code: 'AUTH_REQUIRED', message: 'Autentifikatsiya ma‘lumotlari yo‘q' });
-  }
+  // Parametrlarni ajratib, hash ni olib tashlaymiz
+  const params = initDataString
+    .split('&')
+    .filter(kv => kv && !kv.startsWith('hash='))
+    .sort((a, b) => a.localeCompare(b));   // alifbo tartibida
+
+  const dataCheckString = params.join('\n');
+
+  // Secret key hosil qilish
+  const secret = crypto.createHmac('sha256', 'WebAppData')
+    .update(botToken)
+    .digest();
+
+  // Computed hash
+  const computedHash = crypto.createHmac('sha256', secret)
+    .update(dataCheckString)
+    .digest('hex');
+
+  // Kelgan hash
+  const receivedHash = new URLSearchParams(initDataString).get('hash') || '';
+
+  console.log('[VERIFY] Computed vs Received:');
+  console.log('  Computed →', computedHash);
+  console.log('  Received →', receivedHash);
+  console.log('  Natija   →', computedHash === receivedHash ? 'MOS' : 'MOS KELMADI');
+
+  return computedHash === receivedHash;
 }
 
 // Telegram initData ni tekshiruvchi funksiya (crypto bilan)

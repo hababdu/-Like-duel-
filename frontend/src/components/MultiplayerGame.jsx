@@ -27,76 +27,46 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   // ✅ TO'G'RI AUTENTIFIKATSIYA FUNKTSIYASI
   const sendAuthentication = () => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      console.log('❌ WebSocket ochiq emas, auth yuborilmaydi');
+      console.log('WebSocket ochiq emas');
       return false;
     }
-    
+  
     if (!user?.id) {
-      console.log('❌ User ID yoʻq, auth yuborilmaydi');
+      console.log('User ID yo‘q');
       return false;
     }
-
-    // ✅ TELEGRAM initData ni olish (MUHIM!)
+  
+    // Telegram Mini App dan to‘g‘ridan-to‘g‘ri initData olish
     let initData = '';
-    
+  
     if (window.Telegram?.WebApp?.initData) {
-      // TELEGRAM Mini App bo'lsa
       initData = window.Telegram.WebApp.initData;
-      console.log('✅ Telegram initData yuborilmoqda');
-    } else if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-      // Agar initData to'g'ridan-to'g'ri bo'lmasa
-      const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
-      const demoData = {
-        id: tgUser.id,
-        first_name: tgUser.first_name,
-        username: tgUser.username,
-        auth_date: Math.floor(Date.now() / 1000)
-      };
-      initData = `user=${encodeURIComponent(JSON.stringify(demoData))}&auth_date=${Math.floor(Date.now() / 1000)}`;
-      console.log('✅ Telegram user maʼlumotlaridan initData yaratildi');
+      console.log('Telegram initData topildi (uzunligi):', initData.length);
     } else {
-      // BROWSER yoki DEMO rejim
-      const demoData = {
-        id: user.id,
-        first_name: user.first_name,
-        username: user.username,
-        auth_date: Math.floor(Date.now() / 1000)
-      };
-      initData = `user=${encodeURIComponent(JSON.stringify(demoData))}&auth_date=${Math.floor(Date.now() / 1000)}`;
-      console.log('✅ Demo initData yaratildi');
+      console.log('Telegram initData topilmadi → demo rejim');
     }
-
-    const authData = {
+  
+    const authPayload = {
       type: 'authenticate',
-      userId: user.id,
-      username: user.username || `user_${user.id}`,
+      userId: String(user.id),                 // string sifatida yuboramiz
       firstName: user.first_name || 'Player',
-      telegramId: user.id,
+      username: user.username || `user_${user.id}`,
       languageCode: user.language_code || 'uz',
-      isPremium: user.is_premium || false,
+      isPremium: !!user.is_premium,
       timestamp: Date.now(),
-      version: '1.0',
-      initData: initData, // ✅ MUHIM: initData ni qo'shing!
-      deviceInfo: {
-        platform: navigator.platform,
-        userAgent: navigator.userAgent.substring(0, 100),
-        language: navigator.language
-      }
+      initData: initData,                      // eng muhimi — toza initData
     };
-
-    console.log('📤 AUTHENTICATION YUBORILMOQDA (initData bilan):', {
-      ...authData,
-      initData: initData.substring(0, 100) + '...' // Log'da ko'rinishi uchun
+  
+    console.log('Auth yuborilmoqda →', {
+      ...authPayload,
+      initData: initData ? initData.substring(0, 80) + '...' : '(bo‘sh)'
     });
-    
-    setDebugInfo(`Auth yuborildi (${authAttempts + 1})...`);
-    
+  
     try {
-      ws.current.send(JSON.stringify(authData));
-      setAuthAttempts(prev => prev + 1);
+      ws.current.send(JSON.stringify(authPayload));
       return true;
     } catch (err) {
-      console.error('Auth yuborishda xatolik:', err);
+      console.error('Auth yuborish xatosi:', err);
       return false;
     }
   };
