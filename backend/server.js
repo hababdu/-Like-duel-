@@ -1068,7 +1068,6 @@ function verifyTelegramInitData(initDataString, botToken) {
 }
 
 // Telegram initData ni tekshiruvchi funksiya (crypto bilan)
-const crypto = require('crypto');
 
 function verifyTelegramInitData(initDataString, botToken) {
   if (!initDataString || typeof initDataString !== 'string' || !botToken) {
