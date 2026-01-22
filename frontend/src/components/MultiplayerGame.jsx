@@ -31,7 +31,7 @@ function MultiplayerGame({ user, onBackToMenu, showNotif }) {
     if (!user?.id) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket('wss://telegram-bot-server-2-matj.onrender.com/ws');
+    const socket = new WebSocket('wss://telegram-bot-server-2-matj.onrender.com');
 
     socket.onopen = () => {
       setConnected(true);
