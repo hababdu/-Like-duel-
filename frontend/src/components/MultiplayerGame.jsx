@@ -45,12 +45,13 @@ function MultiplayerGame({ user, onBackToMenu, showNotif }) {
 
     console.log('🚀 WebSocket ulanishi boshlanmoqda...');
     console.log('📡 Server URL: wss://telegram-bot-server-2-matj.onrender.com');
-    setConnectionStatus('connecting');
     setDebugInfo('WebSocket yaratilmoqda...');
 
     // WebSocket yaratish
-    const socket = new WebSocket('https://telegram-bot-server-2-matj.onrender.com');
+    const socket = new WebSocket('wss://telegram-bot-server-2-matj.onrender.com');
     ws.current = socket;
+
+
 
     // 1. ONOPEN - WebSocket ochilganda
     socket.onopen = () => {
