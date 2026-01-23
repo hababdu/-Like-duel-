@@ -227,18 +227,35 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
             showNotif(`Siz tanladingiz: ${CHOICES[data.choice]?.name || data.choice}`, 'success');
             break;
     
-          // ───────────────────────────────────────────────
-          case 'chat_message':
-            const msg = data.message || data;
-            setMessages(prev => [...prev, {
-              id: Date.now(),
-              sender: String(msg.senderId) === String(user.id) ? 'me' : 'opponent',
-              text: msg.text || '',
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              senderName: msg.senderName || (String(msg.senderId) === String(user.id) ? 'Siz' : opponent?.firstName || 'Raqib')
-            }]);
-            break;
-    
+// 3. onmessage ichida 'chat_message' case ni yangilash
+case 'chat_message':
+  const msg = data.message || data;
+
+  const msgId = msg.tempId || Date.now();   // agar tempId kelsa undan foydalanamiz
+
+  // Agar bu mening o'zim yuborgan xabar bo'lsa va allaqachon optimistic qo'shilgan bo'lsa
+  if (String(msg.senderId) === String(user.id) && pendingMessageIds.has(msg.tempId)) {
+    // Faqat pending ni olib tashlaymiz, lekin qayta qo'shmaymiz
+    pendingMessageIds.delete(msg.tempId);
+
+    // Agar xohlasangiz: optimistic xabarni "sent" holatiga o'tkazish mumkin
+    setMessages(prev => prev.map(m =>
+      m.id === msg.tempId
+        ? { ...m, isPending: false, id: msg.id || m.id }  // serverdan kelgan ID ni qo'yish mumkin
+        : m
+    ));
+    return;   // ← eng muhimi: qayta qo'shmaymiz!
+  }
+
+  // Boshqa holatlarda (raqibniki yoki boshqa) → yangi xabar qo'shamiz
+  setMessages(prev => [...prev, {
+    id: msgId,
+    sender: String(msg.senderId) === String(user.id) ? 'me' : 'opponent',
+    text: msg.text || '',
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    senderName: msg.senderName || (String(msg.senderId) === String(user.id) ? 'Siz' : opponent?.firstName || 'Raqib')
+  }]);
+  break;
           // ───────────────────────────────────────────────
           case 'opponent_disconnected':
             showNotif('Raqib uzildi. 30 soniya ichida qaytmasa g‘alaba sizniki!', 'warning');
@@ -344,33 +361,40 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     setTimeout(joinQueue, 700);
   };
 
-  const sendMessage = (e) => {
-    e.preventDefault();
-    const text = chatInput.trim();
-    if (!text || !gameId || !ws.current) return;
-  
-    const payload = {
-      type: 'chat_message',
-      roomId: gameId,           // <-- bu juda muhim!
-      text,
-      senderId: user.id,        // qo‘shimcha yuborish foydali
-      senderName: user.first_name || "Siz"
-    };
-  
-    console.log("→ CHAT YUBORILMOQDA:", payload);
-    ws.current.send(JSON.stringify(payload));
-  
-    // Optimistic UI
-    setMessages(prev => [...prev, {
-      id: Date.now(),
-      sender: 'me',
-      text,
-      time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
-      senderName: 'Siz'
-    }]);
-  
-    setChatInput('');
+  const [pendingMessageIds] = useState(new Set());
+
+// 2. sendMessage funksiyasida (optimistic UI)
+const sendMessage = (e) => {
+  e.preventDefault();
+  const text = chatInput.trim();
+  if (!text || !gameId || !ws.current) return;
+
+  const tempId = Date.now() + Math.random();   // yoki uuid ishlatish mumkin
+
+  const payload = {
+    type: 'chat_message',
+    roomId: gameId,
+    text,
+    senderId: user.id,
+    senderName: user.first_name || "Siz",
+    tempId,   // ← serverga ham yuboramiz (identifikatsiya uchun)
   };
+
+  // Optimistic: darhol qo'shamiz
+  setMessages(prev => [...prev, {
+    id: tempId,
+    sender: 'me',
+    text,
+    time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+    senderName: 'Siz',
+    isPending: true   // vaqtincha belgi
+  }]);
+
+  pendingMessageIds.add(tempId);
+
+  ws.current.send(JSON.stringify(payload));
+  setChatInput('');
+};
 
   // RENDER =====================================================================
 
