@@ -1,4 +1,4 @@
-// MultiplayerGame.jsx - TO'LIQ ISHLAYDI
+// MultiplayerGame.jsx - TO‘LIQ ISHLAYDI, SERVER BILAN MOS
 import React, { useState, useEffect, useRef } from 'react';
 import './MultiplayerGame.css';
 
@@ -23,35 +23,27 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const [chatInput, setChatInput] = useState('');
   const [authAttempts, setAuthAttempts] = useState(0);
   const [debugInfo, setDebugInfo] = useState('Initializing...');
-  const [profilePhoto, setProfilePhoto] = useState(null); // ← YANGI: Telegram rasmi
+  const [profilePhoto, setProfilePhoto] = useState(null);
   const messagesEndRef = useRef(null);
-  
-  // ✅ AUTENTIFIKATSIYA FUNKTSIYASI
+
+  // AUTENTIFIKATSIYA YUBORISH
   const sendAuthentication = () => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      console.log('❌ WebSocket ochiq emas');
+      console.warn('WebSocket hali ochiq emas');
       return false;
     }
-    
-    if (!user?.id) {
-      console.log('❌ User ID yoʻq');
-      return false;
-    }
-    
-    // Telegram WebApp dan initData ni olish (majburiy!)
+
     const initData = window.Telegram?.WebApp?.initData || '';
-    console.log('📋 initData uzunligi:', initData.length);
-    console.log('📋 initData boshlanishi:', initData.substring(0, 100) + '...');
-    
-    if (!initData || initData.length < 100) {
-      console.error('❌ initData topilmadi yoki juda qisqa! Telegram Mini App ichida ekanligingizni tekshiring.');
-      showNotif('Telegram maʼlumotlari topilmadi. Appni Telegram ichida oching.', 'error');
+    console.log('initData uzunligi:', initData.length, 'boshlanishi:', initData.substring(0, 80) + '...');
+
+    if (!initData || initData.length < 50) {
+      showNotif('Telegram WebApp ma‘lumotlari topilmadi. Mini App ichida oching.', 'error');
       return false;
     }
-    
+
     const authData = {
       type: 'authenticate',
-      initData: initData, // ← BU ASOSIY! Server shuni kutmoqda
+      initData,
       userId: user.id,
       username: user.username || `user_${user.id}`,
       firstName: user.first_name || 'Player',
@@ -61,253 +53,170 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
       timestamp: Date.now(),
       version: '1.0'
     };
-    
-    console.log('📤 AUTH YUBORILMOQDA:', {
-      ...authData,
-      initData: authData.initData.substring(0, 50) + '...'
-    });
-    setDebugInfo(`Auth yuborildi (${authAttempts + 1})...`);
-    
+
+    console.log('Auth so‘rovi yuborilmoqda →', authData);
     ws.current.send(JSON.stringify(authData));
     setAuthAttempts(prev => prev + 1);
-    
+    setDebugInfo(`Auth urinish ${authAttempts + 1}`);
+
     return true;
   };
-  
-  // ✅ WEB SOCKET ULANISHI
+
+  // WEBSOCKET ULANISHI
   useEffect(() => {
     if (!user?.id) {
-      console.log('❌ User ID yoʻq');
-      showNotif('Iltimos, avval tizimga kiring', 'error');
+      showNotif('Foydalanuvchi ma‘lumotlari yo‘q', 'error');
       return;
     }
-    
-    console.log('🚀 WebSocket ulanishi boshlanmoqda, User ID:', user.id);
-    setDebugInfo('WebSocket yaratilmoqda...');
-    
+
     const WS_URL = 'wss://telegram-bot-server-2-matj.onrender.com';
-    console.log('📡 URL:', WS_URL);
-    
-    const socket = new WebSocket(WS_URL);
-    ws.current = socket;
-    
-    // ✅ ONOPEN - WebSocket ochilganda
-    socket.onopen = () => {
-      console.log('✅✅✅ WebSocket OCHILDI!');
-      console.log('📊 ReadyState:', socket.readyState);
+    console.log('WebSocket ulanishi boshlanmoqda →', WS_URL);
+
+    ws.current = new WebSocket(WS_URL);
+
+    ws.current.onopen = () => {
+      console.log('✅ WebSocket muvaffaqiyatli ochildi');
       setConnected(true);
-      setDebugInfo('WebSocket ochildi, auth yuborilmoqda...');
+      setDebugInfo('Ulandi → autentifikatsiya...');
       showNotif('Serverga ulandi!', 'success');
-      
-      // 1. Darhol authentication yuborish
-      setTimeout(() => sendAuthentication(), 500);
-      
-      // 2. 3 soniyadan keyin ikkinchi marta (agar birinchi o'tmasa)
+
+      // Birinchi urinish
+      setTimeout(sendAuthentication, 700);
+
+      // Agar 4 soniyada authenticated bo‘lmasa → ikkinchi urinish
       setTimeout(() => {
         if (!authenticated) {
-          console.log('🔄 3 soniya otdi, auth qayta yuborilmoqda...');
+          console.log('Birinchi auth muvaffaqiyatsiz → qayta urinish');
           sendAuthentication();
         }
-      }, 3000);
+      }, 4000);
     };
-    
-    // ✅ ONMESSAGE - Serverdan xabar kelganda (YANGILANGAN)
-    socket.onmessage = (event) => {
-      console.log('📩 SERVER XABARI (RAW):', event.data);
-      setDebugInfo(`Xabar keldi: ${event.data.substring(0, 30)}...`);
-      
+
+    ws.current.onmessage = (event) => {
+      console.log('Serverdan keldi:', event.data);
       try {
         const data = JSON.parse(event.data);
-        console.log('📊 XABAR TURI:', data.type);
-        
-        // ✅ AUTHENTICATED - Muvaffaqiyatli autentifikatsiya
-        if (data.type === 'authenticated') {
-          console.log('🎉🎉🎉 AUTHENTICATION MUVAFFAQIYATLI!');
-          console.log('👤 User data:', data.user);
-          setAuthenticated(true);
-          setAuthAttempts(0);
-          setDebugInfo('Authentication OK!');
-          showNotif(`Xush kelibsiz, ${data.user?.firstName || user.first_name}!`, 'success');
-          
-          // YANGI: Serverdan kelgan profile photo ni saqlash
-          if (data.user.profilePhoto) {
-            setProfilePhoto(data.user.profilePhoto);
-            console.log('📸 Profile photo:', data.user.profilePhoto);
-          }
+
+        switch (data.type) {
+          case 'authenticated':
+            setAuthenticated(true);
+            setAuthAttempts(0);
+            setDebugInfo('Kirish muvaffaqiyatli!');
+            showNotif(`Xush kelibsiz, ${data.user?.firstName || user.first_name}!`, 'success');
+            if (data.user?.profilePhoto) setProfilePhoto(data.user.profilePhoto);
+            break;
+
+          case 'error':
+            console.error('Server xatosi:', data.code, data.message);
+            showNotif(`${data.code || 'Xato'}: ${data.message || 'Noma‘lum xato'}`, 'error');
+
+            if (['UNAUTHENTICATED', 'INVALID_INIT_DATA', 'INIT_DATA_REQUIRED', 'AUTH_FAILED'].includes(data.code)) {
+              setTimeout(sendAuthentication, 1500);
+            }
+            break;
+
+          case 'joined_queue':
+            setInQueue(true);
+            setDebugInfo('Navbatda... raqib qidirilmoqda');
+            showNotif('Raqib qidirilmoqda...', 'info');
+            break;
+
+          case 'match_found':
+            setGameId(data.gameId);
+            setOpponent(data.opponent);
+            setInQueue(false);
+            setDebugInfo(`O‘yin boshlandi: vs ${data.opponent?.firstName || 'Raqib'}`);
+            showNotif(`Raqib topildi: ${data.opponent?.firstName || data.opponent?.username || 'Raqib'}`, 'success');
+            break;
+
+          case 'round_result':
+            setOpponentChoice(
+              data.choices?.player1?.id === user.id ? data.choices?.player2 : data.choices?.player1
+            );
+            setScores(data.scores || { player1: 0, player2: 0 });
+            showNotif('Raund yakunlandi', 'info');
+            break;
+
+          case 'game_result':
+            setResult(data.result);
+            setScores(data.scores || { player1: 0, player2: 0 });
+
+            if (data.result === 'draw') {
+              showNotif('Durang!', 'warning');
+              setCoins(p => p + 25);
+            } else if (data.winnerId === user.id) {
+              showNotif('G‘alaba! 🎉 +50 coin', 'success');
+              setCoins(p => p + 50);
+            } else {
+              showNotif('Mag‘lubiyat 😔', 'error');
+            }
+            break;
+
+          case 'chat_message':
+            const msg = data.message || data;
+            setMessages(prev => [...prev, {
+              id: Date.now(),
+              sender: String(msg.senderId) === String(user.id) ? 'me' : 'opponent',
+              text: msg.text || '',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              senderName: msg.senderName || (String(msg.senderId) === String(user.id) ? 'Siz' : 'Raqib')
+            }]);
+            break;
+
+          default:
+            console.log('Noma‘lum xabar turi:', data.type);
         }
-        
-        // ✅ ERROR - Server xatosi (YANGILANGAN)
-        else if (data.type === 'error') {
-          console.error('❌ SERVER XATOSI:', data.code, data.message);
-          showNotif(`Xato: ${data.code} - ${data.message}`, 'error');
-          
-          // Agar "UNAUTHENTICATED" bo'lsa, qayta yuborish
-          if (data.code === 'UNAUTHENTICATED' || data.code === 'INVALID_INIT_DATA' || data.code === 'INIT_DATA_REQUIRED') {
-            console.log('🔄 Authentication qayta talab qilinmoqda...');
-            setTimeout(() => sendAuthentication(), 1000);
-          }
-        }
-        
-        // ✅ JOINED_QUEUE - Navbatga qo'shilgan
-        else if (data.type === 'joined_queue') {
-          console.log('⏳ Navbatga qo\'shildingiz');
-          setInQueue(true);
-          setDebugInfo('Navbatda, raqib qidirilmoqda...');
-          showNotif('Raqib qidirilmoqda...', 'info');
-        }
-        
-        // ✅ MATCH_FOUND - Raqib topilgan
-        else if (data.type === 'match_found') {
-          console.log('🎮🎮🎮 MATCH TOPILDI!', data);
-          setGameId(data.gameId);
-          setOpponent(data.opponent);
-          setInQueue(false);
-          setDebugInfo(`Match: vs ${data.opponent?.firstName || 'Raqib'}`);
-          showNotif(`Raqib topildi: ${data.opponent?.firstName || data.opponent?.username || 'Raqib'}`, 'success');
-        }
-        
-        // ✅ ROUND_RESULT - Raund natijasi
-        else if (data.type === 'round_result') {
-          console.log('📊 Round natijasi:', data);
-          setOpponentChoice(
-            data.choices?.player1?.id === user.id ? 
-            data.choices?.player2 : 
-            data.choices?.player1
-          );
-          setScores(data.scores || { player1: 0, player2: 0 });
-          showNotif('Raund tugadi!', 'info');
-        }
-        
-        // ✅ GAME_RESULT - O'yin natijasi
-        else if (data.type === 'game_result') {
-          console.log('🏁 O\'yin tugadi:', data);
-          setResult(data.result);
-          setScores(data.scores || { player1: 0, player2: 0 });
-          
-          if (data.result === 'draw') {
-            showNotif('Durang!', 'warning');
-            setCoins(prev => prev + 25);
-          } else if (data.winnerId === user.id) {
-            showNotif('Gʻalaba! 🎉', 'success');
-            setCoins(prev => prev + 50);
-          } else {
-            showNotif('Magʻlubiyat', 'error');
-          }
-        }
-        
-        // ✅ CHAT_MESSAGE - Chat xabari
-        else if (data.type === 'chat_message') {
-          console.log('💬 Chat:', data);
-          const msg = data.message || data;
-          setMessages(prev => [...prev, {
-            id: Date.now(),
-            sender: String(msg.senderId) === String(user.id) ? 'me' : 'opponent',
-            text: msg.text || '...',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            senderName: msg.senderName || (msg.senderId === user.id ? 'Siz' : 'Raqib')
-          }]);
-        }
-        
-        // ✅ HEARTBEAT yoki boshqa xabarlar
-        else if (data.type === 'heartbeat' || data.type === 'pong') {
-          // Ignore heartbeat
-        }
-        
-        // ✅ BOSHQA XABARLAR
-        else {
-          console.log('🔍 Boshqa xabar:', data.type);
-        }
-        
-      } catch (error) {
-        console.log('📝 Text xabar:', event.data);
-        if (event.data.includes('connected') || event.data.includes('welcome')) {
-          console.log('✅ Server salom berdi');
-          setDebugInfo('Server salom berdi');
-        }
+      } catch (err) {
+        console.error('Xabar parse qilishda xato:', err, event.data);
       }
     };
-    
-    // ✅ ONERROR - WebSocket xatosi
-    socket.onerror = (error) => {
-      console.error('❌ WebSocket xatosi:', error);
-      setDebugInfo('WebSocket xatosi');
-      showNotif('Ulanish xatosi', 'error');
+
+    ws.current.onerror = (err) => {
+      console.error('WebSocket xatosi:', err);
+      setDebugInfo('Ulanish xatosi');
+      showNotif('Server bilan aloqa uzildi', 'error');
     };
-    
-    // ✅ ONCLOSE - WebSocket yopilganda
-    socket.onclose = (event) => {
-      console.log(`🔌 WebSocket yopildi: code=${event.code} - reason=${event.reason || 'noma\'lum'}`);
+
+    ws.current.onclose = (event) => {
+      console.log('WebSocket yopildi →', { code: event.code, reason: event.reason });
       setConnected(false);
       setAuthenticated(false);
-      setDebugInfo(`Yopildi (${event.code}) - ${event.reason || 'noma\'lum'}`);
-      showNotif(`Ulanish uzildi: ${event.reason || 'noma\'lum sabab'}`, 'error');
-      
-      // Avtomatik qayta ulanish (lekin reload emas, yangi WebSocket yaratish)
+      setDebugInfo(`Ulanish uzildi (${event.code})`);
+
       if (event.code !== 1000) {
         setTimeout(() => {
-          console.log('🔄 Qayta ulanmoqda...');
-          // Yangi ulanishni boshlash (reload emas)
-          setConnected(false); // Qayta ulanish holatini yangilash
-          // Bu yerda qayta useEffect chaqirilmaydi, shuning uchun qo'lda yangi socket yaratish mumkin
-          // window.location.reload(); // ← Vaqtincha izohga oling, test uchun
+          console.log('Qayta ulanish urinish...');
+          window.location.reload(); // yoki yangi komponent yaratish mumkin
         }, 5000);
       }
     };
-    
-// ✅ CLEANUP
-return () => {
-  console.log('🧹 Komponent tozalanmoqda');
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.close(1000, 'Komponent unmount');
-  }
-};
-}, [user?.id]);
-  
-  // ✅ ONERROR - WebSocket xatosi
-  socket.onerror = (error) => {
-    console.error('❌ WebSocket xatosi:', error);
-    setDebugInfo('WebSocket xatosi');
-    showNotif('Ulanish xatosi', 'error');
-  };
 
-  // ✅ NAVBATGA QO'SHILISH
+    return () => {
+      console.log('Komponent tozalanmoqda → WS yopilmoqda');
+      if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING) {
+        ws.current.close(1000, 'Komponent yopildi');
+      }
+    };
+  }, [user?.id]);
+
+  // Chat pastga avto-scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   const joinQueue = () => {
-    console.log('🎮 Navbatga qo\'shilish boshlanmoqda...');
-    
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      console.error('❌ WebSocket ochiq emas!');
       showNotif('Serverga ulanmagan', 'error');
       return;
     }
-    
-    // Agar authentication bo'lmasa, avval authentication qilish
+
     if (!authenticated) {
-      console.log('⚠️ Authentication qilinmagan, avval auth...');
       showNotif('Autentifikatsiya qilinmoqda...', 'info');
-      
-      // Authentication yuborish
       sendAuthentication();
-      
-      // 2 soniya kutib, keyin navbatga qo'shilish
-      setTimeout(() => {
-        console.log('⏰ 2 soniya otdi, navbatga qo\'shilmoqda...');
-        const queueData = {
-          type: 'join_queue',
-          userId: user.id,
-          username: user.username || `user_${user.id}`,
-          firstName: user.first_name || 'Player',
-          mode: 'casual'
-        };
-        
-        console.log('📤 Queue yuborilmoqda:', queueData);
-        ws.current.send(JSON.stringify(queueData));
-        setDebugInfo('Navbat so\'rovi yuborildi');
-      }, 2000);
-      
+      setTimeout(() => authenticated && joinQueue(), 1800);
       return;
     }
-    
-    // Agar authentication bo'lsa, to'g'ridan-to'g'ri navbatga qo'shilish
+
     const queueData = {
       type: 'join_queue',
       userId: user.id,
@@ -315,36 +224,31 @@ return () => {
       firstName: user.first_name || 'Player',
       mode: 'casual'
     };
-    
-    console.log('📤 Queue yuborilmoqda:', queueData);
+
+    console.log('Navbatga qo‘shilmoqda →', queueData);
     ws.current.send(JSON.stringify(queueData));
-    setDebugInfo('Navbatga qo\'shildingiz');
+    setDebugInfo('Navbat so‘rovi yuborildi');
   };
-  
-  // ✅ TANLOV QILISH
+
   const makeChoice = (choice) => {
     if (!gameId || !ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      showNotif('Serverga ulanmagan', 'error');
+      showNotif('O‘yin holati noto‘g‘ri', 'error');
       return;
     }
-    
     if (myChoice || result) return;
-    
+
     setMyChoice(choice);
-    
-    const choiceData = {
+
+    ws.current.send(JSON.stringify({
       type: 'make_choice',
-      gameId: gameId,
-      choice: choice,
+      gameId,
+      choice,
       userId: user.id
-    };
-    
-    console.log('✊ Tanlov:', choiceData);
-    ws.current.send(JSON.stringify(choiceData));
+    }));
+
     showNotif(`Siz ${CHOICES[choice].name} tanladingiz`, 'info');
   };
-  
-  // ✅ YANGI O'YIN
+
   const startNewGame = () => {
     setGameId(null);
     setOpponent(null);
@@ -353,46 +257,33 @@ return () => {
     setResult(null);
     setScores({ player1: 0, player2: 0 });
     setMessages([]);
-    
-    setTimeout(() => {
-      joinQueue();
-    }, 500);
+    setTimeout(joinQueue, 700);
   };
-  
-  // ✅ CHAT YUBORISH
+
   const sendMessage = (e) => {
     e.preventDefault();
-    const trimmed = chatInput.trim();
-    
-    if (!trimmed || !gameId || !ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    
-    const chatData = {
+    const text = chatInput.trim();
+    if (!text || !gameId || !ws.current) return;
+
+    ws.current.send(JSON.stringify({
       type: 'chat_message',
       roomId: gameId,
-      text: trimmed
-    };
-    
-    ws.current.send(JSON.stringify(chatData));
-    
-    // O'z xabarimizni ro'yxatga qo'shamiz
+      text
+    }));
+
     setMessages(prev => [...prev, {
       id: Date.now(),
       sender: 'me',
-      text: trimmed,
+      text,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       senderName: 'Siz'
     }]);
-    
+
     setChatInput('');
   };
 
+  // RENDER =====================================================================
 
-  
-  // ✅ RENDER
-
-  
   if (!connected) {
     return (
       <div className="multiplayer-container">
@@ -407,69 +298,69 @@ return () => {
       </div>
     );
   }
-  
-// RENDER qismida profile photo ni chiqarish (masalan, auth-screen da)
-if (!authenticated) {
-  return (
-    <div className="multiplayer-container">
-      <button className="back-btn" onClick={onBackToMenu}>← Menyu</button>
-      
-      <div className="auth-screen">
-        <div className="spinner"></div>
-        <h3>Autentifikatsiya qilinmoqda...</h3>
-        {profilePhoto && (
-          <img src={profilePhoto} alt="Profile" style={{ width: '100px', height: '100px', borderRadius: '50%' }} />
-        )} {/* ← YANGI: Rasm chiqarish */}
-        <div className="auth-info">
-          <p><strong>User ID:</strong> {user.id}</p>
-          <p><strong>Ism:</strong> {user.first_name}</p>
-          <p><strong>Auth urinishlar:</strong> {authAttempts}</p>
-          <p><strong>Holat:</strong> {debugInfo}</p>
-        </div>
-        
-        <div className="auth-buttons">
+
+  if (!authenticated) {
+    return (
+      <div className="multiplayer-container">
+        <button className="back-btn" onClick={onBackToMenu}>← Menyu</button>
+
+        <div className="auth-screen">
+          <div className="spinner"></div>
+          <h3>Autentifikatsiya qilinmoqda...</h3>
+
+          {profilePhoto && (
+            <img
+              src={profilePhoto}
+              alt="Profil rasmi"
+              style={{ width: '90px', height: '90px', borderRadius: '50%', margin: '15px 0', objectFit: 'cover' }}
+            />
+          )}
+
+          <div className="auth-info">
+            <p><strong>User ID:</strong> {user.id}</p>
+            <p><strong>Ism:</strong> {user.first_name || 'Foydalanuvchi'}</p>
+            <p><strong>Urinishlar:</strong> {authAttempts}</p>
+            <p><strong>Holat:</strong> {debugInfo}</p>
+          </div>
+
           <button className="retry-auth-btn" onClick={sendAuthentication}>
-            Auth qayta yuborish
+            Qayta urinish
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-  
+    );
+  }
+
   if (inQueue) {
     return (
       <div className="multiplayer-container">
         <button className="back-btn" onClick={onBackToMenu}>← Menyu</button>
-        
+
         <div className="queue-screen">
           <div className="spinner large"></div>
           <h2>Raqib qidirilmoqda...</h2>
           <div className="queue-stats">
             <p>✅ Autentifikatsiya muvaffaqiyatli</p>
-            <p>👤 User ID: {user.id}</p>
-            <p>⏳ Kutish vaqti: ~30 soniya</p>
+            <p>👤 ID: {user.id}</p>
+            <p>⏳ Taxminiy kutish: 20–60 soniya</p>
           </div>
-          <button className="cancel-btn" onClick={() => {
-            if (ws.current?.readyState === WebSocket.OPEN) {
-              ws.current.send(JSON.stringify({
-                type: 'leave_queue',
-                userId: user.id
-              }));
-            }
-            setInQueue(false);
-          }}>
+          <button
+            className="cancel-btn"
+            onClick={() => {
+              ws.current?.send(JSON.stringify({ type: 'leave_queue', userId: user.id }));
+              setInQueue(false);
+            }}
+          >
             Navbatdan chiqish
           </button>
         </div>
       </div>
     );
   }
-  
+
   if (gameId) {
     return (
       <div className="multiplayer-container">
-        {/* Game Header */}
         <div className="game-header">
           <button className="back-btn" onClick={onBackToMenu}>← Menyu</button>
           <div className="game-info">
@@ -477,53 +368,43 @@ if (!authenticated) {
             <span className="coins">🪙 {coins}</span>
           </div>
         </div>
-        
-        {/* Game Area */}
+
         <div className="game-area">
-          {/* Players */}
           <div className="players">
             <div className="player you">
               <div className="player-name">SIZ</div>
-              <div className="choice-display">
-                {myChoice ? CHOICES[myChoice].emoji : '?'}
-              </div>
+              <div className="choice-display">{myChoice ? CHOICES[myChoice].emoji : '?'}</div>
               <div className="score">{scores.player1}</div>
             </div>
-            
+
             <div className="vs">VS</div>
-            
+
             <div className="player opponent">
-              <div className="player-name">
-                {opponent?.firstName || opponent?.username || 'Raqib'}
-              </div>
-              <div className="choice-display">
-                {opponentChoice ? CHOICES[opponentChoice].emoji : '❓'}
-              </div>
+              <div className="player-name">{opponent?.firstName || opponent?.username || 'Raqib'}</div>
+              <div className="choice-display">{opponentChoice ? CHOICES[opponentChoice].emoji : '❓'}</div>
               <div className="score">{scores.player2}</div>
             </div>
           </div>
-          
-          {/* Choices */}
+
           {!myChoice && !result && (
             <div className="choices-section">
-              <h3>Tanlang:</h3>
+              <h3>Tanlov qiling:</h3>
               <div className="choices">
-                {Object.entries(CHOICES).map(([key, value]) => (
+                {Object.entries(CHOICES).map(([key, val]) => (
                   <button
                     key={key}
                     className="choice-btn"
-                    style={{ borderColor: value.color }}
+                    style={{ borderColor: val.color }}
                     onClick={() => makeChoice(key)}
                   >
-                    <span className="emoji">{value.emoji}</span>
-                    <span className="name">{value.name}</span>
+                    <span className="emoji">{val.emoji}</span>
+                    <span className="name">{val.name}</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
-          
-          {/* Waiting */}
+
           {myChoice && !opponentChoice && !result && (
             <div className="waiting-section">
               <div className="spinner"></div>
@@ -531,39 +412,36 @@ if (!authenticated) {
               <p>Raqib tanlovini kuting...</p>
             </div>
           )}
-          
-          {/* Result */}
+
           {result && (
             <div className="result-section">
-              <h2 className={result === 'draw' ? 'draw' : 'win'}>
-                {result === 'draw' ? 'Durang!' : 
-                 scores.player1 > scores.player2 ? 'Gʻalaba! 🎉' : 'Magʻlubiyat'}
+              <h2 className={result === 'draw' ? 'draw' : scores.player1 > scores.player2 ? 'win' : 'lose'}>
+                {result === 'draw' ? 'Durang!' : scores.player1 > scores.player2 ? 'G‘alaba! 🎉' : 'Mag‘lubiyat 😔'}
               </h2>
-              
+
               <div className="result-choices">
                 <span>{myChoice ? CHOICES[myChoice].emoji : '?'}</span>
                 <span>vs</span>
                 <span>{opponentChoice ? CHOICES[opponentChoice].emoji : '?'}</span>
               </div>
-              
+
               <div className="result-buttons">
                 <button className="menu-btn" onClick={onBackToMenu}>
-                  Menyuga
+                  Menyuga qaytish
                 </button>
                 <button className="new-game-btn" onClick={startNewGame}>
-                  Yangi o'yin
+                  Yangi o‘yin
                 </button>
               </div>
             </div>
           )}
-          
-          {/* Chat */}
+
           <div className="chat-section">
             <div className="chat-header">
-              <span>💬 Chat</span>
+              <span>💬 Suhbat</span>
               <span className="message-count">{messages.length}</span>
             </div>
-            
+
             <div className="chat-messages">
               {messages.map(msg => (
                 <div key={msg.id} className={`chat-message ${msg.sender}`}>
@@ -574,17 +452,17 @@ if (!authenticated) {
               ))}
               <div ref={messagesEndRef} />
             </div>
-            
+
             <form className="chat-form" onSubmit={sendMessage}>
               <input
                 type="text"
                 value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
+                onChange={e => setChatInput(e.target.value)}
                 placeholder="Xabar yozing..."
-                disabled={!gameId || result}
+                disabled={!gameId || !!result}
               />
-              <button type="submit" disabled={!chatInput.trim() || !gameId || result}>
-                Yuborish
+              <button type="submit" disabled={!chatInput.trim() || !gameId || !!result}>
+                ↗
               </button>
             </form>
           </div>
@@ -592,47 +470,43 @@ if (!authenticated) {
       </div>
     );
   }
-  
-  // Start Screen
+
+  // Boshlang‘ich ekran
   return (
     <div className="multiplayer-container">
       <button className="back-btn" onClick={onBackToMenu}>← Menyu</button>
-      
+
       <div className="start-screen">
         <div className="welcome-card">
-          <h2>🎮 Ko'p O'yinchili O'yin</h2>
-          <p>Butun dunyo bo'ylab o'yinchilar bilan bellashing!</p>
+          <h2>🎮 Ko‘p o‘yinchili o‘yin</h2>
+          <p>Dunyo bo‘ylab raqiblar bilan tosh-qaychi-qog‘oz o‘ynang!</p>
         </div>
-        
+
         <div className="status-card">
           <div className="status-item">
             <span>Server:</span>
             <span className="status-online">🟢 Online</span>
           </div>
           <div className="status-item">
-            <span>Auth:</span>
-            <span className="status-success">✅ {authenticated ? 'Kirildi' : 'Kutilmoqda'}</span>
+            <span>Holati:</span>
+            <span className="status-success">Tayyor</span>
           </div>
           <div className="status-item">
-            <span>User ID:</span>
-            <span>{user.id}</span>
-          </div>
-          <div className="status-item">
-            <span>Coins:</span>
+            <span>Coinlaringiz:</span>
             <span>🪙 {coins}</span>
           </div>
         </div>
-        
-        <button className="start-btn" onClick={joinQueue}>
-          🎮 O'YINNI BOSHLASH
+
+        <button className="start-btn large" onClick={joinQueue}>
+          🎮 O‘yinni boshlash
         </button>
-        
+
         <div className="instructions">
-          <h4>📋 Qoidalar:</h4>
+          <h4>Qoidalar:</h4>
           <div className="rules">
-            <p>✊ Tosh ➜ ✌️ Qaychi</p>
-            <p>✋ Qog'oz ➜ ✊ Tosh</p>
-            <p>✌️ Qaychi ➜ ✋ Qog'oz</p>
+            <p>✊ Tosh → ✌️ Qaychi yutadi</p>
+            <p>✋ Qog‘oz → ✊ Tosh yutadi</p>
+            <p>✌️ Qaychi → ✋ Qog‘oz yutadi</p>
           </div>
         </div>
       </div>
