@@ -837,7 +837,7 @@ async function handlePlayerDisconnectFromGame(userId, gameId) {
           await forceEndGame(gameId, winnerId, 'abandoned');
         }
       }
-    }, 30000);
+    }, 3000000);
   } else {
     // Agar raqib ham uzilgan bo'lsa
     await forceEndGame(gameId, null, 'abandoned');
@@ -2563,16 +2563,18 @@ function createMatchFromQueue(players) {
 
 async function finalizeGame(gameId) {
   const game = activeGames.get(gameId);
-  if (!game) return;
-  
-  // O'yinni tugatish
+  if (!game) {
+    console.warn(`[finalizeGame] O'yin topilmadi: ${gameId}`);
+    return;
+  }
+
+  // O'yin holatini yangilash
   game.status = 'finished';
   game.finishedAt = new Date();
   game.duration = game.finishedAt.getTime() - game.createdAt.getTime();
-  
+
   // G'olibni aniqlash
   let result, winnerId;
-  
   if (game.player1.score > game.player2.score) {
     result = 'player1_win';
     winnerId = game.player1.id;
@@ -2583,141 +2585,176 @@ async function finalizeGame(gameId) {
     result = 'draw';
     winnerId = null;
   }
-  
+
   game.result = result;
   game.winnerId = winnerId;
-  
-  // ELO o'zgarishini hisoblash (ranked mode uchun)
+
+  // ELO o'zgarishini hisoblash (faqat ranked rejimda)
   let eloChanges = { player1: 0, player2: 0 };
   if (game.mode === 'ranked') {
-    eloChanges = calculateELO(game.player1.elo, game.player2.elo, result);
+    const eloResult = calculateELO(game.player1.elo, game.player2.elo, result);
+    eloChanges = {
+      player1: eloResult.changeA,
+      player2: eloResult.changeB
+    };
     game.eloChanges = eloChanges;
+
+    // ELO ni yangilash (keyinchalik database'da saqlanadi)
+    game.player1.elo = eloResult.playerA;
+    game.player2.elo = eloResult.playerB;
   }
-  
-  // Database'da o'yinni saqlash
-  try {
-    const gameRecord = new Game(game);
-    await gameRecord.save();
-    
-    // User statistikasini yangilash
-    const updates = [
-      User.updateOne(
-        { telegramId: game.player1.id },
-        {
-          $inc: {
-            'gameStats.totalGames': 1,
-            'gameStats.wins': result === 'player1_win' ? 1 : 0,
-            'gameStats.losses': result === 'player2_win' ? 1 : 0,
-            'gameStats.draws': result === 'draw' ? 1 : 0,
-            'gameStats.elo': eloChanges.changeA,
-            'gameStats.totalTimePlayed': game.duration,
-            'gameStats.streak': result === 'player1_win' ? 1 : result === 'player2_win' ? -1 : 0,
-            xp: result === 'player1_win' ? 10 : result === 'player2_win' ? 2 : 5,
-            'inventory.coins': result === 'player1_win' ? 50 : result === 'player2_win' ? 10 : 25
-          },
-          $set: {
-            'gameStats.lastPlayed': new Date(),
-            currentGameId: null,
-            status: 'online'
-          },
-          $max: {
-            'gameStats.maxStreak': result === 'player1_win' ? 
-              (await User.findOne({ telegramId: game.player1.id }))?.gameStats?.streak || 0 : 0
-          },
-          $addToSet: {
-            'gameStats.favoriteMove': game.player1.choice
-          }
-        }
-      ),
-      User.updateOne(
-        { telegramId: game.player2.id },
-        {
-          $inc: {
-            'gameStats.totalGames': 1,
-            'gameStats.wins': result === 'player2_win' ? 1 : 0,
-            'gameStats.losses': result === 'player1_win' ? 1 : 0,
-            'gameStats.draws': result === 'draw' ? 1 : 0,
-            'gameStats.elo': eloChanges.changeB,
-            'gameStats.totalTimePlayed': game.duration,
-            'gameStats.streak': result === 'player2_win' ? 1 : result === 'player1_win' ? -1 : 0,
-            xp: result === 'player2_win' ? 10 : result === 'player1_win' ? 2 : 5,
-            'inventory.coins': result === 'player2_win' ? 50 : result === 'player1_win' ? 10 : 25
-          },
-          $set: {
-            'gameStats.lastPlayed': new Date(),
-            currentGameId: null,
-            status: 'online'
-          },
-          $max: {
-            'gameStats.maxStreak': result === 'player2_win' ? 
-              (await User.findOne({ telegramId: game.player2.id }))?.gameStats?.streak || 0 : 0
-          },
-          $addToSet: {
-            'gameStats.favoriteMove': game.player2.choice
-          }
-        }
-      )
-    ];
-    
-    await Promise.all(updates);
-    
-    // Achievement'larni tekshirish
-    await checkAchievements(game.player1.id);
-    await checkAchievements(game.player2.id);
-    
-  } catch (error) {
-    console.error('Save game error:', error);
-  }
-  
-  // Natijani o'yinchilarga yuborish
+
+  console.log(`[GAME END] ${gameId} → ${result}, winner: ${winnerId || 'durang'}, scores: ${game.player1.score}:${game.player2.score}`);
+
+  // ───────────────────────────────────────────────
+  // NATIJA XABARI (frontend uchun)
+  // ───────────────────────────────────────────────
   const resultPayload = {
     type: 'game_result',
     gameId,
-    result,
-    winnerId,
+    result,                     // 'player1_win' | 'player2_win' | 'draw'
+    winnerId,                   // faqat g'olib ID si yoki null
     scores: {
       player1: game.player1.score,
       player2: game.player2.score
     },
-    roundResults: game.roundResults,
+    roundResults: game.roundResults || [],
     eloChanges: game.mode === 'ranked' ? eloChanges : null,
     duration: game.duration,
     isRanked: game.mode === 'ranked',
-    rematchAvailable: true
+    timestamp: Date.now()
   };
-  
-  // O'yinchilarga yuborish
+
+  // Ikkala o'yinchiga ham bir xil ma'lumot yuboramiz
   sendToPlayers(gameId, resultPayload);
-  
-  // Kuzatuvchilarga yuborish
+
+  // Kuzatuvchilarga ham yuborish
   const spectators = gameSpectators.get(gameId) || [];
-  for (const spectatorId of spectators) {
-    const spectatorWs = getPlayerSocket(spectatorId);
-    if (spectatorWs) {
-      safeSend(spectatorWs, resultPayload);
+  spectators.forEach(spectatorId => {
+    const ws = getPlayerSocket(spectatorId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      safeSend(ws, resultPayload);
     }
-  }
-  
-  // O'yinchilarni yangilash
-  updatePlayerSession(game.player1.id, { 
-    status: 'online',
-    gameId: null 
   });
-  
-  if (game.player2.id) {
-    updatePlayerSession(game.player2.id, { 
-      status: 'online',
-      gameId: null 
+
+  // ───────────────────────────────────────────────
+  // DATABASE'GA SAQLASH
+  // ───────────────────────────────────────────────
+  try {
+    const gameRecord = new Game({
+      gameId: game.gameId,
+      player1: {
+        id: game.player1.id,
+        username: game.player1.username,
+        firstName: game.player1.firstName,
+        choice: game.player1.choice,
+        elo: game.player1.elo,
+        score: game.player1.score,
+        hasLeft: game.player1.hasLeft
+      },
+      player2: {
+        id: game.player2.id,
+        username: game.player2.username,
+        firstName: game.player2.firstName,
+        choice: game.player2.choice,
+        elo: game.player2.elo,
+        score: game.player2.score,
+        hasLeft: game.player2.hasLeft
+      },
+      status: game.status,
+      mode: game.mode,
+      result: game.result,
+      winnerId: game.winnerId,
+      rounds: game.rounds,
+      currentRound: game.currentRound,
+      roundResults: game.roundResults,
+      eloChanges: game.eloChanges,
+      duration: game.duration,
+      createdAt: game.createdAt,
+      finishedAt: game.finishedAt
     });
+
+    await gameRecord.save();
+    console.log(`[DB] O'yin saqlandi: ${gameId}`);
+
+    // ─── O'yinchilar statistikasini yangilash ───
+    const isPlayer1Winner = result === 'player1_win';
+    const isPlayer2Winner = result === 'player2_win';
+    const isDraw = result === 'draw';
+
+    const commonInc = {
+      'gameStats.totalGames': 1,
+      'gameStats.totalTimePlayed': game.duration,
+      'gameStats.lastPlayed': new Date(),
+      xp: isDraw ? 5 : (isPlayer1Winner || isPlayer2Winner) ? 10 : 2,
+      'inventory.coins': isDraw ? 25 : (isPlayer1Winner || isPlayer2Winner) ? 50 : 10
+    };
+
+    await Promise.all([
+      // Player 1
+      User.updateOne(
+        { telegramId: game.player1.id },
+        {
+          $inc: {
+            ...commonInc,
+            'gameStats.wins': isPlayer1Winner ? 1 : 0,
+            'gameStats.losses': isPlayer2Winner ? 1 : 0,
+            'gameStats.draws': isDraw ? 1 : 0,
+            'gameStats.elo': eloChanges.player1,
+            'gameStats.streak': isPlayer1Winner ? 1 : isPlayer2Winner ? -1 : 0
+          },
+          $set: {
+            currentGameId: null,
+            status: 'online'
+          },
+          $max: {
+            'gameStats.maxStreak': isPlayer1Winner ? /* oldingi streak +1 */ 1 : 0
+          }
+        }
+      ),
+
+      // Player 2
+      User.updateOne(
+        { telegramId: game.player2.id },
+        {
+          $inc: {
+            ...commonInc,
+            'gameStats.wins': isPlayer2Winner ? 1 : 0,
+            'gameStats.losses': isPlayer1Winner ? 1 : 0,
+            'gameStats.draws': isDraw ? 1 : 0,
+            'gameStats.elo': eloChanges.player2,
+            'gameStats.streak': isPlayer2Winner ? 1 : isPlayer1Winner ? -1 : 0
+          },
+          $set: {
+            currentGameId: null,
+            status: 'online'
+          },
+          $max: {
+            'gameStats.maxStreak': isPlayer2Winner ? /* oldingi streak +1 */ 1 : 0
+          }
+        }
+      )
+    ]);
+
+    console.log(`[STATS] ${game.player1.id} va ${game.player2.id} statistikasi yangilandi`);
+  } catch (err) {
+    console.error('[finalizeGame] Database xatosi:', err);
   }
-  
-  // O'yinni tozalash
+
+  // ───────────────────────────────────────────────
+  // SESSIONLarni tozalash
+  // ───────────────────────────────────────────────
+  updatePlayerSession(game.player1.id, { status: 'online', gameId: null });
+  if (game.player2?.id) {
+    updatePlayerSession(game.player2.id, { status: 'online', gameId: null });
+  }
+
+  // O'yinni xotiradan o'chirish (30 soniyadan keyin)
   setTimeout(() => {
     activeGames.delete(gameId);
     gameSpectators.delete(gameId);
-  }, 30000); // 30 soniyadan keyin tozalash
-  
-  logSystemEvent('info', `Game finished: ${gameId} - ${result}`);
+    console.log(`[CLEANUP] O'yin xotiradan o'chirildi: ${gameId}`);
+  }, 30000);
 }
 
 async function forceEndGame(gameId, winnerId, reason) {
@@ -3004,7 +3041,7 @@ function setTournamentGameTimeout(gameId, tournamentId, matchId) {
       
       await handleTournamentMatchResult(tournamentId, matchId, winnerId, 'timeout');
     }
-  }, (game?.rounds || 3) * GAME_TIMEOUT + 30000); // Har bir raund uchun + 30 soniya
+  }, (game?.rounds || 3) * GAME_TIMEOUT + 3000000); // Har bir raund uchun + 30 soniya
 }
 
 async function handleTournamentMatchResult(tournamentId, matchId, winnerId, resultType) {

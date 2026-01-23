@@ -183,17 +183,25 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
           // O‘yin to‘liq tugadi (3 raunddan keyin yoki force finish)
           // ───────────────────────────────────────────────
           case 'game_result':
+            console.log("GAME_RESULT keldi:", data); // debug uchun juda foydali
+          
             setResult(data.result);
             setScores(data.scores || { player1: 0, player2: 0 });
-    
+          
+            const myId = String(user.id);           // string ga aylantiramiz
+            const winnerIdStr = data.winnerId ? String(data.winnerId) : null;
+          
             if (data.result === 'draw') {
               showNotif('Durang! +25 coin', 'warning');
-              setCoins(prev => prev + 25);
-            } else if (String(data.winnerId) === String(user.id)) {
+              setCoins(p => p + 25);
+            }
+            else if (winnerIdStr === myId) {
               showNotif('G‘alaba! +50 coin 🎉', 'success');
-              setCoins(prev => prev + 50);
-            } else {
+              setCoins(p => p + 50);
+            }
+            else {
               showNotif('Mag‘lubiyat 😔', 'error');
+              // mag'lubiyatda coin qo'shilmaydi
             }
             break;
     
