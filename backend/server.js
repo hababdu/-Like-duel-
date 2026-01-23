@@ -63,6 +63,7 @@ const userSchema = new mongoose.Schema({
   telegramId: { type: Number, required: true, unique: true, index: true },
   firstName: String,
   username: String,
+  profilePhoto: { type: String, default: null },  // ← YANGI maydon
   languageCode: { type: String, default: 'uz' },
   isPremium: { type: Boolean, default: false },
   gameStats: {
@@ -995,23 +996,38 @@ async function handleAuthentication(ws, data, session) {
       console.log('[AUTH] Yangi user yaratildi:', telegramId);
     }
     
-    // YANGI: Telegram bot orqali profile photo olish
-    let profilePhoto = null;
-    try {
-      if (bot) {
-        const profilePhotos = await bot.getUserProfilePhotos(telegramId, { limit: 1 });
-        if (profilePhotos.total_count > 0 && profilePhotos.photos[0].length > 0) {
-          const fileId = profilePhotos.photos[0][0].file_id; // Eng kichik rasm
-          const file = await bot.getFile(fileId);
-          profilePhoto = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${file.file_path}`;
-          console.log('[AUTH] Profile photo topildi:', profilePhoto);
-        } else {
-          console.log('[AUTH] Profile photo yo‘q');
-        }
-      }
-    } catch (photoError) {
-      console.error('[AUTH] Profile photo olish xatosi:', photoError.message);
+   // YANGI: Telegram bot orqali profile photo olish va saqlash
+let profilePhoto = null;
+try {
+  if (bot) {
+    const profilePhotos = await bot.getUserProfilePhotos(telegramId, { limit: 1 });
+    if (profilePhotos.total_count > 0 && profilePhotos.photos[0].length > 0) {
+      const fileId = profilePhotos.photos[0][0].file_id; // eng kichik rasm
+      const file = await bot.getFile(fileId);
+      profilePhoto = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${file.file_path}`;
+      console.log('[AUTH] Profile photo topildi:', profilePhoto);
+    } else {
+      console.log('[AUTH] Profile photo yo‘q');
     }
+  }
+} catch (photoError) {
+  console.error('[AUTH] Profile photo olish xatosi:', photoError.message);
+}
+// Database'da yangilash (agar yangi user bo'lsa ham, mavjud bo'lsa ham)
+userDoc = await User.findOneAndUpdate(
+  { telegramId },
+  {
+    telegramId,
+    firstName: tgUser.first_name || data.firstName || 'NoName',
+    username: tgUser.username || data.username,
+    languageCode: tgUser.language_code || data.languageCode || 'uz',
+    isPremium: tgUser.is_premium || false,
+    profilePhoto,  // ← YANGI: saqlaymiz
+    lastSeen: new Date(),
+    isOnline: true
+  },
+  { upsert: true, new: true, setDefaultsOnInsert: true }
+);
     
     // Session yangilash
     session.userId = telegramId;
@@ -1030,7 +1046,8 @@ async function handleAuthentication(ws, data, session) {
         firstName: userDoc.firstName,
         username: userDoc.username,
         isPremium: userDoc.isPremium,
-        profilePhoto: profilePhoto || 'https://default-profile-photo-url.com/default.jpg' // Default rasm
+        profilePhoto: profilePhoto || 'https://default-profile-photo-url.com/default.jpg', // Default rasm
+        profilePhoto: userDoc.profilePhoto  // ← frontendga yuboramiz
       }
     });
     
@@ -1455,6 +1472,7 @@ async function handleInvitePlayer(ws, data, session) {
       id: inviterId,
       firstName: session.user?.firstName,
       username: session.user?.username,
+      profilePhoto: (await User.findOne({ telegramId: inviterId })).profilePhoto || null,
       elo: session.user?.elo
     },
     gameMode,
@@ -1628,10 +1646,12 @@ async function handleRespondInvitation(ws, data, session) {
         id: userId,
         firstName: session.user?.firstName,
         username: session.user?.username,
-        elo: session.user?.elo
+        elo: session.user?.elo,
+        profilePhoto: (await User.findOne({ telegramId: userId })).profilePhoto || null
       },
       gameMode: invitation.gameMode,
       rounds: invitation.rounds
+
     });
     
     // Taklif qabul qiluvchiga xabar
@@ -1642,7 +1662,8 @@ async function handleRespondInvitation(ws, data, session) {
         id: invitation.inviterId,
         firstName: inviterSession.user?.firstName,
         username: inviterSession.user?.username,
-        elo: inviterSession.user?.elo
+        elo: inviterSession.user?.elo,
+        profilePhoto: (await User.findOne({ telegramId: invitation.inviterId })).profilePhoto || null
       },
       gameMode: invitation.gameMode,
       rounds: invitation.rounds
@@ -2249,6 +2270,7 @@ async function handleGetProfile(ws, data, session) {
       rank: user.rank,
       level: user.level,
       xp: user.xp,
+      profilePhoto: user.profilePhoto,
       preferences: user.preferences,
       inventory: user.inventory,
       achievements: achievements.map(ach => ({
@@ -2525,20 +2547,40 @@ function createMatchFromQueue(players) {
   ).catch(err => console.error('Update users error:', err));
   
   // Xabarlar yuborish
-  safeSend(playerAEntry.session.ws, {
-    type: 'match_found',
-    gameId,
-    opponent: {
-      id: playerB[0],
-      firstName: playerBEntry.session.user?.firstName,
-      username: playerBEntry.session.user?.username,
-      elo: playerBEntry.elo,
-      rank: playerBEntry.session.user?.rank
-    },
-    gameMode: playerAEntry.mode,
-    rounds: 3,
-    isRanked: playerAEntry.mode === 'ranked'
-  });
+ // ... oldingi kod ...
+
+// O'yinchilarga xabar yuborish qismi ichida
+safeSend(playerAEntry.session.ws, {
+  type: 'match_found',
+  gameId,
+  opponent: {
+    id: playerB[0],
+    firstName: playerBEntry.session.user?.firstName,
+    username: playerBEntry.session.user?.username,
+    elo: playerBEntry.elo,
+    rank: playerBEntry.session.user?.rank || 'Bronze',
+ profilePhoto: ( User.findOne({ telegramId: playerB[0] })).profilePhoto || null  // ← YANGI
+  },
+  gameMode: playerAEntry.mode,
+  rounds: 3,
+  isRanked: playerAEntry.mode === 'ranked'
+});
+
+safeSend(playerBEntry.session.ws, {
+  type: 'match_found',
+  gameId,
+  opponent: {
+    id: playerA[0],
+    firstName: playerAEntry.session.user?.firstName,
+    username: playerAEntry.session.user?.username,
+    elo: playerAEntry.elo,
+    rank: playerAEntry.session.user?.rank || 'Bronze',
+ profilePhoto: ( User.findOne({ telegramId: playerA[0] })).profilePhoto || null  // ← YANGI
+  },
+  gameMode: playerAEntry.mode,
+  rounds: 3,
+  isRanked: playerBEntry.mode === 'ranked'
+});
   
   safeSend(playerBEntry.session.ws, {
     type: 'match_found',

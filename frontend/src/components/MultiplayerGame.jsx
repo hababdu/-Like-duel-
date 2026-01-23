@@ -12,6 +12,7 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const ws = useRef(null);
   const [connected, setConnected] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [opponentPhoto, setOpponentPhoto] = useState(null);   // ← yangi state
   const [inQueue, setInQueue] = useState(false);
   const [gameId, setGameId] = useState(null);
   const [opponent, setOpponent] = useState(null);
@@ -131,6 +132,7 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
           case 'match_found':
             setGameId(data.gameId);
             setOpponent(data.opponent);
+            setOpponentPhoto(data.opponent?.photoUrl || null);
             setInQueue(false);
             setMyChoice(null);
             setOpponentChoice(null);
@@ -458,21 +460,59 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
         </div>
 
         <div className="game-area">
-          <div className="players">
-            <div className="player you">
-              <div className="player-name">SIZ</div>
-              <div className="choice-display">{myChoice ? CHOICES[myChoice].emoji : '?'}</div>
-              <div className="score">{scores.player1}</div>
-            </div>
+        <div className="players">
+  {/* Siz (o'zingiz) */}
+  <div className="player you">
+    <div className="avatar-wrapper">
+      {user.photo_url ? (
+        <img
+          src={user.photo_url}
+          alt="Siz"
+          className="player-avatar"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.style.display = 'none';
+          }}
+        />
+      ) : (
+        <div className="avatar-fallback">
+          {user.first_name?.charAt(0)?.toUpperCase() || '?'}
+        </div>
+      )}
+    </div>
 
-            <div className="vs">VS</div>
+    <div className="player-name">SIZ</div>
+    <div className="choice-display">{myChoice ? CHOICES[myChoice].emoji : '?'}</div>
+    <div className="score">{scores.player1}</div>
+  </div>
 
-            <div className="player opponent">
-              <div className="player-name">{opponent?.firstName || opponent?.username || 'Raqib'}</div>
-              <div className="choice-display">{opponentChoice ? CHOICES[opponentChoice].emoji : '❓'}</div>
-              <div className="score">{scores.player2}</div>
-            </div>
-          </div>
+  <div className="vs">VS</div>
+
+  {/* Raqib */}
+  <div className="player opponent">
+    <div className="avatar-wrapper">
+      {opponentPhoto ? (
+        <img
+          src={opponentPhoto}
+          alt={opponent?.firstName || 'Raqib'}
+          className="player-avatar"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.style.display = 'none';
+          }}
+        />
+      ) : (
+        <div className="avatar-fallback">
+          {opponent?.firstName?.charAt(0)?.toUpperCase() || '?'}
+        </div>
+      )}
+    </div>
+
+    <div className="player-name">{opponent?.firstName || 'Raqib'}</div>
+    <div className="choice-display">{opponentChoice ? CHOICES[opponentChoice].emoji : '❓'}</div>
+    <div className="score">{scores.player2}</div>
+  </div>
+</div>
 
           {!myChoice && !result && (
             <div className="choices-section">

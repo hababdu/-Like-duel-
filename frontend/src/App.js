@@ -46,18 +46,18 @@ useEffect(() => {
     
     if (initData?.user) {
       // Telegram user ma'lumotlarini olish
-      const tgUser = {
-        id: initData.user.id,
-        first_name: initData.user.first_name || 'User',
-        last_name: initData.user.last_name || '',
-        username: initData.user.username || `user_${initData.user.id}`,
-        language_code: initData.user.language_code || 'uz',
-        is_premium: initData.user.is_premium || false,
-        photo_url: initData.user.photo_url || null,
-        // ✅ initData ni saqlash (autentifikatsiya uchun)
-        initData: tg.initData
-      };
-      
+      // src/App.jsx ichida useEffect ichida tgUser ob'ektini yaratish joyi
+
+const tgUser = {
+  id: initData.user.id,
+  first_name: initData.user.first_name || 'User',
+  last_name: initData.user.last_name || '',
+  username: initData.user.username || `user_${initData.user.id}`,
+  language_code: initData.user.language_code || 'uz',
+  is_premium: initData.user.is_premium || false,
+  photo_url: initData.user.photo_url || null,          // ← qo'shildi yoki mavjud bo'lsa saqlanadi
+  initData: tg.initData
+};
       console.log('👤 Telegram user:', tgUser);
       setUser(tgUser);
       
@@ -164,9 +164,13 @@ useEffect(() => {
       {/* App Header */}
       <div className="app-header">
         <div className="user-section">
-          <div className="user-avatar">
-            {user.first_name.charAt(0)}
-          </div>
+        <div className="user-avatar">
+  {user.photo_url ? (
+    <img src={user.photo_url} alt="" />
+  ) : (
+    user.first_name?.charAt(0).toUpperCase() || '?'
+  )}
+</div>
           <div className="user-info">
             <div className="user-name">
               {user.first_name} {user.last_name}
