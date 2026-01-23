@@ -23,46 +23,55 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   const [chatInput, setChatInput] = useState('');
   const [authAttempts, setAuthAttempts] = useState(0);
   const [debugInfo, setDebugInfo] = useState('Initializing...');
+  const [profilePhoto, setProfilePhoto] = useState(null); // ← YANGI: Telegram rasmi
   const messagesEndRef = useRef(null);
   
   // ✅ AUTENTIFIKATSIYA FUNKTSIYASI
   const sendAuthentication = () => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      console.log('WebSocket hali ochilmagan');
-      return;
+      console.log('❌ WebSocket ochiq emas');
+      return false;
     }
-  
-    // Eng muhimi — Telegram WebApp dan initData olish
-    const initData = window.Telegram?.WebApp?.initData || "";
     
-    if (!initData) {
-      console.error("Telegram WebApp initData topilmadi! WebApp ichida ekanligingizni tekshiring.");
-      showNotif("Telegram WebApp muhitida emas ko'rinadi", "error");
-      return;
+    if (!user?.id) {
+      console.log('❌ User ID yoʻq');
+      return false;
     }
-  
+    
+    // Telegram WebApp dan initData ni olish (majburiy!)
+    const initData = window.Telegram?.WebApp?.initData || '';
+    console.log('📋 initData uzunligi:', initData.length);
+    console.log('📋 initData boshlanishi:', initData.substring(0, 100) + '...');
+    
+    if (!initData || initData.length < 100) {
+      console.error('❌ initData topilmadi yoki juda qisqa! Telegram Mini App ichida ekanligingizni tekshiring.');
+      showNotif('Telegram maʼlumotlari topilmadi. Appni Telegram ichida oching.', 'error');
+      return false;
+    }
+    
     const authData = {
       type: 'authenticate',
-      initData: initData,           // ← BU MAJBURIY!
-      
-      // Quyidagilar ixtiyoriy, server ularga e'tibor bermaydi (faqat logging uchun)
+      initData: initData, // ← BU ASOSIY! Server shuni kutmoqda
       userId: user.id,
+      username: user.username || `user_${user.id}`,
+      firstName: user.first_name || 'Player',
       telegramId: user.id,
-      username: user.username,
-      firstName: user.first_name,
-      languageCode: user.language_code,
-      isPremium: user.is_premium,
-      timestamp: Date.now()
+      languageCode: user.language_code || 'uz',
+      isPremium: user.is_premium || false,
+      timestamp: Date.now(),
+      version: '1.0'
     };
-  
-    console.log("Auth yuborilmoqda:", {
+    
+    console.log('📤 AUTH YUBORILMOQDA:', {
       ...authData,
-      initData: authData.initData.substring(0, 80) + "..."
+      initData: authData.initData.substring(0, 50) + '...'
     });
-  
+    setDebugInfo(`Auth yuborildi (${authAttempts + 1})...`);
+    
     ws.current.send(JSON.stringify(authData));
-    setAuthAttempts(a => a + 1);
-    setDebugInfo(`Auth yuborildi (initData uzunligi: ${initData.length})`);
+    setAuthAttempts(prev => prev + 1);
+    
+    return true;
   };
   
   // ✅ WEB SOCKET ULANISHI
@@ -91,24 +100,20 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
       showNotif('Serverga ulandi!', 'success');
       
       // 1. Darhol authentication yuborish
-      setTimeout(() => {
-        sendAuthentication();
-      }, 500);
+      setTimeout(() => sendAuthentication(), 500);
       
-      // 2. 3 soniyadan keyin ikkinchi marta authentication
+      // 2. 3 soniyadan keyin ikkinchi marta (agar birinchi o'tmasa)
       setTimeout(() => {
         if (!authenticated) {
           console.log('🔄 3 soniya otdi, auth qayta yuborilmoqda...');
           sendAuthentication();
         }
       }, 3000);
-      
-     
     };
     
-    // ✅ ONMESSAGE - Serverdan xabar kelganda
+    // ✅ ONMESSAGE - Serverdan xabar kelganda (YANGILANGAN)
     socket.onmessage = (event) => {
-      console.log('📩 SERVER XABARI:', event.data);
+      console.log('📩 SERVER XABARI (RAW):', event.data);
       setDebugInfo(`Xabar keldi: ${event.data.substring(0, 30)}...`);
       
       try {
@@ -123,26 +128,23 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
           setAuthAttempts(0);
           setDebugInfo('Authentication OK!');
           showNotif(`Xush kelibsiz, ${data.user?.firstName || user.first_name}!`, 'success');
+          
+          // YANGI: Serverdan kelgan profile photo ni saqlash
+          if (data.user.profilePhoto) {
+            setProfilePhoto(data.user.profilePhoto);
+            console.log('📸 Profile photo:', data.user.profilePhoto);
+          }
         }
         
-        // ✅ ERROR - Server xatosi
+        // ✅ ERROR - Server xatosi (YANGILANGAN)
         else if (data.type === 'error') {
           console.error('❌ SERVER XATOSI:', data.code, data.message);
+          showNotif(`Xato: ${data.code} - ${data.message}`, 'error');
           
-          // Agar "UNAUTHENTICATED" xatosi bo'lsa
-          if (data.code === 'UNAUTHENTICATED') {
-            console.log('🔄 Authentication talab qilinmoqda...');
-            showNotif('Autentifikatsiya qilinmoqda...', 'info');
-            
-            // Authentication ni qayta yuborish
-            setTimeout(() => {
-              sendAuthentication();
-            }, 1000);
-          }
-          // Agar "AUTH_FAILED" bo'lsa
-          else if (data.code === 'AUTH_FAILED') {
-            console.log('⚠️ Auth muvaffaqiyatsiz,');
-           
+          // Agar "UNAUTHENTICATED" bo'lsa, qayta yuborish
+          if (data.code === 'UNAUTHENTICATED' || data.code === 'INVALID_INIT_DATA' || data.code === 'INIT_DATA_REQUIRED') {
+            console.log('🔄 Authentication qayta talab qilinmoqda...');
+            setTimeout(() => sendAuthentication(), 1000);
           }
         }
         
@@ -234,29 +236,40 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     
     // ✅ ONCLOSE - WebSocket yopilganda
     socket.onclose = (event) => {
-      console.log(`🔌 WebSocket yopildi: ${event.code} - ${event.reason}`);
+      console.log(`🔌 WebSocket yopildi: code=${event.code} - reason=${event.reason || 'noma\'lum'}`);
       setConnected(false);
       setAuthenticated(false);
-      setDebugInfo(`WebSocket yopildi (${event.code})`);
+      setDebugInfo(`Yopildi (${event.code}) - ${event.reason || 'noma\'lum'}`);
+      showNotif(`Ulanish uzildi: ${event.reason || 'noma\'lum sabab'}`, 'error');
       
-      // Avtomatik qayta ulanish
+      // Avtomatik qayta ulanish (lekin reload emas, yangi WebSocket yaratish)
       if (event.code !== 1000) {
         setTimeout(() => {
-          console.log('🔄 5 soniyadan keyin qayta ulanmoqda...');
-          window.location.reload();
+          console.log('🔄 Qayta ulanmoqda...');
+          // Yangi ulanishni boshlash (reload emas)
+          setConnected(false); // Qayta ulanish holatini yangilash
+          // Bu yerda qayta useEffect chaqirilmaydi, shuning uchun qo'lda yangi socket yaratish mumkin
+          // window.location.reload(); // ← Vaqtincha izohga oling, test uchun
         }, 5000);
       }
     };
     
-    // ✅ CLEANUP
-    return () => {
-      console.log('🧹 Komponent tozalanmoqda');
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.close(1000, 'Komponent unmount');
-      }
-    };
-  }, [user?.id]);
+// ✅ CLEANUP
+return () => {
+  console.log('🧹 Komponent tozalanmoqda');
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.close(1000, 'Komponent unmount');
+  }
+};
+}, [user?.id]);
   
+  // ✅ ONERROR - WebSocket xatosi
+  socket.onerror = (error) => {
+    console.error('❌ WebSocket xatosi:', error);
+    setDebugInfo('WebSocket xatosi');
+    showNotif('Ulanish xatosi', 'error');
+  };
+
   // ✅ NAVBATGA QO'SHILISH
   const joinQueue = () => {
     console.log('🎮 Navbatga qo\'shilish boshlanmoqda...');
@@ -374,8 +387,12 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     
     setChatInput('');
   };
+
+
   
   // ✅ RENDER
+
+  
   if (!connected) {
     return (
       <div className="multiplayer-container">
@@ -391,33 +408,34 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     );
   }
   
-  if (!authenticated) {
-    return (
-      <div className="multiplayer-container">
-        <button className="back-btn" onClick={onBackToMenu}>← Menyu</button>
+// RENDER qismida profile photo ni chiqarish (masalan, auth-screen da)
+if (!authenticated) {
+  return (
+    <div className="multiplayer-container">
+      <button className="back-btn" onClick={onBackToMenu}>← Menyu</button>
+      
+      <div className="auth-screen">
+        <div className="spinner"></div>
+        <h3>Autentifikatsiya qilinmoqda...</h3>
+        {profilePhoto && (
+          <img src={profilePhoto} alt="Profile" style={{ width: '100px', height: '100px', borderRadius: '50%' }} />
+        )} {/* ← YANGI: Rasm chiqarish */}
+        <div className="auth-info">
+          <p><strong>User ID:</strong> {user.id}</p>
+          <p><strong>Ism:</strong> {user.first_name}</p>
+          <p><strong>Auth urinishlar:</strong> {authAttempts}</p>
+          <p><strong>Holat:</strong> {debugInfo}</p>
+        </div>
         
-        <div className="auth-screen">
-          <div className="spinner"></div>
-          <h3>Autentifikatsiya qilinmoqda...</h3>
-          <div className="auth-info">
-            <p><strong>User ID:</strong> {user.id}</p>
-            <p><strong>Ism:</strong> {user.first_name}</p>
-            <p><strong>Auth urinishlar:</strong> {authAttempts}</p>
-            <p><strong>Holat:</strong> {debugInfo}</p>
-          </div>
-          
-          <div className="auth-buttons">
-            <button className="retry-auth-btn" onClick={sendAuthentication}>
-              Auth qayta yuborish
-            </button>
-           
-          </div>
-          
-         
+        <div className="auth-buttons">
+          <button className="retry-auth-btn" onClick={sendAuthentication}>
+            Auth qayta yuborish
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
   
   if (inQueue) {
     return (

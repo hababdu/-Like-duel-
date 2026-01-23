@@ -939,11 +939,10 @@ async function handleMessage(ws, data, session) {
 async function handleAuthentication(ws, data, session) {
   console.log('[AUTH] Keldi →', {
     userId: data.userId,
-    firstName: data.firstName,
     initDataLength: data.initData?.length || 0,
     initDataPreview: data.initData ? data.initData.substring(0, 120) + '...' : '(yo‘q)'
   });
-
+  
   // Agar initData bo‘lmasa — xato
   if (!data.initData || data.initData.trim() === '') {
     safeSend(ws, {
@@ -953,12 +952,11 @@ async function handleAuthentication(ws, data, session) {
     });
     return;
   }
-
+  
   try {
     const isValid = verifyTelegramInitData(data.initData, BOT_TOKEN);
-
-    console.log('[AUTH] Hash tekshiruvi natijasi:', isValid ? 'TO‘G‘RI' : 'XATO');
-
+    console.log('[AUTH] Hash tekshiruvi natijasi:', isValid ? 'TO‘G‘RI ✅' : 'XATO ❌');
+    
     if (!isValid) {
       safeSend(ws, {
         type: 'error',
@@ -968,22 +966,20 @@ async function handleAuthentication(ws, data, session) {
       ws.close(1008, 'Invalid Telegram data');
       return;
     }
-
+    
     // initData dan user ma'lumotlarini olish
     const urlParams = new URLSearchParams(data.initData);
     const userRaw = urlParams.get('user');
-
     if (!userRaw) {
-      throw new Error('user parametri topilmadi initData ichida');
+      throw new Error('user parametri topilmadi');
     }
-
     const tgUser = JSON.parse(decodeURIComponent(userRaw));
     const telegramId = Number(tgUser.id);
-
+    
     if (!telegramId || isNaN(telegramId)) {
       throw new Error('Telegram ID noto‘g‘ri');
     }
-
+    
     // Database'da izlash / yaratish
     let userDoc = await User.findOne({ telegramId });
     if (!userDoc) {
@@ -998,7 +994,25 @@ async function handleAuthentication(ws, data, session) {
       await userDoc.save();
       console.log('[AUTH] Yangi user yaratildi:', telegramId);
     }
-
+    
+    // YANGI: Telegram bot orqali profile photo olish
+    let profilePhoto = null;
+    try {
+      if (bot) {
+        const profilePhotos = await bot.getUserProfilePhotos(telegramId, { limit: 1 });
+        if (profilePhotos.total_count > 0 && profilePhotos.photos[0].length > 0) {
+          const fileId = profilePhotos.photos[0][0].file_id; // Eng kichik rasm
+          const file = await bot.getFile(fileId);
+          profilePhoto = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${file.file_path}`;
+          console.log('[AUTH] Profile photo topildi:', profilePhoto);
+        } else {
+          console.log('[AUTH] Profile photo yo‘q');
+        }
+      }
+    } catch (photoError) {
+      console.error('[AUTH] Profile photo olish xatosi:', photoError.message);
+    }
+    
     // Session yangilash
     session.userId = telegramId;
     session.authenticated = true;
@@ -1007,19 +1021,19 @@ async function handleAuthentication(ws, data, session) {
       firstName: userDoc.firstName,
       username: userDoc.username
     };
-
     playerSessions.set(telegramId, session);
-
+    
     safeSend(ws, {
       type: 'authenticated',
       user: {
         id: telegramId,
         firstName: userDoc.firstName,
         username: userDoc.username,
-        isPremium: userDoc.isPremium
+        isPremium: userDoc.isPremium,
+        profilePhoto: profilePhoto || 'https://default-profile-photo-url.com/default.jpg' // Default rasm
       }
     });
-
+    
     console.log(`[AUTH] Muvaffaqiyatli: ${telegramId} (${userDoc.firstName})`);
   } catch (err) {
     console.error('[AUTH] Xato:', err.message, err.stack?.substring(0, 200));
