@@ -28,34 +28,41 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
   // ✅ AUTENTIFIKATSIYA FUNKTSIYASI
   const sendAuthentication = () => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      console.log('❌ WebSocket ochiq emas, auth yuborilmaydi');
-      return false;
+      console.log('WebSocket hali ochilmagan');
+      return;
     }
+  
+    // Eng muhimi — Telegram WebApp dan initData olish
+    const initData = window.Telegram?.WebApp?.initData || "";
     
-    if (!user?.id) {
-      console.log('❌ User ID yoʻq, auth yuborilmaydi');
-      return false;
+    if (!initData) {
+      console.error("Telegram WebApp initData topilmadi! WebApp ichida ekanligingizni tekshiring.");
+      showNotif("Telegram WebApp muhitida emas ko'rinadi", "error");
+      return;
     }
-    
+  
     const authData = {
       type: 'authenticate',
+      initData: initData,           // ← BU MAJBURIY!
+      
+      // Quyidagilar ixtiyoriy, server ularga e'tibor bermaydi (faqat logging uchun)
       userId: user.id,
-      username: user.username || `user_${user.id}`,
-      firstName: user.first_name || 'Player',
       telegramId: user.id,
-      languageCode: user.language_code || 'uz',
-      isPremium: user.is_premium || false,
-      timestamp: Date.now(),
-      version: '1.0'
+      username: user.username,
+      firstName: user.first_name,
+      languageCode: user.language_code,
+      isPremium: user.is_premium,
+      timestamp: Date.now()
     };
-    
-    console.log('📤 AUTHENTICATION YUBORILMOQDA:', authData);
-    setDebugInfo(`Auth yuborildi (${authAttempts + 1})...`);
-    
+  
+    console.log("Auth yuborilmoqda:", {
+      ...authData,
+      initData: authData.initData.substring(0, 80) + "..."
+    });
+  
     ws.current.send(JSON.stringify(authData));
-    setAuthAttempts(prev => prev + 1);
-    
-    return true;
+    setAuthAttempts(a => a + 1);
+    setDebugInfo(`Auth yuborildi (initData uzunligi: ${initData.length})`);
   };
   
   // ✅ WEB SOCKET ULANISHI
