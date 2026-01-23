@@ -1083,46 +1083,56 @@ function verifyTelegramInitData(initDataString, botToken) {
 
 // Telegram initData ni tekshiruvchi funksiya (crypto bilan)
 
+
 function verifyTelegramInitData(initDataString, botToken) {
   if (!initDataString || typeof initDataString !== 'string' || !botToken) {
     console.log('[VERIFY ERROR] initData yoki botToken yo‘q');
     return false;
   }
 
-  // Loglar – sababni aniqlash uchun juda muhim
   console.log('[VERIFY] initData uzunligi:', initDataString.length);
   console.log('[VERIFY] initData boshlanishi:', initDataString.substring(0, 150) + '...');
 
-  // 1. Parametrlarni ajratamiz va hash ni olib tashlaymiz
-  const pairs = initDataString.split('&');
-  const dataPairs = pairs
-    .filter(pair => pair && !pair.startsWith('hash='))
-    .sort((a, b) => a.localeCompare(b));  // localeCompare – platforma farqini hal qiladi
+  // 1. URLSearchParams bilan barcha parametrlarni olish
+  const params = new URLSearchParams(initDataString);
 
-  if (dataPairs.length < 4) {
-    console.log('[VERIFY ERROR] Juda kam parametr:', dataPairs.length);
+  // 2. Received hash ni ajratib olish
+  const receivedHash = params.get('hash') || '';
+  if (!receivedHash) {
+    console.log('[VERIFY ERROR] hash parametri topilmadi');
     return false;
   }
 
-  const dataCheckString = dataPairs.join('\n');
+  // 3. Hash ni hisoblash uchun faqat kerakli parametrlarni yig‘ish
+  // (hash= ni olib tashlaymiz va alfavit tartibida sort qilamiz)
+  const dataCheckPairs = [];
+  for (const [key, value] of params.entries()) {
+    if (key !== 'hash') {
+      dataCheckPairs.push(`${key}=${value}`);
+    }
+  }
 
-  // 2. Secret key hosil qilish – eng muhim qism
+  // Eng muhimi: ALFABIT TARTIBIDA sort qilish (localeCompare bilan)
+  dataCheckPairs.sort((a, b) => a.localeCompare(b));
+
+  // \n bilan birlashtirish (faqat \n, bo‘sh joy yo‘q)
+  const dataCheckString = dataCheckPairs.join('\n');
+
+  // 4. Secret key yaratish
   const secretKey = crypto.createHmac('sha256', 'WebAppData')
-    .update(botToken.trim())  // trim() – bo‘sh joylarni olib tashlaydi
-    .digest();  // RAW BYTES (hex emas!)
+    .update(botToken.trim())   // trim() — juda muhim!
+    .digest();                 // raw bytes (hex emas!)
 
-  // 3. Computed hash
+  // 5. Computed hash
   const computedHash = crypto.createHmac('sha256', secretKey)
     .update(dataCheckString)
     .digest('hex');
 
-  // 4. Kelgan hash
-  const receivedHash = new URLSearchParams(initDataString).get('hash') || '';
-
-  // Log – bu yerni ko‘rsangiz, sabab darhol aniq bo‘ladi
-  console.log('[VERIFY] Computed hash:', computedHash);
-  console.log('[VERIFY] Received hash :', receivedHash);
-  console.log('[VERIFY] Natija        :', computedHash === receivedHash ? 'TO‘G‘RI ✅' : 'XATO ❌');
+  // 6. Natijani log qilish (debug uchun zarur)
+  console.log('[VERIFY] Data check string (sort qilingan):\n' + dataCheckString);
+  console.log('[VERIFY] Computed hash  →', computedHash);
+  console.log('[VERIFY] Received hash →', receivedHash);
+  console.log('[VERIFY] Natija       →', computedHash === receivedHash ? 'TO‘G‘RI ✅' : 'XATO ❌');
 
   return computedHash === receivedHash;
 }
