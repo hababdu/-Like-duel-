@@ -405,9 +405,7 @@ const sendMessage = (e) => {
           <div className="spinner"></div>
           <h3>Serverga ulanmoqda...</h3>
           <p>{debugInfo}</p>
-          <button className="retry-btn" onClick={() => window.location.reload()}>
-            Qayta urinish
-          </button>
+
         </div>
       </div>
     );
