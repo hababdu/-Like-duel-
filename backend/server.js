@@ -1242,113 +1242,43 @@ async function handleLeaveQueue(ws, data, session) {
 }
 
 async function handleMakeChoice(ws, data, session) {
-  if (!session.authenticated) {
-    safeSend(ws, { 
-      type: 'error', 
-      code: 'UNAUTHENTICATED',
-      message: 'Avval autentifikatsiya qiling' 
-    });
-    return;
-  }
-  
-  const { gameId, choice, round = 1 } = data;
+  if (!session.authenticated) return;
+
+  const { gameId, choice } = data;
   const userId = session.userId;
-  
-  if (!gameId || !choice) {
-    safeSend(ws, { 
-      type: 'error', 
-      code: 'INVALID_DATA',
-      message: 'GameId va Choice talab qilinadi' 
-    });
-    return;
-  }
-  
-  if (!validateChoice(choice)) {
-    safeSend(ws, { 
-      type: 'error', 
-      code: 'INVALID_CHOICE',
-      message: 'Noto\'g\'ri tanlov. Rock, Paper yoki Scissors tanlang.' 
-    });
-    return;
-  }
-  
+
   const game = activeGames.get(gameId);
-  if (!game) {
-    safeSend(ws, { 
-      type: 'error', 
-      code: 'GAME_NOT_FOUND',
-      message: 'O\'yin topilmadi' 
-    });
-    return;
-  }
-  
-  // O'yinchi tekshirish
+  if (!game) return safeSend(ws, { type: 'error', message: 'O‘yin topilmadi' });
+
   const isPlayer1 = game.player1.id === userId;
   const isPlayer2 = game.player2?.id === userId;
-  
-  if (!isPlayer1 && !isPlayer2) {
-    safeSend(ws, { 
-      type: 'error', 
-      code: 'NOT_IN_GAME',
-      message: 'Siz bu o\'yinda emassiz' 
-    });
-    return;
-  }
-  
+
+  if (!isPlayer1 && !isPlayer2) return safeSend(ws, { type: 'error', message: 'Siz bu o‘yinda emassiz' });
+
   // Tanlovni saqlash
-  if (isPlayer1) {
-    game.player1.choice = choice;
-  } else {
-    game.player2.choice = choice;
-  }
-  
-  // Raund natijasini saqlash
-  if (!game.roundResults) {
-    game.roundResults = [];
-  }
-  
-  // Ikkala o'yinchi ham tanlagan bo'lsa
+  if (isPlayer1) game.player1.choice = choice;
+  else           game.player2.choice = choice;
+
+  activeGames.set(gameId, game);
+
+  // Agar ikkalasi ham tanlagan bo‘lsa → natijani hisoblaymiz
   if (game.player1.choice && game.player2?.choice) {
     const roundResult = determineRoundResult(game.player1.choice, game.player2.choice);
-    
+
+    // Hisobni yangilash
+    if (roundResult === 'player1_win') game.player1.score++;
+    else if (roundResult === 'player2_win') game.player2.score++;
+
+    // Round natijasini saqlash
     game.roundResults.push({
       round: game.currentRound,
       player1Choice: game.player1.choice,
       player2Choice: game.player2.choice,
-      result: roundResult,
-      timestamp: new Date()
+      result: roundResult
     });
-    
-    // Hisobni yangilash
-    if (roundResult === 'player1_win') {
-      game.player1.score++;
-    } else if (roundResult === 'player2_win') {
-      game.player2.score++;
-    }
-    
-    // Raqibga xabar
-    const opponentId = isPlayer1 ? game.player2.id : game.player1.id;
-    const opponentSession = getPlayerSession(opponentId);
-    
-    if (opponentSession) {
-      safeSend(opponentSession.ws, {
-        type: 'round_result',
-        gameId,
-        round: game.currentRound,
-        result: roundResult,
-        choices: {
-          player1: game.player1.choice,
-          player2: game.player2.choice
-        },
-        scores: {
-          player1: game.player1.score,
-          player2: game.player2.score
-        }
-      });
-    }
-    
-    // O'yinchilarga xabar
-    safeSend(ws, {
+
+    // Ikkalasiga bir xil ma’lumot yuboramiz
+    const payload = {
       type: 'round_result',
       gameId,
       round: game.currentRound,
@@ -1361,232 +1291,107 @@ async function handleMakeChoice(ws, data, session) {
         player1: game.player1.score,
         player2: game.player2.score
       }
+    };
+
+    // Ikkala o‘yinchiga yuborish
+    sendToPlayers(gameId, payload);
+
+    // Kuzatuvchilarga ham (agar mavjud bo‘lsa)
+    const spectators = gameSpectators.get(gameId) || [];
+    spectators.forEach(specId => {
+      const ws = getPlayerSocket(specId);
+      if (ws) safeSend(ws, payload);
     });
-    
-    // Tanlovlarni tozalash keyingi raund uchun
+
+    // Tanlovlarni tozalash (keyingi raund uchun)
     game.player1.choice = null;
     game.player2.choice = null;
     game.currentRound++;
-    
-    // O'yin tugashini tekshirish
+
+    activeGames.set(gameId, game);
+
+    // O‘yin tugashini tekshirish
     if (game.currentRound > game.rounds) {
       await finalizeGame(gameId);
     } else {
-      // Keyingi raund boshlanishi
+      // Keyingi raund boshlanishi haqida xabar (ixtiyoriy)
       setTimeout(() => {
-        const currentGame = activeGames.get(gameId);
-        if (currentGame && currentGame.status === 'playing') {
-          sendToPlayers(gameId, {
-            type: 'next_round',
-            gameId,
-            round: currentGame.currentRound,
-            scores: {
-              player1: currentGame.player1.score,
-              player2: currentGame.player2.score
-            }
-          });
-        }
-      }, 2000);
+        sendToPlayers(gameId, {
+          type: 'next_round',
+          gameId,
+          round: game.currentRound,
+          scores: { player1: game.player1.score, player2: game.player2.score }
+        });
+      }, 1800);
     }
   } else {
-    // Faqat bitta tanlov bo'lsa
-    safeSend(ws, {
-      type: 'choice_accepted',
-      gameId,
-      choice,
-      waitingForOpponent: true
-    });
-    
-    // Raqibga xabar
+    // Faqat bitta tanlov bo‘lsa — raqibga signal
     const opponentId = isPlayer1 ? game.player2.id : game.player1.id;
-    const opponentSession = getPlayerSession(opponentId);
-    
-    if (opponentSession) {
-      safeSend(opponentSession.ws, {
-        type: 'opponent_choice_made',
-        gameId
-      });
+    const opponentWs = getPlayerSocket(opponentId);
+    if (opponentWs) {
+      safeSend(opponentWs, { type: 'opponent_made_choice', gameId });
     }
+    safeSend(ws, { type: 'choice_accepted', gameId, waiting: true });
   }
-  
-  activeGames.set(gameId, game);
 }
 
 async function handleChatMessage(ws, data, session) {
   if (!session.authenticated) {
-    safeSend(ws, { 
-      type: 'error', 
-      code: 'UNAUTHENTICATED',
-      message: 'Avval autentifikatsiya qiling' 
-    });
+    safeSend(ws, { type: 'error', code: 'UNAUTHENTICATED', message: 'Autentifikatsiya talab qilinadi' });
     return;
   }
-  
-  const { roomId, text, type = 'text' } = data;
+
+  const { roomId, text } = data;
   const userId = session.userId;
-  
-  if (!roomId || !text || text.trim() === '') {
-    safeSend(ws, { 
-      type: 'error', 
-      code: 'INVALID_MESSAGE',
-      message: 'Xabar matni bo\'sh bo\'lmasligi kerak' 
-    });
+
+  if (!roomId || !text?.trim()) {
+    safeSend(ws, { type: 'error', message: 'roomId va text majburiy' });
     return;
   }
-  
-  // Xabar uzunligini cheklash
-  const messageText = text.trim().slice(0, 2000);
-  
-  try {
-    let room = chatRooms.get(roomId);
-    
-    // Agar room topilmasa, database'dan qidirish
-    if (!room) {
-      const dbRoom = await ChatRoom.findOne({ roomId });
-      if (dbRoom) {
-        room = dbRoom.toObject();
-        chatRooms.set(roomId, room);
-      }
-    }
-    
-    if (!room) {
-      safeSend(ws, { 
-        type: 'error', 
-        code: 'ROOM_NOT_FOUND',
-        message: 'Chat topilmadi' 
-      });
-      return;
-    }
-    
-    // Ishtirokchi ekanligini tekshirish
-    const participant = room.participants.find(p => p.userId === userId);
-    if (!participant) {
-      safeSend(ws, { 
-        type: 'error', 
-        code: 'NOT_PARTICIPANT',
-        message: 'Siz bu chat\'da emassiz' 
-      });
-      return;
-    }
-    
-    // Slow mode tekshirish
-    if (room.settings?.slowMode > 0) {
-      const lastMessage = await Message.findOne({
-        roomId,
-        senderId: userId
-      }).sort({ createdAt: -1 });
-      
-      if (lastMessage) {
-        const timeDiff = Date.now() - lastMessage.createdAt.getTime();
-        if (timeDiff < room.settings.slowMode * 1000) {
-          const waitTime = Math.ceil((room.settings.slowMode * 1000 - timeDiff) / 1000);
-          safeSend(ws, { 
-            type: 'error', 
-            code: 'SLOW_MODE',
-            message: `Iltimos, ${waitTime} soniya kuting`,
-            waitTime
-          });
-          return;
-        }
-      }
-    }
-    
-    // Message yaratish
-    const messageId = generateId('msg_');
-    const message = {
-      messageId,
-      roomId,
+
+  const messageText = text.trim().slice(0, 1000);
+
+  // Faqat o‘yin xonasi ekanligini tekshirish (hozircha oddiy yondashuv)
+  const game = activeGames.get(roomId);
+  if (!game) {
+    safeSend(ws, { type: 'error', message: 'Bunday o‘yin topilmadi' });
+    return;
+  }
+
+  // Bu o‘yinchi ushbu o‘yinda ishtirokchi ekanligini tekshirish
+  if (game.player1.id !== userId && game.player2?.id !== userId) {
+    safeSend(ws, { type: 'error', message: 'Siz bu o‘yin xonasida emassiz' });
+    return;
+  }
+
+  const messagePayload = {
+    type: 'chat_message',
+    message: {
       senderId: userId,
       senderName: session.user?.firstName || `User_${userId}`,
-      type,
       text: messageText,
-      content: { text: messageText },
-      readBy: [{ userId, readAt: new Date() }],
-      reactions: [],
-      createdAt: new Date()
-    };
-    
-    // Database'ga saqlash
-    const messageDoc = new Message(message);
-    await messageDoc.save();
-    
-    // Room'ni yangilash
-    room.lastMessage = {
-      senderId: userId,
-      text: messageText,
-      timestamp: new Date()
-    };
-    room.messageCount = (room.messageCount || 0) + 1;
-    room.updatedAt = new Date();
-    
-    // In-memory yangilash
-    chatRooms.set(roomId, room);
-    
-    // Database'dagi room'ni yangilash
-    await ChatRoom.updateOne(
-      { roomId },
-      {
-        lastMessage: room.lastMessage,
-        messageCount: room.messageCount,
-        updatedAt: new Date()
-      }
-    );
-    
-    // Xabarni barcha ishtirokchilarga yuborish
-    const messagePayload = {
-      type: 'chat_message',
-      roomId,
-      message: {
-        ...message,
-        id: messageId,
-        createdAt: message.createdAt.toISOString()
-      }
-    };
-    
-    for (const participant of room.participants) {
-      if (participant.userId !== userId) {
-        const participantSession = getPlayerSession(participant.userId);
-        if (participantSession) {
-          // Read by ni yangilash
-          messageDoc.readBy.push({ userId: participant.userId, readAt: new Date() });
-          
-          // Xabarni yuborish
-          safeSend(participantSession.ws, messagePayload);
-          
-          // Notification yaratish
-          if (participantSession.status === 'offline' || 
-              (participantSession.status === 'online' && !participantSession.gameId)) {
-            await createNotification(
-              participant.userId,
-              'chat_message',
-              `Yangi xabar: ${session.user?.firstName}`,
-              messageText,
-              { roomId, senderId: userId }
-            );
-          }
-        }
-      }
-    }
-    
-    // O'ziga xabar yuborish (confirmation)
-    safeSend(ws, {
-      type: 'message_sent',
-      messageId,
-      roomId,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now()
-    });
-    
-    // Read by ni saqlash
-    await messageDoc.save();
-    
-  } catch (error) {
-    console.error('Chat message error:', error);
-    safeSend(ws, { 
-      type: 'error', 
-      code: 'CHAT_ERROR',
-      message: 'Xabar yuborishda xatolik' 
-    });
+    },
+    roomId
+  };
+
+  console.log(`[CHAT] ${userId} → ${roomId}: ${messageText}`);
+
+  // Ikkala o‘yinchiga ham yuborish (va kuzatuvchilarga ham, agar bo‘lsa)
+  sendToPlayers(roomId, messagePayload);
+
+  const spectators = gameSpectators.get(roomId) || [];
+  for (const specId of spectators) {
+    const specWs = getPlayerSocket(specId);
+    if (specWs) safeSend(specWs, messagePayload);
   }
+
+  // O‘ziga ham qaytarib yuborish (confirmation + optimistic UI uchun)
+  safeSend(ws, {
+    ...messagePayload,
+    isOwnMessage: true
+  });
 }
 
 async function handleInvitePlayer(ws, data, session) {
@@ -2978,14 +2783,14 @@ function setGameTimeout(gameId) {
 function sendToPlayers(gameId, payload) {
   const game = activeGames.get(gameId);
   if (!game) return;
-  
-  const player1Ws = getPlayerSocket(game.player1.id);
-  const player2Ws = getPlayerSocket(game.player2?.id);
-  
-  if (player1Ws) safeSend(player1Ws, payload);
-  if (player2Ws) safeSend(player2Ws, payload);
-}
 
+  [game.player1.id, game.player2?.id]
+    .filter(Boolean)
+    .forEach(id => {
+      const playerWs = getPlayerSocket(id);
+      if (playerWs) safeSend(playerWs, payload);
+    });
+}
 // ==================== TOURNAMENT FUNCTIONS ====================
 function scheduleTournamentStart(tournamentId) {
   setTimeout(async () => {

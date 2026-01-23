@@ -93,11 +93,15 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     };
 
     ws.current.onmessage = (event) => {
-      console.log('Serverdan keldi:', event.data);
+      console.log('Serverdan keldi:', event.data); // debug uchun saqlab qo‘ying
+    
       try {
         const data = JSON.parse(event.data);
-
+    
         switch (data.type) {
+          // ───────────────────────────────────────────────
+          // Autentifikatsiya muvaffaqiyatli bo‘ldi
+          // ───────────────────────────────────────────────
           case 'authenticated':
             setAuthenticated(true);
             setAuthAttempts(0);
@@ -105,53 +109,115 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
             showNotif(`Xush kelibsiz, ${data.user?.firstName || user.first_name}!`, 'success');
             if (data.user?.profilePhoto) setProfilePhoto(data.user.profilePhoto);
             break;
-
+    
+          // ───────────────────────────────────────────────
           case 'error':
             console.error('Server xatosi:', data.code, data.message);
             showNotif(`${data.code || 'Xato'}: ${data.message || 'Noma‘lum xato'}`, 'error');
-
+    
             if (['UNAUTHENTICATED', 'INVALID_INIT_DATA', 'INIT_DATA_REQUIRED', 'AUTH_FAILED'].includes(data.code)) {
               setTimeout(sendAuthentication, 1500);
             }
             break;
-
+    
+          // ───────────────────────────────────────────────
           case 'joined_queue':
             setInQueue(true);
             setDebugInfo('Navbatda... raqib qidirilmoqda');
             showNotif('Raqib qidirilmoqda...', 'info');
             break;
-
+    
+          // ───────────────────────────────────────────────
           case 'match_found':
             setGameId(data.gameId);
             setOpponent(data.opponent);
             setInQueue(false);
+            setMyChoice(null);
+            setOpponentChoice(null);
+            setResult(null);
+            setScores({ player1: 0, player2: 0 });
+            setMessages([]);
             setDebugInfo(`O‘yin boshlandi: vs ${data.opponent?.firstName || 'Raqib'}`);
             showNotif(`Raqib topildi: ${data.opponent?.firstName || data.opponent?.username || 'Raqib'}`, 'success');
             break;
-
+    
+          // ───────────────────────────────────────────────
+          // Eng muhim qism — har bir raund natijasi
+          // ───────────────────────────────────────────────
           case 'round_result':
-            setOpponentChoice(
-              data.choices?.player1?.id === user.id ? data.choices?.player2 : data.choices?.player1
-            );
-            setScores(data.scores || { player1: 0, player2: 0 });
-            showNotif('Raund yakunlandi', 'info');
+            const { choices, scores, result: roundResult, round } = data;
+    
+            // Serverdan kelgan ma'lumotga to‘liq ishonamiz
+            let myChoiceFromServer, opponentChoiceFromServer;
+    
+            // player1 / player2 qaysi taraf ekanligini aniqlaymiz
+            if (String(choices.player1) === String(user.id) || choices.player1?.id === user.id) {
+              myChoiceFromServer       = choices.player1Choice || choices.player1;
+              opponentChoiceFromServer = choices.player2Choice || choices.player2;
+            } else {
+              myChoiceFromServer       = choices.player2Choice || choices.player2;
+              opponentChoiceFromServer = choices.player1Choice || choices.player1;
+            }
+    
+            setMyChoice(myChoiceFromServer);
+            setOpponentChoice(opponentChoiceFromServer);
+            setScores(scores);
+    
+            // Agar bu oxirgi raund bo‘lsa — umumiy natijani ham belgilaymiz
+            if (round >= 3) {   // rounds soni odatda 3 bo‘ladi, agar o‘zgartirsangiz moslashtiring
+              let finalResult;
+              if (scores.player1 > scores.player2) {
+                finalResult = 'win';
+              } else if (scores.player2 > scores.player1) {
+                finalResult = 'lose';
+              } else {
+                finalResult = 'draw';
+              }
+              setResult(finalResult);
+            }
+    
+            showNotif(`Raund ${round} yakunlandi → ${roundResult === 'draw' ? 'Durang' : roundResult === 'player1_win' ? 'P1 yutdi' : 'P2 yutdi'}`, 'info');
             break;
-
+    
+          // ───────────────────────────────────────────────
+          // O‘yin to‘liq tugadi (3 raunddan keyin yoki force finish)
+          // ───────────────────────────────────────────────
           case 'game_result':
             setResult(data.result);
             setScores(data.scores || { player1: 0, player2: 0 });
-
+    
             if (data.result === 'draw') {
-              showNotif('Durang!', 'warning');
-              setCoins(p => p + 25);
-            } else if (data.winnerId === user.id) {
-              showNotif('G‘alaba! 🎉 +50 coin', 'success');
-              setCoins(p => p + 50);
+              showNotif('Durang! +25 coin', 'warning');
+              setCoins(prev => prev + 25);
+            } else if (String(data.winnerId) === String(user.id)) {
+              showNotif('G‘alaba! +50 coin 🎉', 'success');
+              setCoins(prev => prev + 50);
             } else {
               showNotif('Mag‘lubiyat 😔', 'error');
             }
             break;
-
+    
+          // ───────────────────────────────────────────────
+          case 'next_round':
+            // Yangi raund boshlandi — tanlovlarni tozalash
+            setMyChoice(null);
+            setOpponentChoice(null);
+            setDebugInfo(`Yangi raund: ${data.round}`);
+            showNotif(`Raund ${data.round} boshlandi!`, 'info');
+            break;
+    
+          // ───────────────────────────────────────────────
+          case 'opponent_made_choice':
+          case 'opponent_choice_made':
+            showNotif('Raqib tanlov qildi, natijani kuting...', 'info');
+            break;
+    
+          // ───────────────────────────────────────────────
+          case 'choice_accepted':
+            showNotif(`Siz tanladingiz: ${CHOICES[data.choice]?.name || data.choice}`, 'success');
+            break;
+    
+          // ───────────────────────────────────────────────
           case 'chat_message':
             const msg = data.message || data;
             setMessages(prev => [...prev, {
@@ -159,15 +225,23 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
               sender: String(msg.senderId) === String(user.id) ? 'me' : 'opponent',
               text: msg.text || '',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              senderName: msg.senderName || (String(msg.senderId) === String(user.id) ? 'Siz' : 'Raqib')
+              senderName: msg.senderName || (String(msg.senderId) === String(user.id) ? 'Siz' : opponent?.firstName || 'Raqib')
             }]);
             break;
-
+    
+          // ───────────────────────────────────────────────
+          case 'opponent_disconnected':
+            showNotif('Raqib uzildi. 30 soniya ichida qaytmasa g‘alaba sizniki!', 'warning');
+            break;
+    
+          // ───────────────────────────────────────────────
           default:
-            console.log('Noma‘lum xabar turi:', data.type);
+            console.log('Noma‘lum xabar turi:', data.type, data);
+            break;
         }
       } catch (err) {
-        console.error('Xabar parse qilishda xato:', err, event.data);
+        console.error('WebSocket xabar parse qilishda xato:', err, event.data);
+        showNotif('Xabar o‘qishda xato yuz berdi', 'error');
       }
     };
 
@@ -264,21 +338,27 @@ function MultiplayerGame({ user, onBackToMenu, showNotif, coins, setCoins }) {
     e.preventDefault();
     const text = chatInput.trim();
     if (!text || !gameId || !ws.current) return;
-
-    ws.current.send(JSON.stringify({
+  
+    const payload = {
       type: 'chat_message',
-      roomId: gameId,
-      text
-    }));
-
+      roomId: gameId,           // <-- bu juda muhim!
+      text,
+      senderId: user.id,        // qo‘shimcha yuborish foydali
+      senderName: user.first_name || "Siz"
+    };
+  
+    console.log("→ CHAT YUBORILMOQDA:", payload);
+    ws.current.send(JSON.stringify(payload));
+  
+    // Optimistic UI
     setMessages(prev => [...prev, {
       id: Date.now(),
       sender: 'me',
       text,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
       senderName: 'Siz'
     }]);
-
+  
     setChatInput('');
   };
 
