@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './App.css'; // Umumiy stillar uchun
 import DuelGame from './DuelGame';
-import BotGame from './BotGame'; // Sizda deyarli tayyor bo'lgan Bot rejimi
+import BotGame from './components/BotGame'; // Sizda deyarli tayyor bo'lgan Bot rejimi
 
 function App() {
   const [isTelegram, setIsTelegram] = useState(false);
