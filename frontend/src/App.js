@@ -6,10 +6,10 @@ import MenuScreen from './components/MenuScreen';
 import DifficultySelect from './components/DifficultySelect';
 import './App.css';
 
-export const CHOICES = {
-  rock: { emoji: '✊', name: 'Tosh', color: '#e74c3c' },
-  paper: { emoji: '✋', name: 'Qog‘oz', color: '#3498db' },
-  scissors: { emoji: '✌️', name: 'Qaychi', color: '#2ecc71' }
+const CHOICES = {
+  rock: { emoji: '✊', color: '#ff4d94' },
+  paper: { emoji: '✋', color: '#00ff9d' },
+  scissors: { emoji: '✌️', color: '#ffd700' }
 };
 
 function App() {

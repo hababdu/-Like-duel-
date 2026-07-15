@@ -1,0 +1,222 @@
+.game-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100vh;
+  width: 100vw;
+  background: radial-gradient(circle at center, #1e1e2f, #11111b);
+  color: #ffffff;
+  font-family: 'Poppins', sans-serif;
+  overflow: hidden;
+  position: relative;
+}
+
+.confetti-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Header */
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  z-index: 5;
+}
+
+.back-arrow {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.back-arrow:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.badge {
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  letter-spacing: 1px;
+}
+.diff-easy { background: #4caf50; }
+.diff-medium { background: #ff9800; }
+.diff-hard { background: #f44336; }
+
+.score-badge {
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid #ffd700;
+  color: #ffd700;
+  padding: 0.4rem 0.9rem;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+/* Timer */
+.progress-container {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  background: #00ff9d;
+  transition: width 1s linear, background-color 0.3s;
+}
+
+.progress-bar.critical {
+  background: #ff3366;
+  box-shadow: 0 0 10px #ff3366;
+}
+
+/* Arena */
+.arena {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 2rem;
+  flex: 1;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  width: 130px;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.card.active {
+  transform: scale(1.05);
+  border-color: #00ff9d;
+  box-shadow: 0 10px 25px rgba(0, 255, 157, 0.2);
+}
+
+.card-title {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  letter-spacing: 1.5px;
+  margin-bottom: 10px;
+}
+
+.card-view {
+  font-size: 3.5rem;
+}
+
+.pulse-loader {
+  display: inline-block;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  100% { transform: scale(1.15); opacity: 1; }
+}
+
+.vs-badge {
+  background: #ffffff;
+  color: #11111b;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 0.9rem;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+/* Banner */
+.status-banner {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 800;
+  padding: 10px;
+  animation: slideIn 0.3s ease-out;
+}
+
+.banner-win { color: #00ff9d; text-shadow: 0 0 15px rgba(0, 255, 157, 0.5); }
+.banner-lose { color: #ff3366; text-shadow: 0 0 15px rgba(255, 51, 102, 0.5); }
+.banner-draw { color: #ffcc00; text-shadow: 0 0 15px rgba(255, 204, 0, 0.5); }
+
+@keyframes slideIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Actions */
+.action-area {
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 40px 40px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.choices-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.action-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.2rem;
+  border-radius: 20px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--btn-theme);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.action-btn.chosen {
+  background: var(--btn-theme);
+  border-color: var(--btn-theme);
+  transform: scale(0.95);
+}
+
+.action-emoji {
+  font-size: 2.2rem;
+}
+
+.action-label {
+  font-size: 0.7rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.7);
+}
