@@ -348,3 +348,66 @@
     font-size: 1.4rem;
   }
 }
+/* --- TANLOV EFFEKTLARI (NEW) --- */
+
+/* Agar biror narsa tanlansa, tanlanmagan tugmalarni xiralashtiramiz */
+.choices-grid.has-selection .action-btn:not(.chosen) {
+  opacity: 0.25;
+  transform: scale(0.9);
+  filter: grayscale(80%);
+}
+
+/* Tanlangan tugmaning o'ziga maxsus animatsiya va ramka */
+.action-btn.chosen {
+  border: 2px solid #ffffff !important;
+  transform: scale(1.08) !important;
+  animation: selectedPulse 1.5s infinite alternate;
+  z-index: 5;
+}
+
+/* Tugma ichidagi kichik "✓ SIZ" yozuvi */
+.selection-indicator {
+  position: absolute;
+  top: -8px;
+  background: #ffffff;
+  color: #0a0813;
+  font-size: 0.55rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  animation: popIndicator 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Arena kartasidagi foydalanuvchi tanlovi uchun yorqin chegara */
+.card.player-card.active {
+  border-color: #00f0ff;
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.25);
+}
+
+.card.bot-card.active {
+  border-color: #7000ff;
+  box-shadow: 0 0 25px rgba(112, 0, 255, 0.25);
+}
+
+/* --- ANIMATSIYALAR --- */
+@keyframes selectedPulse {
+  0% {
+    box-shadow: 0 0 12px var(--btn-theme), inset 0 0 8px rgba(255, 255, 255, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 24px var(--btn-theme), inset 0 0 12px rgba(255, 255, 255, 0.4);
+  }
+}
+
+@keyframes popIndicator {
+  from {
+    transform: translateY(5px) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}

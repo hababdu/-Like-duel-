@@ -321,25 +321,30 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
       </div>
 
       {/* Mobil Tugmalar Grid */}
-      <footer className="action-area">
-        <div className="choices-grid">
-          {Object.entries(CHOICES).map(([key, item]) => {
-            const isSelected = playerChoice === key;
-            return (
-              <button
-                key={key}
-                onClick={() => onPlay(key)}
-                disabled={roundStatus !== 'playing'}
-                className={`action-btn ${isSelected ? 'chosen' : ''}`}
-                style={{ backgroundColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.05)' }}
-              >
-                <span className="action-emoji">{item.emoji}</span>
-                <span className="action-label">{key.toUpperCase()}</span>
-              </button>
-            );
-          })}
-        </div>
-      </footer>
+<footer className="action-area">
+  <div className={`choices-grid ${playerChoice ? 'has-selection' : ''}`}>
+    {Object.entries(CHOICES).map(([key, item]) => {
+      const isSelected = playerChoice === key;
+      return (
+        <button
+          key={key}
+          onClick={() => onPlay(key)}
+          disabled={roundStatus !== 'playing'}
+          className={`action-btn ${isSelected ? 'chosen' : ''}`}
+          style={{ 
+            backgroundColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.05)',
+            boxShadow: isSelected ? `0 0 20px ${item.color}80` : 'none',
+            borderColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.08)'
+          }}
+        >
+          {isSelected && <span className="selection-indicator">✓ SIZ</span>}
+          <span className="action-emoji">{item.emoji}</span>
+          <span className="action-label">{key.toUpperCase()}</span>
+        </button>
+      );
+    })}
+  </div>
+</footer>
     </div>
   );
 }
