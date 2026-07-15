@@ -1,249 +1,135 @@
-// src/App.jsx
 import React, { useEffect, useState } from 'react';
-import BotGame from './components/BotGame';
-import MultiplayerGame from './components/MultiplayerGame';
-import MenuScreen from './components/MenuScreen';
-import DifficultySelect from './components/DifficultySelect';
-import './App.css';
-
-const CHOICES = {
-  rock: { emoji: '✊', color: '#ff4d94' },
-  paper: { emoji: '✋', color: '#00ff9d' },
-  scissors: { emoji: '✌️', color: '#ffd700' }
-};
+import './App.css'; // Umumiy stillar uchun
+import DuelGame from './DuelGame';
+import BotGame from './BotGame'; // Sizda deyarli tayyor bo'lgan Bot rejimi
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [coins, setCoins] = useState(1500);
-  const [mode, setMode] = useState('menu');
-  const [difficulty, setDifficulty] = useState('medium');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isTelegram, setIsTelegram] = useState(false);
+  const [tgUser, setTgUser] = useState(null);
+  const [coins, setCoins] = useState(0);
+  const [rating, setRating] = useState(0);
+  const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'bot_game' | 'duel_game' | 'shop'
 
-  // Telegram Mini App ni ishga tushirish
-// Telegram Mini App ni ishga tushirish
-useEffect(() => {
-  console.log('🚀 App yuklanmoqda...');
-  
-  // 1. Telegram muhitini tekshirish
-  if (window.Telegram && window.Telegram.WebApp) {
-    const tg = window.Telegram.WebApp;
-    console.log('✅ Telegram WebApp mavjud');
-    
-    // Telegram WebApp ni to'liq ishga tushirish
-    tg.ready();
-    tg.expand();
-    tg.enableClosingConfirmation();
-    
-    // Back button ni yoqish
-    tg.BackButton.show();
-    tg.BackButton.onClick(() => {
-      tg.close();
-    });
-    
-    // Telegramdan foydalanuvchi ma'lumotlarini olish
-    const initData = tg.initDataUnsafe;
-    console.log('📋 Telegram initData:', initData);
-    
-    if (initData?.user) {
-      // Telegram user ma'lumotlarini olish
-      // src/App.jsx ichida useEffect ichida tgUser ob'ektini yaratish joyi
+  useEffect(() => {
+    // 1. Telegram WebApp muhitini tekshirish
+    const tg = window.Telegram?.WebApp;
 
-const tgUser = {
-  id: initData.user.id,
-  first_name: initData.user.first_name || 'User',
-  last_name: initData.user.last_name || '',
-  username: initData.user.username || `user_${initData.user.id}`,
-  language_code: initData.user.language_code || 'uz',
-  is_premium: initData.user.is_premium || false,
-  photo_url: initData.user.photo_url || null,          // ← qo'shildi yoki mavjud bo'lsa saqlanadi
-  initData: tg.initData
-};
-      console.log('👤 Telegram user:', tgUser);
-      setUser(tgUser);
+    if (tg && tg.initData && tg.initDataUnsafe?.user) {
+      tg.expand(); // O'yinni to'liq ekranga ochish
+      setIsTelegram(true);
       
-      // Telegramda haptic feedback
-      tg.HapticFeedback.impactOccurred('light');
+      const user = tg.initDataUnsafe.user;
+      setTgUser(user);
+
+      // Backendga foydalanuvchi ma'lumotlarini va referal kodini yuborish
+      const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
+      registerOrFetchUser(user, startParam);
     } else {
-      // Demo user yaratish
-      console.log('⚠️ Telegram user yoʻq, demo yaratilmoqda');
-      setUser({
-        id: Date.now(),
-        first_name: 'Demo',
-        last_name: 'Player',
-        username: 'demo_player',
-        language_code: 'uz',
-        is_premium: false,
-        photo_url: null,
-        initData: '' // Empty initData
-      });
+      setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
     }
-  } else {
-    // Oddiy brauzer uchun
-    console.log('🌐 Oddiy brauzer rejimi');
-    setUser({
-      id: Math.floor(Math.random() * 1000000) + 1000,
-      first_name: 'Browser',
-      last_name: 'User',
-      username: 'browser_user',
-      language_code: navigator.language.split('-')[0] || 'en',
-      is_premium: false,
-      photo_url: null,
-      initData: '' // Empty initData
-    });
-  }
-  
-  // Loading ni tugatish
-  setTimeout(() => {
-    setIsLoading(false);
-    console.log('✅ App yuklandi');
-  }, 1000);
-  
-}, []);
+  }, []);
 
-  // Notification funksiyasi
-  const showNotif = (text, type = 'info') => {
-    console.log(`[${type.toUpperCase()}] ${text}`);
-    
-    // Telegram uchun vibration
-    if (window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      
-      switch(type) {
-        case 'error':
-          tg.HapticFeedback.notificationOccurred('error');
-          break;
-        case 'success':
-          tg.HapticFeedback.notificationOccurred('success');
-          break;
-        case 'warning':
-          tg.HapticFeedback.impactOccurred('medium');
-          break;
+  // Backend bilan bog'lanib akkauntni yaratish yoki yuklash
+  const registerOrFetchUser = async (user, startParam) => {
+    try {
+      const response = await fetch('https://sening-servering.uz/api/user/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tgId: user.id,
+          username: user.username,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          photoUrl: user.photo_url,
+          refParent: startParam && startParam.startsWith('ref_') ? startParam.replace('ref_', '') : null
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCoins(data.user.coins);
+        setRating(data.user.rating);
       }
-    }
-    
-    // Keyinchalik UI notification qo'shishingiz mumkin
-    const notificationEl = document.getElementById('notification');
-    if (notificationEl) {
-      notificationEl.textContent = text;
-      notificationEl.className = `notification ${type}`;
-      notificationEl.style.display = 'block';
-      
-      setTimeout(() => {
-        notificationEl.style.display = 'none';
-      }, 3000);
+    } catch (error) {
+      console.error("Akkaunt yuklashda xatolik:", error);
     }
   };
 
-  // Loading holati
-  if (isLoading) {
+  // --- BRAUZERLAR UCHUN BLOKLASH EKRANI ---
+  if (!isTelegram) {
     return (
-      <div className="app-loading">
-        <div className="spinner"></div>
-        <h2>Telegram O'yini</h2>
-        <p>Yuklanmoqda...</p>
-      </div>
-    );
-  }
-
-  // Agar user bo'lmasa
-  if (!user) {
-    return (
-      <div className="app-error">
-        <h2>❌ Xatolik</h2>
-        <p>Foydalanuvchi ma'lumotlari olinmadi</p>
-        <button onClick={() => window.location.reload()}>Qayta yuklash</button>
+      <div className="block-screen">
+        <div className="block-card">
+          <div className="block-icon">🚫</div>
+          <h2>Kirish taqiqlangan!</h2>
+          <p>Ushbu o'yin faqat <strong>Telegram Mini App</strong> ichida ishlashga mo'ljallangan.</p>
+          <p>O'yinni boshlash uchun quyidagi botga o'ting:</p>
+          <a href="https://t.me/SeningOyinBot" className="tg-btn">
+            Botga o'tish 🚀
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="app-container">
-      {/* Notification area */}
-      <div id="notification" className="notification"></div>
-      
-      {/* App Header */}
-      <div className="app-header">
-        <div className="user-section">
-        <div className="user-avatar">
-  {user.photo_url ? (
-    <img src={user.photo_url} alt="" />
-  ) : (
-    user.first_name?.charAt(0).toUpperCase() || '?'
-  )}
-</div>
-          <div className="user-info">
-            <div className="user-name">
-              {user.first_name} {user.last_name}
+      {activeTab === 'menu' && (
+        <div className="main-menu">
+          <header className="menu-header">
+            <div className="user-profile">
+              <span className="user-avatar">{tgUser?.photo_url ? <img src={tgUser.photo_url} alt="avatar" /> : '👤'}</span>
+              <div className="user-text">
+                <h3>{tgUser?.first_name}</h3>
+                <p>🏆 {rating} XP</p>
+              </div>
             </div>
-            <div className="user-id">ID: {user.id}</div>
-          </div>
+            <div className="menu-coins">🪙 {coins}</div>
+          </header>
+
+          <main className="menu-buttons">
+            <div className="game-modes-card">
+              <h2>O'YIN REJIMINI TANLANG</h2>
+              
+              {/* 1. Bot bilan o'ynash (Sizda deyarli tayyor bo'lgan bo'lim) */}
+              <button className="menu-btn mode-bot" onClick={() => setActiveTab('bot_game')}>
+                🤖 Bot bilan mashg'ulot
+                <span>(Reytingga ta'sir qilmaydi)</span>
+              </button>
+
+              {/* 2. Do'stlar / Real odamlar bilan duel */}
+              <button className="menu-btn mode-pvp" onClick={() => setActiveTab('duel_game')}>
+                ⚔️ Do'stlar bilan Duel
+                <span>(Reyting va Tangalar tikiladi!)</span>
+              </button>
+            </div>
+
+            {/* Referal ulashish bo'limi */}
+            <div className="referral-box">
+              <h3>Do'stlarni taklif qiling!</h3>
+              <p>Har bir taklif uchun: do'stingizga <strong>+100 🪙</strong>, sizga <strong>+150 🪙</strong></p>
+              <button 
+                className="share-btn" 
+                onClick={() => {
+                  const inviteLink = `https://t.me/SeningOyinBot/app?startapp=ref_${tgUser?.id}`;
+                  window.Telegram.WebApp.openTelegramLink(
+                    `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent("Men bilan tosh-qog'oz-qaychi duelida kuch sinash! 🎮 Kelganing uchun senga sovg'a tangalar bor!")}`
+                  );
+                }}
+              >
+                🔗 Taklifnoma yuborish
+              </button>
+            </div>
+          </main>
         </div>
-        
-        <div className="coins-section">
-          <div className="coins-icon">🪙</div>
-          <div className="coins-amount">{coins}</div>
-        </div>
-      </div>
+      )}
 
-      {/* Main Content */}
-      <div className="app-content">
-        {mode === 'menu' && (
-          <MenuScreen
-            user={user}
-            coins={coins}
-            onMultiplayer={() => {
-              console.log('🎮 Multiplayer tanlandi');
-              setMode('multiplayer');
-            }}
-            onBotGame={() => {
-              console.log('🤖 Bot game tanlandi');
-              setMode('bot-select');
-            }}
-          />
-        )}
+      {activeTab === 'bot_game' && (
+        <BotGame coins={coins} setCoins={setCoins} onBackToMenu={() => setActiveTab('menu')} />
+      )}
 
-        {mode === 'bot-select' && (
-          <DifficultySelect
-            onSelect={(diff) => {
-              console.log('📊 Difficulty:', diff);
-              setDifficulty(diff);
-              setMode('playing-bot');
-            }}
-            onBack={() => setMode('menu')}
-          />
-        )}
-
-        {mode === 'playing-bot' && (
-          <BotGame
-            difficulty={difficulty}
-            coins={coins}
-            setCoins={setCoins}
-            CHOICES={CHOICES}
-            onBackToMenu={() => setMode('menu')}
-            showNotif={showNotif}
-            user={user}
-          />
-        )}
-
-        {mode === 'multiplayer' && (
-          <MultiplayerGame
-            user={user}
-            coins={coins}
-            setCoins={setCoins}
-            CHOICES={CHOICES}
-            onBackToMenu={() => setMode('menu')}
-            showNotif={showNotif}
-          />
-        )}
-      </div>
-
-      {/* App Footer */}
-      <div className="app-footer">
-        <div className="mode-info">
-          {window.Telegram ? 'Telegram App' : 'Web Browser'}
-        </div>
-        <div className="version">v1.0.0</div>
-      </div>
+      {activeTab === 'duel_game' && (
+        <DuelGame playerCoins={coins} setCoins={setCoins} currentRating={rating} setRating={setRating} onBackToMenu={() => setActiveTab('menu')} />
+      )}
     </div>
   );
 }
