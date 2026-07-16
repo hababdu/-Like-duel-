@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import './DuelGame.css'; // Ushbu fayl multiplayer stillarini ham o'z ichiga oladi
 
 // Faraz qilamiz, socket obyekti yuqoridan prop sifatida uzatiladi
-function DuelGame({ socket, setCoins, setCoins, currentRating, setRating, onBackToMenu, showNotif }) {
+function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onBackToMenu, showNotif  }) {
   // O'yin va Xona holatlari
   const [roomId, setRoomId] = useState(null);
   const [gameState, setGameState] = useState('searching'); // 'searching' | 'ready' | 'playing' | 'revealed' | 'gameover'

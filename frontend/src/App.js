@@ -121,7 +121,7 @@ function App() {
             </div>
           </main>
         </div>
-      )}
+    )}
 
       {activeTab === 'bot_game' && (
         <BotGame coins={coins} setCoins={setCoins} onBackToMenu={() => setActiveTab('menu')} />
