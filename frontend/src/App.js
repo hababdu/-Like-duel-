@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './App.css'; // Umumiy stillar uchun
-import DuelGame from './DuelGame';
+import DuelGame from './components/DuelGame';
 import BotGame from './components/BotGame'; // Sizda deyarli tayyor bo'lgan Bot rejimi
 
 function App() {
