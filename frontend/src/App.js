@@ -4,29 +4,28 @@ import DuelGame from './components/DuelGame';
 import BotGame from './components/BotGame'; // Sizda deyarli tayyor bo'lgan Bot rejimi
 
 function App() {
-  const [isTelegram, setIsTelegram] = useState(true);
+  const [isTelegram, setIsTelegram] = useState(false);
   const [tgUser, setTgUser] = useState(null);
   const [coins, setCoins] = useState(0);
   const [rating, setRating] = useState(0);
   const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'bot_game' | 'duel_game' | 'shop'
+
   useEffect(() => {
+    // 1. Telegram WebApp muhitini tekshirish
     const tg = window.Telegram?.WebApp;
 
     if (tg && tg.initData && tg.initDataUnsafe?.user) {
-      tg.expand();
+      tg.expand(); // O'yinni to'liq ekranga ochish
       setIsTelegram(true);
+      
       const user = tg.initDataUnsafe.user;
       setTgUser(user);
-      const startParam = tg.initDataUnsafe.start_param;
+
+      // Backendga foydalanuvchi ma'lumotlarini va referal kodini yuborish
+      const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
       registerOrFetchUser(user, startParam);
     } else {
-      // 🟢 Brauzerda tekshirayotganimizda xato bermasligi uchun test ma'lumotlari:
-      setIsTelegram(true); 
-      setTgUser({
-        id: 12345,
-        first_name: "Habibulloh (Test)",
-        username: "test_user"
-      });
+      setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
     }
   }, []);
 
@@ -88,23 +87,6 @@ function App() {
           </header>
 
           <main className="menu-buttons">
-            {/* 1. Bot bilan o'ynash tugmasi */}
-<button className="menu-btn mode-bot" onClick={() => {
-  alert("Bot tugmasi bosildi!"); // Test uchun alert
-  setActiveTab('bot_game');
-}}>
-  🤖 Bot bilan mashg'ulot
-  <span>(Reytingga ta'sir qilmaydi)</span>
-</button>
-
-{/* 2. Duel tugmasi */}
-<button className="menu-btn mode-pvp" onClick={() => {
-  alert("Duel tugmasi bosildi!"); // Test uchun alert
-  setActiveTab('duel_game');
-}}>
-  ⚔️ Do'stlar bilan Duel
-  <span>(Reyting va Tangalar tikiladi!)</span>
-</button>
             <div className="game-modes-card">
               <h2>O'YIN REJIMINI TANLANG</h2>
               
