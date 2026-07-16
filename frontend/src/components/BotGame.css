@@ -4,14 +4,17 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100dvh; /* Dynamic Viewport height */
-  width: 100vw;
+  height: 100vh; /* Har qanday mobil brauzer va Telegram Mini App uchun eng stabil balandlik */
+  width: 100%;
+  max-width: 480px; /* Mobil kengligi */
+  margin: 0 auto;
   background: radial-gradient(circle at 50% 30%, #1a153b, #0a0813);
   color: #ffffff;
   font-family: 'Plus Jakarta Sans', sans-serif;
   overflow: hidden;
   position: relative;
-  padding-bottom: env(safe-area-inset-bottom, 15px); /* iOS pastki safe zone uchun */
+  box-sizing: border-box;
+  padding-bottom: calc(env(safe-area-inset-bottom, 15px) + 10px); /* Telefon pastki xavfsiz zonasi uchun */
 }
 
 .confetti-canvas {
@@ -24,16 +27,16 @@
   z-index: 10;
 }
 
-/* Header */
+/* --- HEADER (Akkaunt va Tangalar qismi) --- */
 .game-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 14px 16px;
   z-index: 5;
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .back-arrow {
@@ -90,26 +93,27 @@
 }
 
 .score-badge {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 215, 0, 0.25);
-  padding: 6px 12px;
-  border-radius: 14px;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  padding: 8px 14px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
   gap: 6px;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.15);
 }
 
 .coin-emoji {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
 }
 
 .coin-count {
   color: #ffd700;
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 
-/* Progress bar */
+/* --- PROGRESS BAR --- */
 .progress-container {
   width: 100%;
   height: 4px;
@@ -132,15 +136,15 @@
   100% { opacity: 1; }
 }
 
-/* Arena */
+/* --- ARENA (Markaziy Jang Maydoni) --- */
 .arena {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 20px;
-  flex: 1;
+  flex: 1; /* Ekrandan qolgan barcha bo'sh joyni egallaydi */
+  min-height: 180px; /* Tugmalar siqilib ketmasligi uchun minimal balandlik */
   position: relative;
-  max-height: 40dvh; /* Ekran balandligiga moslashuv */
 }
 
 .arena-glow {
@@ -148,19 +152,19 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 250px;
-  height: 250px;
-  background: radial-gradient(circle, rgba(112, 0, 255, 0.15) 0%, transparent 70%);
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(112, 0, 255, 0.12) 0%, transparent 70%);
   pointer-events: none;
   z-index: 1;
 }
-.arena-glow.win { background: radial-gradient(circle, rgba(0, 255, 157, 0.2) 0%, transparent 70%); }
-.arena-glow.lose { background: radial-gradient(circle, rgba(255, 0, 85, 0.2) 0%, transparent 70%); }
+.arena-glow.win { background: radial-gradient(circle, rgba(0, 255, 157, 0.18) 0%, transparent 70%); }
+.arena-glow.lose { background: radial-gradient(circle, rgba(255, 0, 85, 0.18) 0%, transparent 70%); }
 
 .card {
-  width: 28%;
+  width: 30%;
   max-width: 110px;
-  aspect-ratio: 0.75;
+  aspect-ratio: 0.8;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
@@ -176,30 +180,30 @@
   justify-content: space-between;
   align-items: center;
   height: 100%;
-  padding: 10px 4px;
+  padding: 12px 6px;
 }
 
 .card.active {
-  transform: translateY(-8px) scale(1.03);
+  transform: translateY(-6px) scale(1.02);
   background: rgba(255, 255, 255, 0.06);
 }
 
 .card-label {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 800;
   color: rgba(255, 255, 255, 0.4);
   letter-spacing: 1px;
 }
 
 .card-emoji-box {
-  font-size: 2.2rem;
+  font-size: 2.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .selected-name {
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.7);
   letter-spacing: 0.5px;
@@ -225,8 +229,8 @@
 }
 
 .vs-circle {
-  width: 42px;
-  height: 42px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   background: linear-gradient(135deg, #1d1b33, #0d0c18);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -235,13 +239,13 @@
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .timer-number-box {
   font-weight: 800;
-  font-size: 1.5rem;
-  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.6rem;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .timer-text.pulse {
@@ -256,10 +260,11 @@
 
 /* Result Banner */
 .result-banner-container {
-  height: 40px;
+  height: 45px;
   display: flex;
   justify-content: center;
   align-items: center;
+  margin-bottom: 5px;
 }
 
 .status-banner {
@@ -279,33 +284,38 @@
   to { transform: scale(1); opacity: 1; }
 }
 
-/* Footer & Buttons Grid */
+/* --- FOOTER & BUTTONS GRID (Tugmalar Ekroni) --- */
 .action-area {
-  padding: 16px;
+  padding: 16px 16px 10px 16px;
   background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(12px);
   border-radius: 28px 28px 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .choices-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  width: 100%;
 }
 
 .action-btn {
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 14px 8px;
+  padding: 16px 8px; /* Bosish maydoni kattalashtirildi */
   border-radius: 18px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   outline: none;
+  position: relative;
 }
 
 .action-btn:active:not(:disabled) {
@@ -316,48 +326,25 @@
   opacity: 0.3;
 }
 
-.action-btn.chosen {
-  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
 .action-emoji {
-  font-size: 1.8rem;
+  font-size: 2rem;
 }
 
 .action-label {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.7);
 }
 
-/* Ultra Kichik ekranlar uchun kichik moslashuv (masalan iPhone SE) */
-@media (max-height: 600px) {
-  .card {
-    height: 110px;
-    border-radius: 12px;
-  }
-  .card-emoji-box {
-    font-size: 1.6rem;
-  }
-  .action-btn {
-    padding: 10px 4px;
-  }
-  .action-emoji {
-    font-size: 1.4rem;
-  }
-}
 /* --- TANLOV EFFEKTLARI (NEW) --- */
 
-/* Agar biror narsa tanlansa, tanlanmagan tugmalarni xiralashtiramiz */
 .choices-grid.has-selection .action-btn:not(.chosen) {
-  opacity: 0.25;
+  opacity: 0.2;
   transform: scale(0.9);
   filter: grayscale(80%);
 }
 
-/* Tanlangan tugmaning o'ziga maxsus animatsiya va ramka */
 .action-btn.chosen {
   border: 2px solid #ffffff !important;
   transform: scale(1.08) !important;
@@ -365,7 +352,6 @@
   z-index: 5;
 }
 
-/* Tugma ichidagi kichik "✓ SIZ" yozuvi */
 .selection-indicator {
   position: absolute;
   top: -8px;
@@ -380,7 +366,6 @@
   animation: popIndicator 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Arena kartasidagi foydalanuvchi tanlovi uchun yorqin chegara */
 .card.player-card.active {
   border-color: #00f0ff;
   box-shadow: 0 0 25px rgba(0, 240, 255, 0.25);
@@ -394,10 +379,10 @@
 /* --- ANIMATSIYALAR --- */
 @keyframes selectedPulse {
   0% {
-    box-shadow: 0 0 12px var(--btn-theme), inset 0 0 8px rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.2), inset 0 0 8px rgba(255, 255, 255, 0.2);
   }
   100% {
-    box-shadow: 0 0 24px var(--btn-theme), inset 0 0 12px rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 24px rgba(255, 255, 255, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.4);
   }
 }
 
@@ -409,5 +394,30 @@
   to {
     transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+/* Kichik ekranlar moslashuvi (masalan iPhone SE) */
+@media (max-height: 670px) {
+  .game-header {
+    padding: 10px 14px;
+  }
+  .arena {
+    min-height: 140px;
+  }
+  .card {
+    border-radius: 12px;
+  }
+  .card-emoji-box {
+    font-size: 1.8rem;
+  }
+  .action-btn {
+    padding: 10px 4px;
+  }
+  .action-emoji {
+    font-size: 1.6rem;
+  }
+  .result-banner-container {
+    height: 35px;
   }
 }

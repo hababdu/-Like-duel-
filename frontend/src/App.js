@@ -51,6 +51,9 @@ function App() {
       }
     } catch (error) {
       console.error("Akkaunt yuklashda xatolik:", error);
+      //  AGAR SERVER ISHLAMASA, VAQTINCHALIK BOSH BAXO VA TANGALARNI BERISH:
+      setCoins(1000); // 1000 tanga test uchun
+      setRating(150); // 150 XP test uchun
     }
   };
 
@@ -123,9 +126,18 @@ function App() {
         </div>
     )}
 
-      {activeTab === 'bot_game' && (
-        <BotGame coins={coins} setCoins={setCoins} onBackToMenu={() => setActiveTab('menu')} />
-      )}
+{activeTab === 'bot_game' && (
+  <BotGame 
+    coins={coins} 
+    setCoins={setCoins} 
+    onBackToMenu={() => setActiveTab('menu')}
+    difficulty="medium"
+    showNotif={(msg, type) => {
+      // Agar loyihangizda toast xabarnoma bo'lmasa, vaqtincha alert ishlatadi:
+      console.log(`${type.toUpperCase()}: ${msg}`);
+    }}
+  />
+)}
 
       {activeTab === 'duel_game' && (
         <DuelGame playerCoins={coins} setCoins={setCoins} currentRating={rating} setRating={setRating} onBackToMenu={() => setActiveTab('menu')} />
