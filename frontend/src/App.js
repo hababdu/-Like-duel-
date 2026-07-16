@@ -14,19 +14,19 @@ function App() {
     // 1. Telegram WebApp muhitini tekshirish
     const tg = window.Telegram?.WebApp;
 
-    // if (tg && tg.initData && tg.initDataUnsafe?.user) {
-    //   tg.expand(); // O'yinni to'liq ekranga ochish
-    //   setIsTelegram(true);
+    if (tg && tg.initData && tg.initDataUnsafe?.user) {
+      tg.expand(); // O'yinni to'liq ekranga ochish
+      setIsTelegram(true);
       
-    //   const user = tg.initDataUnsafe.user;
-    //   setTgUser(user);
+      const user = tg.initDataUnsafe.user;
+      setTgUser(user);
 
-    //   // Backendga foydalanuvchi ma'lumotlarini va referal kodini yuborish
-    //   const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
-    //   registerOrFetchUser(user, startParam);
-    // } else {
-    //   setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
-    // }
+      // Backendga foydalanuvchi ma'lumotlarini va referal kodini yuborish
+      const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
+      registerOrFetchUser(user, startParam);
+    } else {
+      // setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
+    }
   }, []);
 
   // Backend bilan bog'lanib akkauntni yaratish yoki yuklash
