@@ -4,7 +4,7 @@ import DuelGame from './components/DuelGame';
 import BotGame from './components/BotGame'; // Sizda deyarli tayyor bo'lgan Bot rejimi
 
 function App() {
-  const [isTelegram, setIsTelegram] = useState(false);
+  const [isTelegram, setIsTelegram] = useState(true);
   const [tgUser, setTgUser] = useState(null);
   const [coins, setCoins] = useState(0);
   const [rating, setRating] = useState(0);
@@ -25,7 +25,7 @@ function App() {
       const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
       registerOrFetchUser(user, startParam);
     } else {
-      // setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
+      setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
     }
   }, []);
 
