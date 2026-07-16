@@ -323,7 +323,7 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
       {/* Mobil Tugmalar Grid */}
 <footer className="action-area">
   <div className={`choices-grid ${playerChoice ? 'has-selection' : ''}`}>
-    {Object.entries(CHOICES).map(([key, item]) => {
+  {Object.entries(CHOICES || {}).map(([key, item]) => {
       const isSelected = playerChoice === key;
       return (
         <button
