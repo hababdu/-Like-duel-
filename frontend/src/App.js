@@ -14,19 +14,19 @@ function App() {
     // 1. Telegram WebApp muhitini tekshirish
     const tg = window.Telegram?.WebApp;
 
-    if (tg && tg.initData && tg.initDataUnsafe?.user) {
-      tg.expand(); // O'yinni to'liq ekranga ochish
-      setIsTelegram(true);
+    // if (tg && tg.initData && tg.initDataUnsafe?.user) {
+    //   tg.expand(); // O'yinni to'liq ekranga ochish
+    //   setIsTelegram(true);
       
-      const user = tg.initDataUnsafe.user;
-      setTgUser(user);
+    //   const user = tg.initDataUnsafe.user;
+    //   setTgUser(user);
 
-      // Backendga foydalanuvchi ma'lumotlarini va referal kodini yuborish
-      const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
-      registerOrFetchUser(user, startParam);
-    } else {
-      setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
-    }
+    //   // Backendga foydalanuvchi ma'lumotlarini va referal kodini yuborish
+    //   const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
+    //   registerOrFetchUser(user, startParam);
+    // } else {
+    //   setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
+    // }
   }, []);
 
   // Backend bilan bog'lanib akkauntni yaratish yoki yuklash
@@ -87,6 +87,23 @@ function App() {
           </header>
 
           <main className="menu-buttons">
+            {/* 1. Bot bilan o'ynash tugmasi */}
+<button className="menu-btn mode-bot" onClick={() => {
+  alert("Bot tugmasi bosildi!"); // Test uchun alert
+  setActiveTab('bot_game');
+}}>
+  🤖 Bot bilan mashg'ulot
+  <span>(Reytingga ta'sir qilmaydi)</span>
+</button>
+
+{/* 2. Duel tugmasi */}
+<button className="menu-btn mode-pvp" onClick={() => {
+  alert("Duel tugmasi bosildi!"); // Test uchun alert
+  setActiveTab('duel_game');
+}}>
+  ⚔️ Do'stlar bilan Duel
+  <span>(Reyting va Tangalar tikiladi!)</span>
+</button>
             <div className="game-modes-card">
               <h2>O'YIN REJIMINI TANLANG</h2>
               
