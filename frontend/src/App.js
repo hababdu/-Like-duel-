@@ -9,23 +9,24 @@ function App() {
   const [coins, setCoins] = useState(0);
   const [rating, setRating] = useState(0);
   const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'bot_game' | 'duel_game' | 'shop'
-
   useEffect(() => {
-    // 1. Telegram WebApp muhitini tekshirish
     const tg = window.Telegram?.WebApp;
 
     if (tg && tg.initData && tg.initDataUnsafe?.user) {
-      tg.expand(); // O'yinni to'liq ekranga ochish
+      tg.expand();
       setIsTelegram(true);
-      
       const user = tg.initDataUnsafe.user;
       setTgUser(user);
-
-      // Backendga foydalanuvchi ma'lumotlarini va referal kodini yuborish
-      const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
+      const startParam = tg.initDataUnsafe.start_param;
       registerOrFetchUser(user, startParam);
     } else {
-      setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
+      // 🟢 Brauzerda tekshirayotganimizda xato bermasligi uchun test ma'lumotlari:
+      setIsTelegram(true); 
+      setTgUser({
+        id: 12345,
+        first_name: "Habibulloh (Test)",
+        username: "test_user"
+      });
     }
   }, []);
 
