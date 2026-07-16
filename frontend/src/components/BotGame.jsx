@@ -1,6 +1,13 @@
 import React, { useEffect, useRef, useReducer, useCallback } from 'react';
 import './BotGame.css';
 
+// --- DEFAULT CHOICES (Agar App.js dan kelmasa, xato bermasligi uchun) ---
+const DEFAULT_CHOICES = {
+  rock: { emoji: '✊', color: '#ff4a4a', label: 'Tosh' },
+  paper: { emoji: '✋', color: '#00ff88', label: 'Qog\'oz' },
+  scissors: { emoji: '✌️', color: '#ffd700', label: 'Qaychi' }
+};
+
 // --- INITIAL STATE & REDUCER ---
 const initialState = {
   playerChoice: null,
@@ -45,7 +52,14 @@ function gameReducer(state, action) {
 }
 
 // --- MAIN COMPONENT ---
-function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif }) {
+function BotGame({ 
+  difficulty = 'medium', // Default qiyinchilik
+  coins = 0, 
+  setCoins = () => {}, 
+  CHOICES = DEFAULT_CHOICES, // Agar proplarda CHOICES kelmasa, default ishlaydi
+  onBackToMenu = () => {}, 
+  showNotif = (msg) => alert(msg) // showNotif funksiyasi bo'lmasa alert ishlaydi
+}) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const { playerChoice, botChoice, result, timer, isBotThinking, roundStatus, streak } = state;
 
@@ -161,6 +175,7 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
 
     let animationFrameId;
     const draw = () => {
+      if (!ctx) return;
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       confetti.forEach((p, idx) => {
         p.tiltAngle += p.tiltAngleIncremental;
@@ -219,7 +234,7 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
       lose: -20
     };
     
-    let change = rewardTable[roundResult];
+    let change = rewardTable[roundResult] || 0;
     const comboBonus = roundResult === 'win' && streak >= 2 ? (streak - 1) * 10 : 0;
     const finalChange = change + comboBonus;
 
@@ -236,6 +251,8 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
 
     timers.current.round = setTimeout(initRound, 2500);
   };
+
+  const activeChoices = CHOICES || DEFAULT_CHOICES;
 
   return (
     <div className="game-wrapper">
@@ -275,7 +292,7 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
           <div className="card-inner">
             <span className="card-label">SIZ</span>
             <div className="card-emoji-box">
-              {playerChoice ? CHOICES[playerChoice].emoji : '👤'}
+              {playerChoice && activeChoices[playerChoice] ? activeChoices[playerChoice].emoji : '👤'}
             </div>
             {playerChoice && <span className="selected-name">{playerChoice}</span>}
           </div>
@@ -298,8 +315,8 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
           <div className="card-inner">
             <span className="card-label">BOT</span>
             <div className="card-emoji-box">
-              {botChoice ? (
-                CHOICES[botChoice].emoji
+              {botChoice && activeChoices[botChoice] ? (
+                activeChoices[botChoice].emoji
               ) : isBotThinking ? (
                 <div className="thinking-bubble">🤖💭</div>
               ) : (
@@ -321,30 +338,30 @@ function BotGame({ difficulty, coins, setCoins, CHOICES, onBackToMenu, showNotif
       </div>
 
       {/* Mobil Tugmalar Grid */}
-<footer className="action-area">
-  <div className={`choices-grid ${playerChoice ? 'has-selection' : ''}`}>
-  {Object.entries(CHOICES || {}).map(([key, item]) => {
-      const isSelected = playerChoice === key;
-      return (
-        <button
-          key={key}
-          onClick={() => onPlay(key)}
-          disabled={roundStatus !== 'playing'}
-          className={`action-btn ${isSelected ? 'chosen' : ''}`}
-          style={{ 
-            backgroundColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.05)',
-            boxShadow: isSelected ? `0 0 20px ${item.color}80` : 'none',
-            borderColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.08)'
-          }}
-        >
-          {isSelected && <span className="selection-indicator">✓ SIZ</span>}
-          <span className="action-emoji">{item.emoji}</span>
-          <span className="action-label">{key.toUpperCase()}</span>
-        </button>
-      );
-    })}
-  </div>
-</footer>
+      <footer className="action-area">
+        <div className={`choices-grid ${playerChoice ? 'has-selection' : ''}`}>
+          {Object.entries(activeChoices).map(([key, item]) => {
+            const isSelected = playerChoice === key;
+            return (
+              <button
+                key={key}
+                onClick={() => onPlay(key)}
+                disabled={roundStatus !== 'playing'}
+                className={`action-btn ${isSelected ? 'chosen' : ''}`}
+                style={{ 
+                  backgroundColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.05)',
+                  boxShadow: isSelected ? `0 0 20px ${item.color}80` : 'none',
+                  borderColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.08)'
+                }}
+              >
+                {isSelected && <span className="selection-indicator">✓ SIZ</span>}
+                <span className="action-emoji">{item.emoji}</span>
+                <span className="action-label">{item.label || key.toUpperCase()}</span>
+              </button>
+            );
+          })}
+        </div>
+      </footer>
     </div>
   );
 }
