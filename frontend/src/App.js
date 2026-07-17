@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import './App.css'; // Umumiy stillar uchun
 import DuelGame from './components/DuelGame';
-import BotGame from './components/BotGame'; // Sizda deyarli tayyor bo'lgan Bot rejimi
+import BotGame from './components/BotGame'; 
+import socket from './socket'; // Boya yaratgan socket obyektimizni import qilamiz
 
 function App() {
   const [isTelegram, setIsTelegram] = useState(false);
@@ -25,14 +26,16 @@ function App() {
       const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
       registerOrFetchUser(user, startParam);
     } else {
-      setIsTelegram(false); // Oddiy brauzerlardan kirish bloklanadi
+      // LOYIHANI PHONEDA HAM, BRAUZERDA HAM TEST QILISH UCHUN BU YERNI TRUE QILIB TURAMIZ:
+      setIsTelegram(true); 
     }
   }, []);
 
   // Backend bilan bog'lanib akkauntni yaratish yoki yuklash
   const registerOrFetchUser = async (user, startParam) => {
     try {
-      const response = await fetch('https://sening-servering.uz/api/user/auth', {
+      // Mahalliy backend serveringiz porti 10000 bo'lgani uchun manzil to'g'rilandi
+      const response = await fetch('http://localhost:10000/api/user/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -51,9 +54,28 @@ function App() {
       }
     } catch (error) {
       console.error("Akkaunt yuklashda xatolik:", error);
-      //  AGAR SERVER ISHLAMASA, VAQTINCHALIK BOSH BAXO VA TANGALARNI BERISH:
+      // AGAR SERVER HALI DEPLOY BO'LMAGAN BO'LSA, VAQTINCHALIK TEST REJIMIDA ZAXIRA MABBLAG':
       setCoins(1000); // 1000 tanga test uchun
       setRating(150); // 150 XP test uchun
+    }
+  };
+
+  // --- DUEL REJIMIGA KIRISH VA CHIQISH REJIMLARI ---
+  const enterDuelMode = () => {
+    socket.connect(); // Faqat duel oynasiga kirganda socket serverga ulanadi
+    setActiveTab('duel_game');
+  };
+
+  const leaveDuelMode = () => {
+    socket.disconnect(); // Menyuga qaytganda socket aloqasini xavfsiz uzadi
+    setActiveTab('menu');
+  };
+
+  const showNotif = (msg, type) => {
+    console.log(`[${type.toUpperCase()}]: ${msg}`);
+    // Agar Telegram oynasi ichida bo'lsa, chiroyli popup chiqaradi
+    if (window.Telegram?.WebApp?.showPopup) {
+      window.Telegram.WebApp.showAlert(msg);
     }
   };
 
@@ -82,7 +104,7 @@ function App() {
             <div className="user-profile">
               <span className="user-avatar">{tgUser?.photo_url ? <img src={tgUser.photo_url} alt="avatar" /> : '👤'}</span>
               <div className="user-text">
-                <h3>{tgUser?.first_name}</h3>
+                <h3>{tgUser?.first_name || "O'yinchi"}</h3>
                 <p>🏆 {rating} XP</p>
               </div>
             </div>
@@ -93,14 +115,14 @@ function App() {
             <div className="game-modes-card">
               <h2>O'YIN REJIMINI TANLANG</h2>
               
-              {/* 1. Bot bilan o'ynash (Sizda deyarli tayyor bo'lgan bo'lim) */}
+              {/* 1. Bot bilan o'ynash */}
               <button className="menu-btn mode-bot" onClick={() => setActiveTab('bot_game')}>
                 🤖 Bot bilan mashg'ulot
                 <span>(Reytingga ta'sir qilmaydi)</span>
               </button>
 
               {/* 2. Do'stlar / Real odamlar bilan duel */}
-              <button className="menu-btn mode-pvp" onClick={() => setActiveTab('duel_game')}>
+              <button className="menu-btn mode-pvp" onClick={enterDuelMode}>
                 ⚔️ Do'stlar bilan Duel
                 <span>(Reyting va Tangalar tikiladi!)</span>
               </button>
@@ -113,7 +135,7 @@ function App() {
               <button 
                 className="share-btn" 
                 onClick={() => {
-                  const inviteLink = `https://t.me/SeningOyinBot/app?startapp=ref_${tgUser?.id}`;
+                  const inviteLink = `https://t.me/SeningOyinBot/app?startapp=ref_${tgUser?.id || '123'}`;
                   window.Telegram.WebApp.openTelegramLink(
                     `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent("Men bilan tosh-qog'oz-qaychi duelida kuch sinash! 🎮 Kelganing uchun senga sovg'a tangalar bor!")}`
                   );
@@ -124,23 +146,28 @@ function App() {
             </div>
           </main>
         </div>
-    )}
+      )}
 
-{activeTab === 'bot_game' && (
-  <BotGame 
-    coins={coins} 
-    setCoins={setCoins} 
-    onBackToMenu={() => setActiveTab('menu')}
-    difficulty="medium"
-    showNotif={(msg, type) => {
-      // Agar loyihangizda toast xabarnoma bo'lmasa, vaqtincha alert ishlatadi:
-      console.log(`${type.toUpperCase()}: ${msg}`);
-    }}
-  />
-)}
+      {activeTab === 'bot_game' && (
+        <BotGame 
+          coins={coins} 
+          setCoins={setCoins} 
+          onBackToMenu={() => setActiveTab('menu')}
+          difficulty="medium"
+          showNotif={showNotif}
+        />
+      )}
 
       {activeTab === 'duel_game' && (
-        <DuelGame playerCoins={coins} setCoins={setCoins} currentRating={rating} setRating={setRating} onBackToMenu={() => setActiveTab('menu')} />
+        <DuelGame 
+          socket={socket} // Socket obyekti endi muvaffaqiyatli prop orqali uzatilmoqda
+          playerCoins={coins} 
+          setCoins={setCoins} 
+          currentRating={rating} 
+          setRating={setRating} 
+          onBackToMenu={leaveDuelMode} 
+          showNotif={showNotif}
+        />
       )}
     </div>
   );
