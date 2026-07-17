@@ -1,199 +1,473 @@
-/* Duel Header */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+
+/* --- UMUMIY WRAPPER --- */
+.game-wrapper.duel-mode {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100vh;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: radial-gradient(circle at 50% 20%, #171138, #07050d);
+  color: #ffffff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+  padding-bottom: calc(env(safe-area-inset-bottom, 15px) + 5px);
+}
+
+/* --- 1. LOBBY OYNA (MATCHMAKING) --- */
+.lobby-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 24px;
+  text-align: center;
+  gap: 20px;
+  z-index: 20;
+}
+
+.lobby-overlay h2 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff, #a5a1ca);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.spinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 4px solid rgba(0, 240, 255, 0.1);
+  border-top-color: #00f0ff;
+  animation: spin 1s linear infinite;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.player-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 16px 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  width: 80%;
+}
+
+.player-preview .avatar {
+  font-size: 2.5rem;
+  width: 70px;
+  height: 70px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.player-preview img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.cancel-btn {
+  background: rgba(255, 51, 102, 0.1);
+  border: 1px solid rgba(255, 51, 102, 0.3);
+  color: #ff3366;
+  padding: 12px 32px;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cancel-btn:active {
+  transform: scale(0.95);
+  background: rgba(255, 51, 102, 0.2);
+}
+
+/* --- 2. MULTIPLAYER HEADER --- */
 .duel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 16px;
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-  
-  .profile-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 42%;
-  }
-  
-  .profile-card.me {
-    justify-content: flex-end;
-    text-align: right;
-  }
-  
-  .profile-avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    border: 2px solid #00f0ff;
-    overflow: hidden;
-    background: #111;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .profile-card.opponent .profile-avatar {
-    border-color: #7000ff;
-  }
-  
-  .profile-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .profile-name {
-    font-size: 0.8rem;
-    font-weight: 800;
-    display: block;
-  }
-  
-  .profile-stats {
-    font-size: 0.65rem;
-    color: rgba(255, 255, 255, 0.5);
-  }
-  
-  .versus-divider {
-    font-weight: 900;
-    color: #ff3366;
-    font-size: 0.8rem;
-  }
-  
-  /* Chat Section */
-  .duel-chat-section {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 16px;
-    margin: 10px 16px;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    height: 160px; /* Chat balandligi */
-  }
-  
-  .chat-messages-container {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-right: 4px;
-  }
-  
-  .chat-bubble {
-    max-width: 80%;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    line-height: 1.2;
-  }
-  
-  .my-msg {
-    background: rgba(0, 240, 255, 0.15);
-    align-self: flex-end;
-    border-bottom-right-radius: 2px;
-    border: 1px solid rgba(0, 240, 255, 0.2);
-  }
-  
-  .opp-msg {
-    background: rgba(112, 0, 255, 0.15);
-    align-self: flex-start;
-    border-bottom-left-radius: 2px;
-    border: 1px solid rgba(112, 0, 255, 0.2);
-  }
-  
-  .sender-name {
-    font-weight: 800;
-    font-size: 0.65rem;
-    margin-right: 4px;
-    display: inline-block;
-  }
-  
-  /* Tezkor Chat */
-  .quick-chat-grid {
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-  }
-  
-  .quick-chat-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: white;
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 0.65rem;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-  
-  .quick-chat-btn:active {
-    background: rgba(255, 255, 255, 0.15);
-  }
-  
-  /* Chat kiritish */
-  .chat-input-bar {
-    display: flex;
-    gap: 6px;
-  }
-  
-  .chat-input-bar input {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    padding: 6px 10px;
-    color: white;
-    font-size: 0.75rem;
-  }
-  
-  .chat-input-bar button {
-    background: #00f0ff;
-    border: none;
-    border-radius: 8px;
-    padding: 6px 12px;
-    color: black;
-    font-weight: 800;
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
-  
-  /* Lobby Overlay */
-  .lobby-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(10, 8, 19, 0.95);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 100;
-    gap: 16px;
-  }
-  
-  .spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid rgba(255, 255, 255, 0.1);
-    border-top-color: #00f0ff;
-    border-radius: 50%;
-    animation: spin 1s infinite linear;
-  }
-  
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  
-  .cancel-btn {
-    background: rgba(255, 51, 102, 0.2);
-    border: 1px solid #ff3366;
-    color: white;
-    padding: 8px 24px;
-    border-radius: 12px;
-    cursor: pointer;
-  }
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 8px;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 42%;
+}
+
+.profile-card.opponent {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.profile-avatar {
+  width: 42px;
+  height: 42px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.profile-name {
+  font-weight: 800;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.profile-stats {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+
+.versus-divider {
+  font-weight: 800;
+  font-size: 0.75rem;
+  background: linear-gradient(135deg, #ff0055, #7000ff);
+  padding: 4px 10px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(112, 0, 255, 0.3);
+}
+
+/* --- 3. ARENA (JANG MAYDONI) --- */
+.arena {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  height: 130px; /* Chatga joy qolishi uchun ixchamlashtirildi */
+  flex-shrink: 0;
+}
+
+.card {
+  width: 32%;
+  height: 95px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.card-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  height: 100%;
+  padding: 10px 4px;
+  box-sizing: border-box;
+}
+
+.card.active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.card.player-card.active { border-color: #00f0ff; box-shadow: 0 0 15px rgba(0, 240, 255, 0.15); }
+.card.bot-card.active { border-color: #7000ff; box-shadow: 0 0 15px rgba(112, 0, 255, 0.15); }
+
+.card-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.5px;
+}
+
+.card-emoji-box {
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.vs-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timer-number-box {
+  font-weight: 800;
+  font-size: 1.4rem;
+}
+
+.timer-text.pulse {
+  color: #ff3366;
+  animation: timerWarningPulse 0.5s infinite alternate;
+}
+
+@keyframes timerWarningPulse {
+  0% { transform: scale(0.95); text-shadow: 0 0 5px rgba(255, 51, 102, 0.3); }
+  100% { transform: scale(1.15); text-shadow: 0 0 12px rgba(255, 51, 102, 0.8); }
+}
+
+/* --- BANNER --- */
+.result-banner-container {
+  height: 35px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.status-banner {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.banner-win { color: #00ff9d; text-shadow: 0 0 10px rgba(0, 255, 157, 0.3); }
+.banner-lose { color: #ff3366; text-shadow: 0 0 10px rgba(255, 51, 102, 0.3); }
+.banner-draw { color: #ffcc00; text-shadow: 0 0 10px rgba(255, 204, 0, 0.3); }
+
+/* --- 4. CHAT TIZIMI (MARKAZIY QISM) --- */
+.duel-chat-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1; /* O'rtadagi barcha bo'sh joyni chat egallaydi */
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 24px;
+  margin: 4px 16px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.chat-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+/* Scrollbar dizayni */
+.chat-messages-container::-webkit-scrollbar {
+  width: 3px;
+}
+.chat-messages-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.chat-bubble {
+  max-width: 80%;
+  padding: 6px 12px;
+  border-radius: 14px;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  word-break: break-word;
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(5px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.my-msg {
+  background: linear-gradient(135deg, #00f0ff, #0072ff);
+  color: #fff;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+
+.opp-msg {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  align-self: flex-start;
+  border-bottom-left-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sender-name {
+  font-weight: 800;
+  font-size: 0.65rem;
+  display: block;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+
+/* Tezkor chat panel */
+.quick-chat-grid {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px 0;
+  flex-shrink: 0;
+}
+.quick-chat-grid::-webkit-scrollbar {
+  display: none; /* iOS/Androidda yashirish */
+}
+
+.quick-chat-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.quick-chat-btn:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Yozish input paneli */
+.chat-input-bar {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.chat-input-bar input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: white;
+  font-size: 0.8rem;
+  outline: none;
+  font-family: inherit;
+}
+.chat-input-bar input:focus {
+  border-color: rgba(0, 240, 255, 0.4);
+}
+
+.chat-input-bar button {
+  background: #7000ff;
+  border: none;
+  color: white;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.chat-input-bar button:active {
+  opacity: 0.8;
+}
+
+/* --- 5. PASTDAGI TUGMALAR PANELI --- */
+.action-area {
+  padding: 12px 16px 6px 16px;
+  background: rgba(255, 255, 255, 0.01);
+  backdrop-filter: blur(12px);
+  border-radius: 24px 24px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.choices-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.action-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 4px;
+  border-radius: 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  outline: none;
+}
+
+.action-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.action-btn:disabled {
+  opacity: 0.25;
+}
+
+.action-emoji {
+  font-size: 1.6rem;
+}
+
+.action-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.5px;
+}
+
+/* --- EFFEKTLAR --- */
+.choices-grid.has-selection .action-btn:not(.chosen) {
+  opacity: 0.15;
+  transform: scale(0.9);
+  filter: grayscale(100%);
+}
+
+.action-btn.chosen {
+  border: 2px solid #00f0ff !important;
+  background: rgba(0, 240, 255, 0.1);
+  transform: scale(1.05) !important;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+}
+
+/* --- MOBIL MOSLASHUV (IPHONE SE & KICHIK EKRANLAR) --- */
+@media (max-height: 670px) {
+  .duel-header { padding: 8px 12px; }
+  .arena { height: 110px; }
+  .card { height: 80px; border-radius: 12px; }
+  .card-emoji-box { font-size: 1.5rem; }
+  .duel-chat-section { margin: 2px 12px; padding: 6px; }
+  .chat-bubble { padding: 5px 10px; font-size: 0.7rem; }
+  .action-btn { padding: 10px 4px; border-radius: 12px; }
+  .action-emoji { font-size: 1.4rem; }
+}
