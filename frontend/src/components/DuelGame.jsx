@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import './DuelGame.css'; // Ushbu fayl multiplayer stillarini ham o'z ichiga oladi
 
-// Faraz qilamiz, socket obyekti yuqoridan prop sifatida uzatiladi
-function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onBackToMenu, showNotif  }) {
+function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onBackToMenu, showNotif }) {
   // O'yin va Xona holatlari
   const [roomId, setRoomId] = useState(null);
   const [gameState, setGameState] = useState('searching'); // 'searching' | 'ready' | 'playing' | 'revealed' | 'gameover'
@@ -37,14 +36,11 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
     return { name: "O'yinchi", avatar: '👤', rating: currentRating, coins: playerCoins };
   };
 
-  const localPlayer = getTgUser();
-
   // --- REYTING VA TANGA NAZORATI ---
   useEffect(() => {
-    // Agar o'yinchida yetarli tanga bo'lmasa, uni o'yinga kiritmaymiz
     if (playerCoins < MIN_PLAY_COINS && gameState === 'searching') {
       showNotif("Mablag'ingiz yetarli emas! Iltimos, do'kondan tanga oling.", "error");
-      onBackToMenu(); // Do'konga yo'naltirish bu yerdan boshqariladi
+      onBackToMenu(); 
     }
   }, [playerCoins, gameState, onBackToMenu, showNotif]);
 
@@ -52,12 +48,14 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
   useEffect(() => {
     if (!socket) return;
 
+    // LocalPlayer obyektini har safar useEffect ichida yangi qiymat bilan olamiz
+    const localPlayer = getTgUser();
+
     // 1. Raqib qidirishni boshlash (Matchmaking navbatiga qo'shilish)
     socket.emit('find_match', { player: localPlayer, stake: STAKE_COINS });
 
     // 2. O'yin topilganda server javobi
     socket.on('match_found', (data) => {
-      // data: { roomId, opponent: { name, avatar, rating, coins } }
       setRoomId(data.roomId);
       setOpponent(data.opponent);
       setGameState('ready');
@@ -73,20 +71,19 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       setTimer(30);
     });
 
-    // 4. Taymer yangilanishi (Server tomonidan boshqariladi)
+    // 4. Taymer yangilanishi
     socket.on('timer_tick', (timeLeft) => {
       setTimer(timeLeft);
     });
 
     // 5. Raund natijasi e'lon qilinganda
     socket.on('round_result', (data) => {
-      // data: { myChoice, opponentChoice, result, rewardCoins, rewardXP }
       setMyChoice(data.myChoice);
       setOpponentChoice(data.opponentChoice);
       setRoundResult(data.result);
       setGameState('revealed');
 
-      // Moliyaviy va reyting o'zgarishlarini saqlash
+      // Moliyaviy va reyting o'zgarishlarini mahalliy stateda yangilash
       setCoins(prev => Math.max(0, prev + data.rewardCoins));
       setRating(prev => Math.max(0, prev + data.rewardXP));
 
@@ -95,7 +92,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       } else if (data.result === 'lose') {
         showNotif(`Mag'lubiyat! -${STAKE_COINS} 🪙 va -10 XP 😢`, "error");
       } else {
-        showNotif("Durang! 🤝 Tangalar qaytarildi.", "warning");
+        showNotif("Durang! 🤝", "warning");
       }
     });
 
@@ -111,8 +108,15 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       setChatMessages(prev => [...prev, msg]);
     });
 
+    // Tozalash funksiyasi (Komponent o'chganda aloqani xavfsiz uzish)
     return () => {
-      socket.emit('leave_room', { roomId });
+      // Hozirgi roomId ni saqlab qolish uchun obyekt yuboriladi
+      setRoomId((currentRoomId) => {
+        if (currentRoomId) {
+          socket.emit('leave_room', { roomId: currentRoomId });
+        }
+        return currentRoomId;
+      });
       socket.off('match_found');
       socket.off('start_round');
       socket.off('timer_tick');
@@ -120,7 +124,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       socket.off('opponent_left');
       socket.off('receive_message');
     };
-  }, [socket, currentRating, playerCoins, setCoins, setRating, showNotif, onBackToMenu]);
+  }, [socket]); // BOG'LIQLIK FAQAT SOCKET BO'LISHI KERAK!
 
   // Chat scroll animatsiyasi
   useEffect(() => {
@@ -131,7 +135,6 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
   const makeChoice = (choice) => {
     if (gameState !== 'playing' || myChoice) return;
     setMyChoice(choice);
-    // Serverga tanlovni yuboramiz (haqqoniylik uchun server ikkala tanlov kelguncha yashiradi)
     socket.emit('player_choice', { roomId, choice });
   };
 
@@ -140,6 +143,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
     const finalMsg = textToSend || messageText;
     if (!finalMsg.trim()) return;
 
+    const localPlayer = getTgUser();
     const msgData = {
       roomId,
       sender: localPlayer.name,
@@ -151,21 +155,22 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
     if (!textToSend) setMessageText('');
   };
 
-  // Tayyor chat emojilari va so'zlari (Tezkor chat)
   const QUICK_CHAT = ["Omad! 👍", "Yaxshi o'yin! 🤝", "Ups... 🫣", "Shoshilma! ⏳", "🔥", "😎"];
+
+  const currentLocalPlayer = getTgUser();
 
   return (
     <div className="game-wrapper duel-mode">
       
-      {/* 1. MATCHMAKING (RAQIB QIDIRISH EKRONI) */}
+      {/* 1. MATCHMAKING (RAQIB QIDIRISH EKRANI) */}
       {gameState === 'searching' && (
         <div className="lobby-overlay">
           <div className="spinner"></div>
           <h2>Munosib raqib qidirilmoqda...</h2>
           <p>Tikilgan summa: <strong style={{color: '#ffd700'}}>{STAKE_COINS} 🪙</strong></p>
           <div className="player-preview">
-            <div className="avatar">{localPlayer.avatar === '👤' ? '👤' : <img src={localPlayer.avatar} alt="avatar" />}</div>
-            <span>{localPlayer.name} (🏆 {localPlayer.rating} XP)</span>
+            <div className="avatar">{currentLocalPlayer.avatar === '👤' ? '👤' : <img src={currentLocalPlayer.avatar} alt="avatar" />}</div>
+            <span>{currentLocalPlayer.name} (🏆 {currentLocalPlayer.rating} XP)</span>
           </div>
           <button className="cancel-btn" onClick={onBackToMenu}>Bekor qilish</button>
         </div>
@@ -179,10 +184,10 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
             {/* SIZ */}
             <div className="profile-card me">
               <div className="profile-info">
-                <span className="profile-name">{localPlayer.name}</span>
-                <span className="profile-stats">🏆 {localPlayer.rating} XP | 🪙 {playerCoins}</span>
+                <span className="profile-name">{currentLocalPlayer.name}</span>
+                <span className="profile-stats">🏆 {currentLocalPlayer.rating} XP | 🪙 {playerCoins}</span>
               </div>
-              <div className="profile-avatar">{localPlayer.avatar === '👤' ? '👤' : <img src={localPlayer.avatar} alt="Me" />}</div>
+              <div className="profile-avatar">{currentLocalPlayer.avatar === '👤' ? '👤' : <img src={currentLocalPlayer.avatar} alt="Me" />}</div>
             </div>
 
             <div className="versus-divider">VS</div>
@@ -204,7 +209,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
               <div className="card-inner">
                 <span className="card-label">SIZ</span>
                 <div className="card-emoji-box">
-                  {myChoice ? (gameState === 'revealed' ? myChoice.toUpperCase() : '✅') : '❓'}
+                  {myChoice ? (gameState === 'revealed' ? (myChoice === 'rock' ? '🪨' : myChoice === 'paper' ? '📄' : '✂️') : '✅') : '❓'}
                 </div>
               </div>
             </div>
@@ -221,7 +226,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
               <div className="card-inner">
                 <span className="card-label">RAQIB</span>
                 <div className="card-emoji-box">
-                  {opponentChoice ? (gameState === 'revealed' ? opponentChoice.toUpperCase() : '✅') : '❓'}
+                  {opponentChoice ? (gameState === 'revealed' ? (opponentChoice === 'rock' ? '🪨' : opponentChoice === 'paper' ? '📄' : '✂️') : '✅') : '❓'}
                 </div>
               </div>
             </div>
