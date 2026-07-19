@@ -327,3 +327,82 @@
   50% { opacity: 0.9; transform: scale(1.1); }
   100% { opacity: 1; transform: scale(1); }
 }
+
+/* --- 💬 TEZKOR CHAT STILLARI --- */
+.chat-container {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 250px;
+}
+
+.chat-messages {
+  height: 110px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+/* Scrollbarni yashirish yoki chiroyli qilish */
+.chat-messages::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+}
+
+.chat-bubble {
+  max-width: 75%;
+  padding: 8px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.chat-bubble.me {
+  background: #2481cc;
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+
+.chat-bubble.opponent {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  align-self: flex-start;
+  border-bottom-left-radius: 2px;
+}
+
+/* Tezkor iboralar tugmalari */
+.quick-chat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.quick-chat-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 6px 4px;
+  border-radius: 8px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.2s;
+}
+
+.quick-chat-btn:active {
+  background: rgba(255, 255, 255, 0.2);
+}

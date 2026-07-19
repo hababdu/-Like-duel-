@@ -263,7 +263,11 @@ io.on('connection', (socket) => {
       evaluateRound(roomId);
     }
   });
-
+// 💬 Jonli Duel Chati uchun event
+socket.on('send_chat_message', ({ roomId, senderId, text }) => {
+  // Xabarni xonadagi o'zimizdan boshqa hamma sheriklarga yuborish
+  socket.to(roomId).emit('chat_message', { senderId, text });
+});
   // 3. CHAT XABARI KELGANDA
   socket.on('send_message', ({ roomId, sender, text }) => {
     socket.to(roomId).emit('receive_message', { sender, text, isMe: false });
