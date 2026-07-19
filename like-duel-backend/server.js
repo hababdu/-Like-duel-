@@ -27,9 +27,12 @@ app.use(cors());
 app.use(express.json());
 
 // --- MONGOOSE MA'LUMOTLAR BAZASI ULANISHI ---
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('🟢 MongoDB-ga muvaffaqiyatli ulandi!'))
-  .catch((err) => console.error('🔴 MongoDB ulanishida xatolik:', err));
+mongoose.connect(process.env.MONGODB_URI, {
+  // ... agar oldingi yozilgan sozlamalar bo'lsa, ular qolsin
+  family: 4 // Node.js'ga faqat IPv4 orqali ulanishni majburlaydi (Render cheklovini yechadi)
+})
+.then(() => console.log('🟢 MongoDB muvaffaqiyatli ulandi!'))
+.catch(err => console.error('🔴 MongoDB xatolik:', err));
 
 // --- FOYDALANUVCHI SCHEMASI ---
 const userSchema = new mongoose.Schema({
