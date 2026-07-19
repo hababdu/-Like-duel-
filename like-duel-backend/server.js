@@ -27,7 +27,6 @@ app.use(cors());
 app.use(express.json());
 
 // --- MONGOOSE MA'LUMOTLAR BAZASI ULANISHI ---
-// family: 4 — Render'ning IPv6 tarmog'ida MongoDB Atlas'ga ulanish muammosini uzil-kesil hal qiladi
 mongoose.connect(process.env.MONGODB_URI, {
   family: 4 
 })
@@ -41,7 +40,7 @@ const userSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
   lastName: { type: String },
   photoUrl: { type: String, default: '' },
-  coins: { type: Number, default: 100 },       // Boshlang'ich tanga
+  coins: { type: Number, default: 100 },       // Boshlang'ich tanga: 100
   rating: { type: Number, default: 100 },      // Boshlang'ich reyting (XP)
   referredBy: { type: String, default: null }, // Taklif qilgan do'st IDsi
   referralsCount: { type: Number, default: 0 } 
@@ -103,6 +102,12 @@ bot.start(async (ctx) => {
       });
 
       await user.save();
+    } else {
+      // BOT ORQALI START BOSILGANDA HAM AGAR TANGASI 0 BO'LSA 100 TA QILIB QO'YAMIZ
+      if (user.coins === 0) {
+        user.coins = 100;
+        await user.save();
+      }
     }
 
     const webAppUrl = process.env.WEB_APP_URL;
@@ -137,15 +142,24 @@ app.post('/api/user/auth', async (req, res) => {
     let user = await User.findOne({ tgId: tgId.toString() });
 
     if (!user) {
+      // YANGI FOYDALANUVCHIGA 100 TANGA BERISH
       user = new User({
         tgId: tgId.toString(),
         username,
         firstName,
         lastName,
-        photoUrl
+        photoUrl,
+        coins: 100 
       });
       await user.save();
+      console.log(`🆕 Yangi foydalanuvchi yaratildi: ${firstName} (+100 🪙)`);
     } else {
+      // 🎯 ESKI FOYDALANUVCHI BO'LSA VA BALANSI 0 BO'LSA AVTOMAT 100 TANGA BERISH
+      if (user.coins === 0) {
+        user.coins = 100;
+        console.log(`🔄 Eski foydalanuvchining nollangan balansi 100 tangaga yangilandi: ${firstName}`);
+      }
+      
       user.photoUrl = photoUrl || user.photoUrl;
       user.firstName = firstName || user.firstName;
       user.lastName = lastName || user.lastName;
@@ -154,6 +168,7 @@ app.post('/api/user/auth', async (req, res) => {
     }
 
     res.status(200).json({
+      success: true, // Frontend izchil ishlashi uchun
       coins: user.coins,
       rating: user.rating,
       user
@@ -179,6 +194,7 @@ io.on('connection', (socket) => {
     const exists = matchmakingQueue.find(p => p.socketId === socket.id);
     if (exists) return;
 
+    // Frontenddan 1 tangalik stavka kelsa ham uni qabul qilamiz
     const newPlayer = {
       socketId: socket.id,
       tgId: player.tgId.toString(),
@@ -186,10 +202,10 @@ io.on('connection', (socket) => {
       avatar: player.avatar,
       rating: player.rating,
       coins: player.coins,
-      stake
+      stake: stake || 1 // Defolt stavka: 1 tanga
     };
 
-    const opponent = matchmakingQueue.find(p => p.stake === stake && p.socketId !== socket.id);
+    const opponent = matchmakingQueue.find(p => p.stake === newPlayer.stake && p.socketId !== socket.id);
 
     if (opponent) {
       const oppIndex = matchmakingQueue.indexOf(opponent);
@@ -197,7 +213,6 @@ io.on('connection', (socket) => {
 
       const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Socket.io v4 uchun eng xavfsiz format
       const opponentSocket = io.of("/").sockets.get(opponent.socketId);
       const currentSocket = socket;
 
@@ -212,7 +227,8 @@ io.on('connection', (socket) => {
           ],
           choices: {},
           timer: 30,
-          timerInterval: null
+          timerInterval: null,
+          stake: newPlayer.stake // Xonaning umumiy stavkasini belgilaymiz
         };
 
         opponentSocket.emit('match_found', { 
@@ -327,7 +343,8 @@ async function evaluateRound(roomId) {
     result2 = 'win';
   }
 
-  const STAKE = 100;
+  // 🪙 YANGILANGAN MANTIQ: Xonada belgilangan stavka ishlatiladi (1 tanga)
+  const STAKE = room.stake || 1; 
   const rewardP1 = result1 === 'win' ? STAKE : (result1 === 'lose' ? -STAKE : 0);
   const rewardXP1 = result1 === 'win' ? 15 : (result1 === 'lose' ? -10 : 0);
 
@@ -357,8 +374,9 @@ async function handleDisconnect(socket, roomId) {
   
   const winner = room.players.find(p => p.socketId !== socket.id);
   if (winner) {
+    const STAKE = room.stake || 1; // Texnik g'alaba uchun ham 1 tanga stavkasi olinadi
     try {
-      await User.findOneAndUpdate({ tgId: winner.tgId }, { $inc: { coins: 100, rating: 15 } });
+      await User.findOneAndUpdate({ tgId: winner.tgId }, { $inc: { coins: STAKE, rating: 15 } });
     } catch (err) {
       console.error("Texnik g'alabani saqlashda xatolik:", err);
     }
@@ -372,7 +390,6 @@ async function handleDisconnect(socket, roomId) {
 if (process.env.NODE_ENV === 'production') {
   const webhookPath = '/webhook'; 
   app.use(webhookPath, bot.webhookCallback());
-  // APP_URL oxirida slesh (/) bo'lmasligi kerak
   bot.telegram.setWebhook(`${process.env.APP_URL}${webhookPath}`);
   console.log('🔮 Bot Webhook rejimida ishga tushdi!');
 } else {
@@ -380,12 +397,11 @@ if (process.env.NODE_ENV === 'production') {
   console.log('🤖 Bot Polling (mahalliy) rejimida ishga tushdi!');
 }
 
-// Serverni ishga tushirish (Express emas, http eshitadi)
+// Serverni ishga tushirish
 server.listen(PORT, () => {
   console.log(`🚀 Server http://localhost:${PORT} portida ishlamoqda!`);
 });
 
-// Render qayta yonganda Telegraf crash bo'lishini oldini oluvchi blok
 process.once('SIGINT', () => {
   try { bot.stop('SIGINT'); } catch (e) {}
 });
