@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import   "./DuelGame.css";
 
 function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onBackToMenu, showNotif }) {
   const [gameState, setGameState] = useState('menu'); // 'menu' | 'searching' | 'playing' | 'result'
