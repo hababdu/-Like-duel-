@@ -17,7 +17,7 @@ const server = http.createServer(app);
 // Socket.io sozlamalari
 const io = new Server(server, {
   cors: {
-    origin: "*", // Barcha domenlardan ulanishga ruxsat (ishlab chiqish jarayoni uchun)
+    origin: "*", // Barcha domenlardan ulanishga ruxsat
     methods: ["GET", "POST"]
   }
 });
@@ -27,9 +27,9 @@ app.use(cors());
 app.use(express.json());
 
 // --- MONGOOSE MA'LUMOTLAR BAZASI ULANISHI ---
+// family: 4 — Render'ning IPv6 tarmog'ida MongoDB Atlas'ga ulanish muammosini uzil-kesil hal qiladi
 mongoose.connect(process.env.MONGODB_URI, {
-  // ... agar oldingi yozilgan sozlamalar bo'lsa, ular qolsin
-  family: 4 // Node.js'ga faqat IPv4 orqali ulanishni majburlaydi (Render cheklovini yechadi)
+  family: 4 
 })
 .then(() => console.log('🟢 MongoDB muvaffaqiyatli ulandi!'))
 .catch(err => console.error('🔴 MongoDB xatolik:', err));
@@ -166,7 +166,6 @@ app.post('/api/user/auth', async (req, res) => {
 });
 
 // --- SOCKET.IO MULTIPLAYER & MATCHMAKING MANTIQI ---
-
 const matchmakingQueue = []; // Raqib qidirayotgan o'yinchilar ro'yxati
 const activeRooms = {};       // Faol o'yin xonalari
 
@@ -175,10 +174,8 @@ io.on('connection', (socket) => {
 
   // 1. MATCHMAKING: Raqib qidirish navbatiga qo'shilish
   socket.on('find_match', async ({ player, stake }) => {
-    // Agar foydalanuvchida tgId yo'q bo'lsa, xatolik
     if (!player || !player.tgId) return;
 
-    // Navbatda ushbu socket bor-yo'qligini tekshirish
     const exists = matchmakingQueue.find(p => p.socketId === socket.id);
     if (exists) return;
 
@@ -192,25 +189,22 @@ io.on('connection', (socket) => {
       stake
     };
 
-    // Navbatdan o'zidan boshqa va stavkasi bir xil bo'lgan raqibni qidirish
     const opponent = matchmakingQueue.find(p => p.stake === stake && p.socketId !== socket.id);
 
     if (opponent) {
-      // Raqib topildi! Uni navbatdan olib tashlaymiz
       const oppIndex = matchmakingQueue.indexOf(opponent);
       if (oppIndex > -1) matchmakingQueue.splice(oppIndex, 1);
 
-      // Noyob xonalar (Room ID) yaratamiz
       const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      const opponentSocket = io.sockets.sockets.get(opponent.socketId);
+      // Socket.io v4 uchun eng xavfsiz format
+      const opponentSocket = io.of("/").sockets.get(opponent.socketId);
       const currentSocket = socket;
 
       if (opponentSocket && currentSocket) {
         opponentSocket.join(roomId);
         currentSocket.join(roomId);
 
-        // Xona obyektini shakllantirish
         activeRooms[roomId] = {
           players: [
             { socketId: currentSocket.id, ...player, tgId: player.tgId.toString() },
@@ -221,7 +215,6 @@ io.on('connection', (socket) => {
           timerInterval: null
         };
 
-        // Ikkala o'yinchiga ham raqib topilgani haqida xabar berish
         opponentSocket.emit('match_found', { 
           roomId, 
           opponent: { name: player.name, avatar: player.avatar, rating: player.rating, coins: player.coins } 
@@ -232,13 +225,11 @@ io.on('connection', (socket) => {
           opponent: { name: opponent.name, avatar: opponent.avatar, rating: opponent.rating, coins: opponent.coins } 
         });
 
-        // 3 soniyalik tayyorgarlikdan so'ng birinchi raundni boshlaymiz
         setTimeout(() => {
           startRound(roomId);
         }, 3000);
       }
     } else {
-      // Navbatga qo'shish
       matchmakingQueue.push(newPlayer);
     }
   });
@@ -251,7 +242,6 @@ io.on('connection', (socket) => {
     room.choices[socket.id] = choice;
 
     const playerIds = room.players.map(p => p.socketId);
-    // Agar har ikkala o'yinchi ham tanlov qilib bo'lgan bo'lsa
     if (room.choices[playerIds[0]] && room.choices[playerIds[1]]) {
       clearInterval(room.timerInterval);
       evaluateRound(roomId);
@@ -263,7 +253,7 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('receive_message', { sender, text, isMe: false });
   });
 
-  // 4. XONADAN CHIQISH (Bekor qilish yoki o'yindan chiqish)
+  // 4. XONADAN CHIQISH
   socket.on('leave_room', ({ roomId }) => {
     handleDisconnect(socket, roomId);
   });
@@ -288,7 +278,6 @@ io.on('connection', (socket) => {
 });
 
 // --- O'YINNING YORDAMCHI FUNKSIYALARI ---
-
 function startRound(roomId) {
   const room = activeRooms[roomId];
   if (!room) return;
@@ -304,12 +293,11 @@ function startRound(roomId) {
 
     if (room.timer <= 0) {
       clearInterval(room.timerInterval);
-      evaluateRound(roomId); // Vaqt tugasa ham avtomatik hisoblash
+      evaluateRound(roomId);
     }
   }, 1000);
 }
 
-// Raund g'olibini aniqlash va Ma'lumotlar bazasiga (MongoDB) saqlash
 async function evaluateRound(roomId) {
   const room = activeRooms[roomId];
   if (!room) return;
@@ -346,46 +334,21 @@ async function evaluateRound(roomId) {
   const rewardP2 = result2 === 'win' ? STAKE : (result2 === 'lose' ? -STAKE : 0);
   const rewardXP2 = result2 === 'win' ? 15 : (result2 === 'lose' ? -10 : 0);
 
-  // MongoDB-da o'yinchilarning yangi balanslarini yangilash (Asinxron)
   try {
-    await User.findOneAndUpdate(
-      { tgId: p1.tgId },
-      { $inc: { coins: rewardP1, rating: rewardXP1 } }
-    );
-    await User.findOneAndUpdate(
-      { tgId: p2.tgId },
-      { $inc: { coins: rewardP2, rating: rewardXP2 } }
-    );
+    await User.findOneAndUpdate({ tgId: p1.tgId }, { $inc: { coins: rewardP1, rating: rewardXP1 } });
+    await User.findOneAndUpdate({ tgId: p2.tgId }, { $inc: { coins: rewardP2, rating: rewardXP2 } });
   } catch (dbErr) {
     console.error("O'yin natijalarini bazaga saqlashda xatolik:", dbErr);
   }
 
-  // Frontend-ga natijalarni uzatish
-  io.to(p1.socketId).emit('round_result', {
-    myChoice: c1,
-    opponentChoice: c2,
-    result: result1,
-    rewardCoins: rewardP1,
-    rewardXP: rewardXP1
-  });
+  io.to(p1.socketId).emit('round_result', { myChoice: c1, opponentChoice: c2, result: result1, rewardCoins: rewardP1, rewardXP: rewardXP1 });
+  io.to(p2.socketId).emit('round_result', { myChoice: c2, opponentChoice: c1, result: result2, rewardCoins: rewardP2, rewardXP: rewardXP2 });
 
-  io.to(p2.socketId).emit('round_result', {
-    myChoice: c2,
-    opponentChoice: c1,
-    result: result2,
-    rewardCoins: rewardP2,
-    rewardXP: rewardXP2
-  });
-
-  // 5 soniyadan so'ng keyingi raundni avtomatik boshlash
   setTimeout(() => {
-    if (activeRooms[roomId]) {
-      startRound(roomId);
-    }
+    if (activeRooms[roomId]) startRound(roomId);
   }, 5000);
 }
 
-// Aloqa uzilganda raqibga texnik g'alaba yozish
 async function handleDisconnect(socket, roomId) {
   const room = activeRooms[roomId];
   if (!room) return;
@@ -394,12 +357,8 @@ async function handleDisconnect(socket, roomId) {
   
   const winner = room.players.find(p => p.socketId !== socket.id);
   if (winner) {
-    // Chiqib ketmagan o'yinchiga g'alaba mukofotini bazada qo'shib qo'yamiz
     try {
-      await User.findOneAndUpdate(
-        { tgId: winner.tgId },
-        { $inc: { coins: 100, rating: 15 } }
-      );
+      await User.findOneAndUpdate({ tgId: winner.tgId }, { $inc: { coins: 100, rating: 15 } });
     } catch (err) {
       console.error("Texnik g'alabani saqlashda xatolik:", err);
     }
@@ -409,10 +368,11 @@ async function handleDisconnect(socket, roomId) {
   delete activeRooms[roomId];
 }
 
-// --- RENDER VA WEBHOOK / POLLING SOZLAMASI ---
+// --- RENDER VA WEBHOOK SOZLAMASI ---
 if (process.env.NODE_ENV === 'production') {
-  const webhookPath = `/bot${process.env.BOT_TOKEN}`;
-  app.use(bot.webhookCallback(webhookPath));
+  const webhookPath = '/webhook'; 
+  app.use(webhookPath, bot.webhookCallback());
+  // APP_URL oxirida slesh (/) bo'lmasligi kerak
   bot.telegram.setWebhook(`${process.env.APP_URL}${webhookPath}`);
   console.log('🔮 Bot Webhook rejimida ishga tushdi!');
 } else {
@@ -420,12 +380,12 @@ if (process.env.NODE_ENV === 'production') {
   console.log('🤖 Bot Polling (mahalliy) rejimida ishga tushdi!');
 }
 
-// MUHIM O'ZGARISH: server.listen Express emas, balki HTTP serverni eshitadi (Socket ishlaydi)
+// Serverni ishga tushirish (Express emas, http eshitadi)
 server.listen(PORT, () => {
   console.log(`🚀 Server http://localhost:${PORT} portida ishlamoqda!`);
 });
 
-// Kutilmagan to'xtashlarni boshqarish
+// Render qayta yonganda Telegraf crash bo'lishini oldini oluvchi blok
 process.once('SIGINT', () => {
   try { bot.stop('SIGINT'); } catch (e) {}
 });
