@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import './DuelGame.css'; // Ushbu fayl multiplayer stillarini ham o'z ichiga oladi
 
 function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onBackToMenu, showNotif }) {
@@ -22,7 +22,8 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
   const STAKE_COINS = 100;   // Har bir o'yindagi tikiladigan standart tanga (stavka)
 
   // --- TELEGRAMDAN FOYDALANUVCHI MA'LUMOTLARINI OLISH ---
-  const getTgUser = () => {
+  // useCallback orqali funksiyani keshlaymiz, cheksiz renderlarning oldini oladi
+  const getTgUser = useCallback(() => {
     const tg = window.Telegram?.WebApp;
     if (tg?.initDataUnsafe?.user) {
       const user = tg.initDataUnsafe.user;
@@ -34,7 +35,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       };
     }
     return { name: "O'yinchi", avatar: '👤', rating: currentRating, coins: playerCoins };
-  };
+  }, [currentRating, playerCoins]);
 
   // --- REYTING VA TANGA NAZORATI ---
   useEffect(() => {
@@ -48,10 +49,8 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
   useEffect(() => {
     if (!socket) return;
 
-    // LocalPlayer obyektini har safar useEffect ichida yangi qiymat bilan olamiz
+    // 1. Raqib qidirishni faqat bir marta boshlash
     const localPlayer = getTgUser();
-
-    // 1. Raqib qidirishni boshlash (Matchmaking navbatiga qo'shilish)
     socket.emit('find_match', { player: localPlayer, stake: STAKE_COINS });
 
     // 2. O'yin topilganda server javobi
@@ -83,7 +82,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       setRoundResult(data.result);
       setGameState('revealed');
 
-      // Moliyaviy va reyting o'zgarishlarini mahalliy stateda yangilash
+      // Statedagi moliyaviy o'zgarishlar
       setCoins(prev => Math.max(0, prev + data.rewardCoins));
       setRating(prev => Math.max(0, prev + data.rewardXP));
 
@@ -110,7 +109,6 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
 
     // Tozalash funksiyasi (Komponent o'chganda aloqani xavfsiz uzish)
     return () => {
-      // Hozirgi roomId ni saqlab qolish uchun obyekt yuboriladi
       setRoomId((currentRoomId) => {
         if (currentRoomId) {
           socket.emit('leave_room', { roomId: currentRoomId });
@@ -124,7 +122,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       socket.off('opponent_left');
       socket.off('receive_message');
     };
-  }, [socket]); // BOG'LIQLIK FAQAT SOCKET BO'LISHI KERAK!
+  }, [socket, getTgUser, onBackToMenu, showNotif]); // To'g'ri dependencylar qo'shildi
 
   // Chat scroll animatsiyasi
   useEffect(() => {

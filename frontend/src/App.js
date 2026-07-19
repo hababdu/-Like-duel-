@@ -34,8 +34,8 @@ function App() {
   // Backend bilan bog'lanib akkauntni yaratish yoki yuklash
   const registerOrFetchUser = async (user, startParam) => {
     try {
-      // Mahalliy backend serveringiz porti 10000 bo'lgani uchun manzil to'g'rilandi
-      const response = await fetch('http://localhost:10000/api/user/auth', {
+      // Yangilangan jonli Render server manzili 🚀
+      const response = await fetch('https://telegram-bot-server-2-matj.onrender.com/api/user/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -137,7 +137,7 @@ function App() {
                 onClick={() => {
                   const inviteLink = `https://t.me/SeningOyinBot/app?startapp=ref_${tgUser?.id || '123'}`;
                   window.Telegram.WebApp.openTelegramLink(
-                    `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent("Men bilan tosh-qog'oz-qaychi duelida kuch sinash! 🎮 Kelganing uchun senga sovg'a tangalar bor!")}`
+                    `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent("Men bilan tosh-qog'oz-qaychi duelida kuch simash! 🎮 Kelganing uchun senga sovg'a tangalar bor!")}`
                   );
                 }}
               >
