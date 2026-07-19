@@ -1,7 +1,11 @@
 import { io } from 'socket.io-client';
 
-const socket = io('https://telegram-bot-server-2-matj.onrender.com', {
-  autoConnect: false // App.jsx o'zi boshqaradi
+// Jonli backend Render serveringiz manzili 🚀
+const SOCKET_URL = 'https://telegram-bot-server-2-matj.onrender.com';
+
+const socket = io(SOCKET_URL, {
+  autoConnect: false, // App.jsx o'zi enterDuelMode ichida connect qiladi
+  transports: ['websocket', 'polling'] // Render tarmog'i uchun ikkala transport ham ochiq bo'lishi kerak
 });
 
 export default socket;

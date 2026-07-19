@@ -398,8 +398,9 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Serverni ishga tushirish
-server.listen(PORT, () => {
-  console.log(`🚀 Server http://localhost:${PORT} portida ishlamoqda!`);
+// Yangi to'g'ri kod:
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server 0.0.0.0:${PORT} hostida muvaffaqiyatli eshitmoqda!`);
 });
 
 process.once('SIGINT', () => {
