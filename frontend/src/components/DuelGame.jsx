@@ -1,294 +1,289 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import './DuelGame.css'; // O'yin stillari fayli
+import React, { useEffect, useState } from 'react';
 
 function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onBackToMenu, showNotif }) {
-  // O'yin va Xona holatlari
-  const [roomId, setRoomId] = useState(null);
-  const [gameState, setGameState] = useState('searching'); // 'searching' | 'ready' | 'playing' | 'revealed' | 'gameover'
+  const [gameState, setGameState] = useState('menu'); // 'menu' | 'searching' | 'playing' | 'result'
   const [opponent, setOpponent] = useState(null);
-  
-  // O'yin mantiqi
+  const [roomId, setRoomId] = useState(null);
   const [myChoice, setMyChoice] = useState(null);
   const [opponentChoice, setOpponentChoice] = useState(null);
-  const [roundResult, setRoundResult] = useState(null); // 'win' | 'lose' | 'draw'
+  const [roundResult, setRoundResult] = useState(null);
   const [timer, setTimer] = useState(30);
-  
-  // Chat mantiqi
-  const [chatMessages, setChatMessages] = useState([]);
-  const [messageText, setMessageText] = useState('');
-  const chatEndRef = useRef(null);
 
-  // YANGILANGAN IQTISODIYOT SOZLAMALARI 🪙
-  const MIN_PLAY_COINS = 1; // O'yinga kirish uchun kamida 1 tanga bo'lishi kerak
-  const STAKE_COINS = 1;    // Har bir o'yinda tikiladigan standart stavka: 1 tanga
+  // Telegram o'yinchi ma'lumotlarini xavfsiz olish
+  const tg = window.Telegram?.WebApp;
+  const user = tg?.initDataUnsafe?.user || {
+    id: '12345678',
+    first_name: 'O\'yinchi',
+    username: 'player',
+    photo_url: ''
+  };
 
-  // --- TELEGRAMDAN FOYDALANUVCHI MA'LUMOTLARINI OLISH ---
-  const getTgUser = useCallback(() => {
-    const tg = window.Telegram?.WebApp;
-    if (tg?.initDataUnsafe?.user) {
-      const user = tg.initDataUnsafe.user;
-      return {
-        name: `${user.first_name} ${user.last_name || ''}`.trim(),
-        avatar: user.photo_url || '👤',
-        rating: currentRating,
-        coins: playerCoins
-      };
-    }
-    return { name: "O'yinchi", avatar: '👤', rating: currentRating, coins: playerCoins };
-  }, [currentRating, playerCoins]);
-
-  // --- REYTING VA TANGA NAZORATI ---
   useEffect(() => {
-    if (playerCoins < MIN_PLAY_COINS && gameState === 'searching') {
-      showNotif("Mablag'ingiz yetarli emas! Iltimos, tanga to'plang.", "error");
-      onBackToMenu(); 
-    }
-  }, [playerCoins, gameState, onBackToMenu, showNotif]);
-
-  // --- SOCKET.IO INTEGRATSIYA ---
-  useEffect(() => {
-    if (!socket) return;
-
-    // 1. Matchmakingni faqat bir marta chaqirish (Sikl hosil qilmaydi)
-    const localPlayer = getTgUser();
-    socket.emit('find_match', { player: localPlayer, stake: STAKE_COINS });
-
-    // 2. Raqib topilganda
-    socket.on('match_found', (data) => {
-      setRoomId(data.roomId);
-      setOpponent(data.opponent);
-      setGameState('ready');
-      showNotif(`Raqib topildi: ${data.opponent.name}! 🚀`, "success");
+    // Socket hodisalarini sozlash
+    socket.on('connect', () => {
+      console.log('🔌 Socket ulangan holatda.');
     });
 
-    // 3. Raund boshlanishi
-    socket.on('start_round', () => {
+    socket.on('connect_error', (error) => {
+      console.error('🔴 Socket ulanish xatosi:', error);
+      showNotif("Server bilan aloqa uzildi. Qayta urinib ko'ring!", "error");
+      setGameState('menu');
+    });
+
+    socket.on('match_found', ({ roomId, opponent }) => {
+      console.log('⚔️ Raqib topildi! Xona:', roomId);
+      setRoomId(roomId);
+      setOpponent(opponent);
       setGameState('playing');
+    });
+
+    socket.on('start_round', () => {
       setMyChoice(null);
       setOpponentChoice(null);
       setRoundResult(null);
       setTimer(30);
     });
 
-    // 4. Serverdan taymer sekundlari kelishi
     socket.on('timer_tick', (timeLeft) => {
       setTimer(timeLeft);
     });
 
-    // 5. Raund yakunlanib, natijalar e'lon qilinganda
-    socket.on('round_result', (data) => {
-      setMyChoice(data.myChoice);
-      setOpponentChoice(data.opponentChoice);
-      setRoundResult(data.result);
-      setGameState('revealed');
+    socket.on('round_result', ({ myChoice, opponentChoice, result, rewardCoins, rewardXP }) => {
+      setMyChoice(myChoice);
+      setOpponentChoice(opponentChoice);
+      setRoundResult(result);
+      setGameState('result');
 
-      // Balansni dinamik yangilash (Stavka endi 1 tanga)
-      setCoins(prev => Math.max(0, prev + data.rewardCoins));
-      setRating(prev => Math.max(0, prev + data.rewardXP));
-
-      if (data.result === 'win') {
-        showNotif(`G'alaba! +${STAKE_COINS} 🪙 va +15 XP 🏆`, "success");
-      } else if (data.result === 'lose') {
-        showNotif(`Mag'lubiyat! -${STAKE_COINS} 🪙 va -10 XP 😢`, "error");
-      } else {
-        showNotif("Durang! 🤝", "warning");
-      }
+      // Global statelarni real vaqtda yangilash
+      setCoins(prev => Math.max(0, prev + rewardCoins));
+      setRating(prev => Math.max(0, prev + rewardXP));
     });
 
-    // 6. Raqib o'yindan chiqib ketganda
     socket.on('opponent_left', () => {
-      showNotif("Raqib o'yinni tark etdi! Texnik g'alaba. 🏆", "success");
-      setCoins(prev => prev + STAKE_COINS);
-      onBackToMenu();
+      showNotif("Raqib o'yinni tark etdi! Texnik g'alaba sizga yozildi 🏆", "success");
+      setCoins(prev => prev + 1); // 1 tanga yutuq qaytadi
+      setRating(prev => prev + 15);
+      resetGame();
     });
 
-    // 7. Chat xabari kelganda
-    socket.on('receive_message', (msg) => {
-      setChatMessages(prev => [...prev, msg]);
-    });
-
-    // Tozalash funksiyasi (Aloqani xavfsiz yopish)
     return () => {
-      setRoomId((currentRoomId) => {
-        if (currentRoomId) {
-          socket.emit('leave_room', { roomId: currentRoomId });
-        }
-        return currentRoomId;
-      });
+      // Event listenerlarni o'chirish (Xotira to'lib ketmasligi uchun)
+      socket.off('connect');
+      socket.off('connect_error');
       socket.off('match_found');
       socket.off('start_round');
       socket.off('timer_tick');
       socket.off('round_result');
       socket.off('opponent_left');
-      socket.off('receive_message');
     };
-  }, [socket, getTgUser, onBackToMenu, showNotif]);
+  }, [socket]);
 
-  // Chat scrollini avtomatik pastga tushirish
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+  const startSearching = () => {
+    if (playerCoins < 1) {
+      showNotif("Duellarda qatnashish uchun kamida 1 tanga kerak!", "error");
+      return;
+    }
 
-  // --- HARAKAT TANLASH ---
+    setGameState('searching');
+
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    // Backend aynan mana shu obyekt strukturasini kutyapti
+    const payload = {
+      player: {
+        tgId: user.id.toString(),
+        name: user.first_name,
+        avatar: user.photo_url || '',
+        rating: currentRating,
+        coins: playerCoins
+      },
+      stake: 1 // 1 tangalik stavka rejimi
+    };
+
+    socket.emit('find_match', payload);
+  };
+
   const makeChoice = (choice) => {
-    if (gameState !== 'playing' || myChoice) return;
+    if (myChoice) return; // Ikkinchi marta bosishni bloklash
     setMyChoice(choice);
     socket.emit('player_choice', { roomId, choice });
   };
 
-  // --- CHAT XABARI YUBORISH ---
-  const sendMessage = (textToSend = null) => {
-    const finalMsg = textToSend || messageText;
-    if (!finalMsg.trim()) return;
-
-    const localPlayer = getTgUser();
-    const msgData = {
-      roomId,
-      sender: localPlayer.name,
-      text: finalMsg
-    };
-
-    socket.emit('send_message', msgData);
-    setChatMessages(prev => [...prev, { ...msgData, isMe: true }]);
-    if (!textToSend) setMessageText('');
+  const resetGame = () => {
+    setGameState('menu');
+    setOpponent(null);
+    setRoomId(null);
+    setMyChoice(null);
+    setOpponentChoice(null);
+    setRoundResult(null);
   };
 
-  const QUICK_CHAT = ["Omad! 👍", "Yaxshi o'yin! 🤝", "Ups... 🫣", "Shoshilma! ⏳", "🔥", "😎"];
-  const currentLocalPlayer = getTgUser();
+  // Tanlov belgisini emoji formatida ko'rsatish funksiyasi
+  const getChoiceEmoji = (choice) => {
+    if (choice === 'rock') return '🪨 Tosh';
+    if (choice === 'paper') return '📄 Qog\'oz';
+    if (choice === 'scissors') return '✂️ Qaychi';
+    return '⏳ Ulgurmadi';
+  };
 
   return (
-    <div className="game-wrapper duel-mode">
-      
-      {/* 1. KUTISH EKRANI (MATCHMAKING) */}
-      {gameState === 'searching' && (
-        <div className="lobby-overlay">
-          <div className="spinner"></div>
-          <h2>Munosib raqib qidirilmoqda...</h2>
-          <p>Tikilgan summa: <strong style={{color: '#ffd700'}}>{STAKE_COINS} 🪙</strong></p>
-          <div className="player-preview">
-            <div className="avatar">{currentLocalPlayer.avatar === '👤' ? '👤' : <img src={currentLocalPlayer.avatar} alt="avatar" />}</div>
-            <span>{currentLocalPlayer.name} (🏆 {currentLocalPlayer.rating} XP)</span>
+    <div className="duel-game-page">
+      {/* 1. KIRISH MENYUSI */}
+      {gameState === 'menu' && (
+        <div className="duel-card animate-fade-in">
+          <div className="duel-icon-wrapper">⚔️</div>
+          <h2 className="duel-title">Onlayn Arena</h2>
+          <p className="duel-description">
+            Haqiqiy o'yinchilar bilan jonli duel! <br />
+            Har bir o'yin stavkasi: <span className="highlight-text">1 🪙</span>
+          </p>
+          
+          <div className="stats-preview-row">
+            <div className="stat-preview-box">
+              <span>Balansingiz</span>
+              <strong>🪙 {playerCoins}</strong>
+            </div>
+            <div className="stat-preview-box">
+              <span>Reyting</span>
+              <strong>🏆 {currentRating} XP</strong>
+            </div>
           </div>
-          <button className="cancel-btn" onClick={onBackToMenu}>Bekor qilish</button>
+
+          <button className="duel-action-btn start-btn" onClick={startSearching}>
+            Raqib Qidirish 🔍
+          </button>
+          <button className="duel-action-btn cancel-btn" onClick={onBackToMenu}>
+            Asosiy Menyu 🚪
+          </button>
         </div>
       )}
 
-      {/* 2. JONLI DUEL INTERFEYSI */}
-      {gameState !== 'searching' && (
-        <>
-          {/* Tepadagi Panel: Foydalanuvchilar ma'lumotlari */}
-          <header className="duel-header">
-            {/* SIZ */}
-            <div className="profile-card me">
-              <div className="profile-info">
-                <span className="profile-name">{currentLocalPlayer.name}</span>
-                <span className="profile-stats">🏆 {currentLocalPlayer.rating} XP | 🪙 {playerCoins}</span>
-              </div>
-              <div className="profile-avatar">{currentLocalPlayer.avatar === '👤' ? '👤' : <img src={currentLocalPlayer.avatar} alt="Me" />}</div>
-            </div>
+      {/* 2. RAQIB QIDIRISH EKRANI */}
+      {gameState === 'searching' && (
+        <div className="duel-card searching-card animate-pulse">
+          <div className="radar-spinner">
+            <div className="circle-1"></div>
+            <div className="circle-2"></div>
+            <div className="circle-3"></div>
+          </div>
+          <h2 className="searching-title">Raqib qidirilmoqda...</h2>
+          <p className="searching-subtitle">Siz kabi jasur duelchilar qidirilmoqda. Iltimos, kutib turing.</p>
+          <button className="duel-action-btn cancel-btn" onClick={resetGame}>
+            Qidiruvni to'xtatish ❌
+          </button>
+        </div>
+      )}
 
-            <div className="versus-divider">VS</div>
-
-            {/* RAQIB */}
-            <div className="profile-card opponent">
-              <div className="profile-avatar">{opponent?.avatar === '👤' ? '👤' : <img src={opponent?.avatar} alt="Opponent" />}</div>
-              <div className="profile-info">
-                <span className="profile-name">{opponent?.name || "Raqib"}</span>
-                <span className="profile-stats">🏆 {opponent?.rating || 0} XP | 🪙 {opponent?.coins || 0}</span>
-              </div>
-            </div>
-          </header>
-
-          {/* O'yin maydoni */}
-          <main className="arena">
-            <div className={`card player-card ${myChoice ? 'active' : ''}`}>
-              <div className="card-inner">
-                <span className="card-label">SIZ</span>
-                <div className="card-emoji-box">
-                  {myChoice ? (gameState === 'revealed' ? (myChoice === 'rock' ? '🪨' : myChoice === 'paper' ? '📄' : '✂️') : '✅') : '❓'}
-                </div>
+      {/* 3. FAOL O'YIN ARENASI */}
+      {gameState === 'playing' && (
+        <div className="arena-wrapper animate-fade-in">
+          <div className="arena-players-bar">
+            <div className="arena-player style-me">
+              <span className="arena-avatar">👤</span>
+              <div className="arena-meta">
+                <h4>{user.first_name}</h4>
+                <p>Siz</p>
               </div>
             </div>
 
-            <div className="vs-center">
-              <div className="timer-number-box">
-                <span className={`timer-text ${timer <= 5 ? 'pulse' : ''}`}>{timer}s</span>
-              </div>
+            <div className="arena-timer-circle">
+              <span className="timer-number">{timer}</span>
+              <span className="timer-label">soniya</span>
             </div>
 
-            <div className={`card bot-card ${opponentChoice ? 'active' : ''}`}>
-              <div className="card-inner">
-                <span className="card-label">RAQIB</span>
-                <div className="card-emoji-box">
-                  {opponentChoice ? (gameState === 'revealed' ? (opponentChoice === 'rock' ? '🪨' : opponentChoice === 'paper' ? '📄' : '✂️') : '✅') : '❓'}
-                </div>
+            <div className="arena-player style-opponent">
+              <span className="arena-avatar">🎯</span>
+              <div className="arena-meta">
+                <h4>{opponent?.name || 'Raqib'}</h4>
+                <p>🏆 {opponent?.rating || 100} XP</p>
               </div>
             </div>
-          </main>
+          </div>
 
-          {/* Natija oynasi */}
-          <div className="result-banner-container">
-            {roundResult && (
-              <div className={`status-banner banner-${roundResult}`}>
-                {roundResult === 'win' ? 'YUTDINGIZ! 🎉' : roundResult === 'lose' ? 'YUTQAZDINGIZ! 😢' : 'DURANG 🤝'}
+          <div className="arena-main-card">
+            <h3>Harakatingizni tanlang:</h3>
+            <div className="arena-buttons-grid">
+              <button 
+                className={`arena-choice-card rock-card ${myChoice === 'rock' ? 'active-choice' : ''}`} 
+                onClick={() => makeChoice('rock')} 
+                disabled={!!myChoice}
+              >
+                <span className="choice-emoji">🪨</span>
+                <span className="choice-text">Tosh</span>
+              </button>
+
+              <button 
+                className={`arena-choice-card paper-card ${myChoice === 'paper' ? 'active-choice' : ''}`} 
+                onClick={() => makeChoice('paper')} 
+                disabled={!!myChoice}
+              >
+                <span className="choice-emoji">📄</span>
+                <span className="choice-text">Qog'oz</span>
+              </button>
+
+              <button 
+                className={`arena-choice-card scissors-card ${myChoice === 'scissors' ? 'active-choice' : ''}`} 
+                onClick={() => makeChoice('scissors')} 
+                disabled={!!myChoice}
+              >
+                <span className="choice-emoji">✂️</span>
+                <span className="choice-text">Qaychi</span>
+              </button>
+            </div>
+
+            {myChoice && (
+              <div className="waiting-status animate-flash">
+                <p>Siz o'z tanlovingizni qildingiz ({getChoiceEmoji(myChoice)}). <br />Raqib javobi kutilmoqda...</p>
               </div>
             )}
           </div>
+        </div>
+      )}
 
-          {/* REAL TIME CHAT */}
-          <section className="duel-chat-section">
-            <div className="chat-messages-container">
-              {chatMessages.map((msg, idx) => (
-                <div key={idx} className={`chat-bubble ${msg.isMe ? 'my-msg' : 'opp-msg'}`}>
-                  <span className="sender-name">{msg.sender}:</span>
-                  <span className="msg-text">{msg.text}</span>
-                </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
-            
-            <div className="quick-chat-grid">
-              {QUICK_CHAT.map((phrase, idx) => (
-                <button key={idx} onClick={() => sendMessage(phrase)} className="quick-chat-btn">
-                  {phrase}
-                </button>
-              ))}
-            </div>
+      {/* 4. NATIJA EKRANI */}
+      {gameState === 'result' && (
+        <div className={`duel-card result-card result-${roundResult} animate-bounce-in`}>
+          <div className="result-banner-icon">
+            {roundResult === 'win' && '🎉'}
+            {roundResult === 'lose' && '😢'}
+            {roundResult === 'draw' && '🤝'}
+          </div>
 
-            <div className="chat-input-bar">
-              <input 
-                type="text" 
-                value={messageText} 
-                onChange={(e) => setMessageText(e.target.value)} 
-                placeholder="Xabar yozing..."
-                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              />
-              <button onClick={() => sendMessage()}>Send</button>
-            </div>
-          </section>
+          <h2 className="result-main-heading">
+            {roundResult === 'win' && "G'alaba!"}
+            {roundResult === 'lose' && "Mag'lubiyat"}
+            {roundResult === 'draw' && "Durang!"}
+          </h2>
 
-          {/* Harakat Tanlash Tugmalari */}
-          <footer className="action-area">
-            <div className={`choices-grid ${myChoice ? 'has-selection' : ''}`}>
-              {['rock', 'paper', 'scissors'].map((key) => {
-                const isSelected = myChoice === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => makeChoice(key)}
-                    disabled={gameState !== 'playing' || myChoice !== null}
-                    className={`action-btn ${isSelected ? 'chosen' : ''}`}
-                  >
-                    <span className="action-emoji">
-                      {key === 'rock' ? '🪨' : key === 'paper' ? '📄' : '✂️'}
-                    </span>
-                    <span className="action-label">{key.toUpperCase()}</span>
-                  </button>
-                );
-              })}
+          <p className="rewards-notice">
+            {roundResult === 'win' && <span className="green-text">+1 Tanga 🪙 | +15 XP 🏆</span>}
+            {roundResult === 'lose' && <span className="red-text">-1 Tanga 🪙 | -10 XP 🏆</span>}
+            {roundResult === 'draw' && <span className="gray-text">Tangalar o'zgarishsiz qoldi</span>}
+          </p>
+
+          <div className="versus-summary-box">
+            <div className="summary-col">
+              <span>Siz tanladingiz</span>
+              <strong>{getChoiceEmoji(myChoice)}</strong>
             </div>
-          </footer>
-        </>
+            <div className="summary-vs">VS</div>
+            <div className="summary-col">
+              <span>Raqib tanladi</span>
+              <strong>{getChoiceEmoji(opponentChoice)}</strong>
+            </div>
+          </div>
+
+          <div className="result-actions">
+            <button className="duel-action-btn start-btn" onClick={() => setGameState('playing')}>
+              Keyingi Raund 🔄
+            </button>
+            <button className="duel-action-btn cancel-btn" onClick={resetGame}>
+              Arenadan chiqish 🚪
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
