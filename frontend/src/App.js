@@ -9,7 +9,7 @@ function App() {
   const [tgUser, setTgUser] = useState(null);
   const [coins, setCoins] = useState(0);
   const [rating, setRating] = useState(0);
-  const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'bot_game' | 'duel_game' | 'shop'
+  const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'bot_game' | 'duel_game'
 
   useEffect(() => {
     // 1. Telegram WebApp muhitini tekshirish
@@ -26,7 +26,7 @@ function App() {
       const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
       registerOrFetchUser(user, startParam);
     } else {
-      // LOYIHANI PHONEDA HAM, BRAUZERDA HAM TEST QILISH UCHUN BU YERNI TRUE QILIB TURAMIZ:
+      // BRAUZERDA HAM TEST QILISH OSON BO'LISHI UCHUN BU YERNI TRUE QILIB TURAMIZ:
       setIsTelegram(true); 
     }
   }, []);
@@ -48,19 +48,25 @@ function App() {
         })
       });
       const data = await response.json();
-      if (data.success) {
-        setCoins(data.user.coins);
-        setRating(data.user.rating);
+      
+      // 🎯 SERVERDAN KELAYOTGAN MA'LUMOTLARNI XAVFSIZ PARSING QILISH (data.coins yoki data.user.coins)
+      if (data) {
+        const actualCoins = data.coins !== undefined ? data.coins : (data.user?.coins ?? 100);
+        const actualRating = data.rating !== undefined ? data.rating : (data.user?.rating ?? 100);
+        
+        setCoins(actualCoins);
+        setRating(actualRating);
+        console.log("Muvaffaqiyatli yuklandi! Tangalar:", actualCoins);
       }
     } catch (error) {
       console.error("Akkaunt yuklashda xatolik:", error);
-      // SERVER O'CHIK BO'LSA YOKI PHONEDA TEST QILINGANDA DEFOLT QIYMATLAR:
-      setCoins(100); // Boshlang'ich defolt: 100 tanga 🪙
-      setRating(0);   // Boshlang'ich reyting: 0 XP 🏆
+      // AGAR SERVER O'CHIK BO'LSA YOKI INTERNET UZILSA DEFOLT QIYMATLAR:
+      setCoins(100); 
+      setRating(100);   
     }
   };
 
-  // --- DUEL REJIMIGA KIRISH VA CHIQISH REJIMLARI ---
+  // --- DUEL REJIMIGA KIRISH VA CHIQISH ---
   const enterDuelMode = () => {
     socket.connect(); // Faqat duel oynasiga kirganda socket serverga ulanadi
     setActiveTab('duel_game');
@@ -73,8 +79,7 @@ function App() {
 
   const showNotif = (msg, type) => {
     console.log(`[${type.toUpperCase()}]: ${msg}`);
-    // Agar Telegram oynasi ichida bo'lsa, chiroyli popup chiqaradi
-    if (window.Telegram?.WebApp?.showPopup) {
+    if (window.Telegram?.WebApp?.showAlert) {
       window.Telegram.WebApp.showAlert(msg);
     }
   };
@@ -121,7 +126,7 @@ function App() {
                 <span>(Reytingga ta'sir qilmaydi)</span>
               </button>
 
-              {/* 2. Do'stlar / Real odamlar bilan duel */}
+              {/* 2. Real odamlar bilan duel */}
               <button className="menu-btn mode-pvp" onClick={enterDuelMode}>
                 ⚔️ Do'stlar bilan Duel
                 <span>(Reyting va Tangalar tikiladi!)</span>
@@ -131,7 +136,7 @@ function App() {
             {/* Referal ulashish bo'limi */}
             <div className="referral-box">
               <h3>Do'stlarni taklif qiling!</h3>
-              <p>Har bir taklif uchun: do'stingizga <strong>+100 🪙</strong>, sizga <strong>+150 🪙</strong></p>
+              <p>Har bir taklif uchun: do'stingizga <strong>+100 🪙</strong>, sizga <strong>+100 🪙</strong></p>
               <button 
                 className="share-btn" 
                 onClick={() => {
