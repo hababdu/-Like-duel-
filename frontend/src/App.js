@@ -10,6 +10,7 @@ function App() {
   const [coins, setCoins] = useState(0);
   const [rating, setRating] = useState(0);
   const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'bot_game' | 'duel_game'
+  const [isLoading, setIsLoading] = useState(true); // Yuklanish indikatori
 
   useEffect(() => {
     // 1. Telegram WebApp muhitini tekshirish
@@ -22,58 +23,65 @@ function App() {
       const user = tg.initDataUnsafe.user;
       setTgUser(user);
 
-      // Backendga foydalanuvchi ma'lumotlarini va referal kodini yuborish
-      const startParam = tg.initDataUnsafe.start_param; // ref_123456 ko'rinishida keladi
+      // Backendga foydalanuvchi ma'lumotlarini yuklash uchun yuboramiz
+      const startParam = tg.initDataUnsafe.start_param; 
       registerOrFetchUser(user, startParam);
     } else {
-      // BRAUZERDA HAM TEST QILISH OSON BO'LISHI UCHUN BU YERNI TRUE QILIB TURAMIZ:
+      // BRAUZERDA TEST QILISH REJIMI:
       setIsTelegram(true); 
+      const mockUser = { id: '99887766', first_name: 'Habibullo Dev', username: 'habibullo_dev' };
+      setTgUser(mockUser);
+      registerOrFetchUser(mockUser, null);
     }
   }, []);
 
   // Backend bilan bog'lanib akkauntni yaratish yoki yuklash
   const registerOrFetchUser = async (user, startParam) => {
+    setIsLoading(true);
     try {
-      // Jonli Render server manzili 🚀
       const response = await fetch('https://telegram-bot-server-2-matj.onrender.com/api/user/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tgId: user.id,
-          username: user.username,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          photoUrl: user.photo_url,
+          tgId: user.id.toString(),
+          username: user.username || '',
+          firstName: user.first_name || "O'yinchi",
+          lastName: user.last_name || '',
+          photoUrl: user.photo_url || '',
           refParent: startParam && startParam.startsWith('ref_') ? startParam.replace('ref_', '') : null
         })
       });
-      const data = await response.json();
       
-      // 🎯 SERVERDAN KELAYOTGAN MA'LUMOTLARNI XAVFSIZ PARSING QILISH (data.coins yoki data.user.coins)
-      if (data) {
-        const actualCoins = data.coins !== undefined ? data.coins : (data.user?.coins ?? 100);
-        const actualRating = data.rating !== undefined ? data.rating : (data.user?.rating ?? 100);
-        
-        setCoins(actualCoins);
-        setRating(actualRating);
-        console.log("Muvaffaqiyatli yuklandi! Tangalar:", actualCoins);
+      const data = await response.json();
+      console.log("Serverdan kelgan to'liq ma'lumot:", data);
+      
+      // 🎯 BAZADAN KELGAN REAL TANGALARNI TEKSHIRISH
+      if (data && data.success && data.user) {
+        // Agar foydalanuvchi allaqachon bazada bo'lsa, uning saqlangan tangalarini oladi
+        setCoins(data.user.coins);
+        setRating(data.user.rating);
+        console.log("Bazadan yuklangan real tangalar:", data.user.coins);
+      } else if (data && data.coins !== undefined) {
+        setCoins(data.coins);
+        setRating(data.rating || 100);
       }
     } catch (error) {
-      console.error("Akkaunt yuklashda xatolik:", error);
-      // AGAR SERVER O'CHIK BO'LSA YOKI INTERNET UZILSA DEFOLT QIYMATLAR:
-      setCoins(100); 
-      setRating(100);   
+      console.error("Akkaunt yuklashda xatolik yuz berdi:", error);
+      // Xatolik bo'lsa majburiy 100 qilmaymiz, localstorage yoki eski holatda qoldiramiz
+      showNotif("Tarmoq xatosi! Ma'lumotlar oxirgi seansdan yuklanadi.", "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // --- DUEL REJIMIGA KIRISH VA CHIQISH ---
   const enterDuelMode = () => {
-    socket.connect(); // Faqat duel oynasiga kirganda socket serverga ulanadi
+    socket.connect(); 
     setActiveTab('duel_game');
   };
 
   const leaveDuelMode = () => {
-    socket.disconnect(); // Menyuga qaytganda socket aloqasini xavfsiz uzadi
+    socket.disconnect(); 
     setActiveTab('menu');
   };
 
@@ -97,6 +105,20 @@ function App() {
             Botga o'tish 🚀
           </a>
         </div>
+      </div>
+    );
+  }
+
+  // O'yin yuklanayotgan paytda ekranda "Yuklanmoqda..." yozuvi turadi
+  if (isLoading) {
+    return (
+      <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div className="radar-spinner" style={{margin: 0}}>
+          <div className="circle-1"></div>
+          <div className="circle-2"></div>
+          <div className="circle-3"></div>
+        </div>
+        <p style={{ marginTop: '20px', color: '#b9bbbe', fontWeight: 'bold' }}>Ma'lumotlar yuklanmoqda...</p>
       </div>
     );
   }
@@ -142,7 +164,7 @@ function App() {
                 onClick={() => {
                   const inviteLink = `https://t.me/SeningOyinBot/app?startapp=ref_${tgUser?.id || '123'}`;
                   window.Telegram.WebApp.openTelegramLink(
-                    `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent("Men bilan tosh-qog'oz-qaychi duelida kuch sinash! 🎮 Kelganing uchun senga sovg'a tangalar bor!")}`
+                    `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent("Men bilan tosh-qog'oz-qaychi duelida kuch simash! 🎮 Kelganing uchun senga sovg'a tangalar bor!")}`
                   );
                 }}
               >
