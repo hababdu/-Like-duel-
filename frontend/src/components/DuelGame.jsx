@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import './DuelGame.css'; // Ushbu fayl multiplayer stillarini ham o'z ichiga oladi
+import './DuelGame.css'; // O'yin stillari fayli
 
 function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onBackToMenu, showNotif }) {
   // O'yin va Xona holatlari
   const [roomId, setRoomId] = useState(null);
   const [gameState, setGameState] = useState('searching'); // 'searching' | 'ready' | 'playing' | 'revealed' | 'gameover'
-  const [opponent, setOpponent] = useState(null); // { name, avatar, rating, coins }
+  const [opponent, setOpponent] = useState(null);
   
   // O'yin mantiqi
   const [myChoice, setMyChoice] = useState(null);
@@ -18,11 +18,11 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
   const [messageText, setMessageText] = useState('');
   const chatEndRef = useRef(null);
 
-  const MIN_PLAY_COINS = 50; // O'yinga kirish uchun minimal tanga summasi
-  const STAKE_COINS = 100;   // Har bir o'yindagi tikiladigan standart tanga (stavka)
+  // YANGILANGAN IQTISODIYOT SOZLAMALARI 🪙
+  const MIN_PLAY_COINS = 1; // O'yinga kirish uchun kamida 1 tanga bo'lishi kerak
+  const STAKE_COINS = 1;    // Har bir o'yinda tikiladigan standart stavka: 1 tanga
 
   // --- TELEGRAMDAN FOYDALANUVCHI MA'LUMOTLARINI OLISH ---
-  // useCallback orqali funksiyani keshlaymiz, cheksiz renderlarning oldini oladi
   const getTgUser = useCallback(() => {
     const tg = window.Telegram?.WebApp;
     if (tg?.initDataUnsafe?.user) {
@@ -40,20 +40,20 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
   // --- REYTING VA TANGA NAZORATI ---
   useEffect(() => {
     if (playerCoins < MIN_PLAY_COINS && gameState === 'searching') {
-      showNotif("Mablag'ingiz yetarli emas! Iltimos, do'kondan tanga oling.", "error");
+      showNotif("Mablag'ingiz yetarli emas! Iltimos, tanga to'plang.", "error");
       onBackToMenu(); 
     }
   }, [playerCoins, gameState, onBackToMenu, showNotif]);
 
-  // --- SOCKET.IO REAL-TIME INTEGRATSIYA ---
+  // --- SOCKET.IO INTEGRATSIYA ---
   useEffect(() => {
     if (!socket) return;
 
-    // 1. Raqib qidirishni faqat bir marta boshlash
+    // 1. Matchmakingni faqat bir marta chaqirish (Sikl hosil qilmaydi)
     const localPlayer = getTgUser();
     socket.emit('find_match', { player: localPlayer, stake: STAKE_COINS });
 
-    // 2. O'yin topilganda server javobi
+    // 2. Raqib topilganda
     socket.on('match_found', (data) => {
       setRoomId(data.roomId);
       setOpponent(data.opponent);
@@ -70,19 +70,19 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       setTimer(30);
     });
 
-    // 4. Taymer yangilanishi
+    // 4. Serverdan taymer sekundlari kelishi
     socket.on('timer_tick', (timeLeft) => {
       setTimer(timeLeft);
     });
 
-    // 5. Raund natijasi e'lon qilinganda
+    // 5. Raund yakunlanib, natijalar e'lon qilinganda
     socket.on('round_result', (data) => {
       setMyChoice(data.myChoice);
       setOpponentChoice(data.opponentChoice);
       setRoundResult(data.result);
       setGameState('revealed');
 
-      // Statedagi moliyaviy o'zgarishlar
+      // Balansni dinamik yangilash (Stavka endi 1 tanga)
       setCoins(prev => Math.max(0, prev + data.rewardCoins));
       setRating(prev => Math.max(0, prev + data.rewardXP));
 
@@ -107,7 +107,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       setChatMessages(prev => [...prev, msg]);
     });
 
-    // Tozalash funksiyasi (Komponent o'chganda aloqani xavfsiz uzish)
+    // Tozalash funksiyasi (Aloqani xavfsiz yopish)
     return () => {
       setRoomId((currentRoomId) => {
         if (currentRoomId) {
@@ -122,14 +122,14 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
       socket.off('opponent_left');
       socket.off('receive_message');
     };
-  }, [socket, getTgUser, onBackToMenu, showNotif]); // To'g'ri dependencylar qo'shildi
+  }, [socket, getTgUser, onBackToMenu, showNotif]);
 
-  // Chat scroll animatsiyasi
+  // Chat scrollini avtomatik pastga tushirish
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // --- HARAKAT CHIQARISH ---
+  // --- HARAKAT TANLASH ---
   const makeChoice = (choice) => {
     if (gameState !== 'playing' || myChoice) return;
     setMyChoice(choice);
@@ -154,13 +154,12 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
   };
 
   const QUICK_CHAT = ["Omad! 👍", "Yaxshi o'yin! 🤝", "Ups... 🫣", "Shoshilma! ⏳", "🔥", "😎"];
-
   const currentLocalPlayer = getTgUser();
 
   return (
     <div className="game-wrapper duel-mode">
       
-      {/* 1. MATCHMAKING (RAQIB QIDIRISH EKRANI) */}
+      {/* 1. KUTISH EKRANI (MATCHMAKING) */}
       {gameState === 'searching' && (
         <div className="lobby-overlay">
           <div className="spinner"></div>
@@ -174,10 +173,10 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
         </div>
       )}
 
-      {/* 2. ASOSIY DUEL INTERFEYSI */}
+      {/* 2. JONLI DUEL INTERFEYSI */}
       {gameState !== 'searching' && (
         <>
-          {/* Tepadagi Panel: Ikkala o'yinchi profili */}
+          {/* Tepadagi Panel: Foydalanuvchilar ma'lumotlari */}
           <header className="duel-header">
             {/* SIZ */}
             <div className="profile-card me">
@@ -200,9 +199,8 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
             </div>
           </header>
 
-          {/* O'yin Arenasi */}
+          {/* O'yin maydoni */}
           <main className="arena">
-            {/* SIZ ning tanlovingiz */}
             <div className={`card player-card ${myChoice ? 'active' : ''}`}>
               <div className="card-inner">
                 <span className="card-label">SIZ</span>
@@ -212,14 +210,12 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
               </div>
             </div>
 
-            {/* Timer */}
             <div className="vs-center">
               <div className="timer-number-box">
                 <span className={`timer-text ${timer <= 5 ? 'pulse' : ''}`}>{timer}s</span>
               </div>
             </div>
 
-            {/* Raqib tanlovi */}
             <div className={`card bot-card ${opponentChoice ? 'active' : ''}`}>
               <div className="card-inner">
                 <span className="card-label">RAQIB</span>
@@ -230,7 +226,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
             </div>
           </main>
 
-          {/* Natija Banneri */}
+          {/* Natija oynasi */}
           <div className="result-banner-container">
             {roundResult && (
               <div className={`status-banner banner-${roundResult}`}>
@@ -239,7 +235,7 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
             )}
           </div>
 
-          {/* CHAT TIZIMI (Duel xonasi uchun) */}
+          {/* REAL TIME CHAT */}
           <section className="duel-chat-section">
             <div className="chat-messages-container">
               {chatMessages.map((msg, idx) => (
@@ -251,7 +247,6 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
               <div ref={chatEndRef} />
             </div>
             
-            {/* Tezkor chat tugmalari */}
             <div className="quick-chat-grid">
               {QUICK_CHAT.map((phrase, idx) => (
                 <button key={idx} onClick={() => sendMessage(phrase)} className="quick-chat-btn">
@@ -260,7 +255,6 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
               ))}
             </div>
 
-            {/* Matnli yozish joyi */}
             <div className="chat-input-bar">
               <input 
                 type="text" 
@@ -269,11 +263,11 @@ function DuelGame({ socket, playerCoins, setCoins, currentRating, setRating, onB
                 placeholder="Xabar yozing..."
                 onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
               />
-              <button onClick={() => sendMessage()}>Yuborish</button>
+              <button onClick={() => sendMessage()}>Send</button>
             </div>
           </section>
 
-          {/* Tanlash Tugmalari */}
+          {/* Harakat Tanlash Tugmalari */}
           <footer className="action-area">
             <div className={`choices-grid ${myChoice ? 'has-selection' : ''}`}>
               {['rock', 'paper', 'scissors'].map((key) => {

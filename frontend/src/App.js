@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import './App.css'; // Umumiy stillar uchun
 import DuelGame from './components/DuelGame';
 import BotGame from './components/BotGame'; 
-import socket from './socket'; // Boya yaratgan socket obyektimizni import qilamiz
+import socket from './socket'; // Socket obyektimiz
 
 function App() {
   const [isTelegram, setIsTelegram] = useState(false);
@@ -34,7 +34,7 @@ function App() {
   // Backend bilan bog'lanib akkauntni yaratish yoki yuklash
   const registerOrFetchUser = async (user, startParam) => {
     try {
-      // Yangilangan jonli Render server manzili 🚀
+      // Jonli Render server manzili 🚀
       const response = await fetch('https://telegram-bot-server-2-matj.onrender.com/api/user/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,9 +54,9 @@ function App() {
       }
     } catch (error) {
       console.error("Akkaunt yuklashda xatolik:", error);
-      // AGAR SERVER HALI DEPLOY BO'LMAGAN BO'LSA, VAQTINCHALIK TEST REJIMIDA ZAXIRA MABBLAG':
-      setCoins(1000); // 1000 tanga test uchun
-      setRating(150); // 150 XP test uchun
+      // SERVER O'CHIK BO'LSA YOKI PHONEDA TEST QILINGANDA DEFOLT QIYMATLAR:
+      setCoins(100); // Boshlang'ich defolt: 100 tanga 🪙
+      setRating(0);   // Boshlang'ich reyting: 0 XP 🏆
     }
   };
 
@@ -137,7 +137,7 @@ function App() {
                 onClick={() => {
                   const inviteLink = `https://t.me/SeningOyinBot/app?startapp=ref_${tgUser?.id || '123'}`;
                   window.Telegram.WebApp.openTelegramLink(
-                    `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent("Men bilan tosh-qog'oz-qaychi duelida kuch simash! 🎮 Kelganing uchun senga sovg'a tangalar bor!")}`
+                    `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent("Men bilan tosh-qog'oz-qaychi duelida kuch sinash! 🎮 Kelganing uchun senga sovg'a tangalar bor!")}`
                   );
                 }}
               >
@@ -160,7 +160,7 @@ function App() {
 
       {activeTab === 'duel_game' && (
         <DuelGame 
-          socket={socket} // Socket obyekti endi muvaffaqiyatli prop orqali uzatilmoqda
+          socket={socket} 
           playerCoins={coins} 
           setCoins={setCoins} 
           currentRating={rating} 
