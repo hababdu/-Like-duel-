@@ -428,3 +428,55 @@
 .quick-chat-btn:active {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* Real-time matn inputi */
+.chat-input-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.chat-input-row input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: white;
+  font-size: 13px;
+  outline: none;
+}
+
+.chat-input-row button {
+  background: #2481cc;
+  border: none;
+  color: white;
+  padding: 0 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* Shaxsiy chat link tugmasi */
+.pm-link-btn {
+  display: inline-block;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: bold;
+  border-radius: 6px;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  margin-top: 4px;
+}
+
+.pm-link-btn.buy-btn {
+  background: #e5a93c;
+  color: #000;
+}
+
+.pm-link-btn.opened {
+  background: #26a69a;
+  color: white;
+  animation: pulse 1.5s infinite;
+}
