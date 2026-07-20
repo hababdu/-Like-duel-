@@ -1,506 +1,366 @@
-/* ==========================================
-   🎯 UMUMIY STYLES & ANIMATSIYALAR
-   ========================================== */
-   :root {
-    --bg-dark: #151922;
-    --card-bg: #1f2533;
-    --accent-color: #2481cc;
-    --success-color: #26a69a;
-    --error-color: #ef5350;
-    --warning-color: #e5a93c;
-    --text-main: #ffffff;
-    --text-muted: #b9bbbe;
-  }
-  
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--bg-dark);
-    color: var(--text-main);
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-  }
-  
-  .app-container, .duel-game-page {
+/* =========================================================================
+   🎨 DUEL GAME ASOSIY EKRAN STUNLARI
+   ========================================================================= */
+   .game-screen {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    padding: 20px;
+    color: #ffffff;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     box-sizing: border-box;
-    padding: 16px;
-    background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
   }
   
-  /* Animatsiyalar */
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+  /* Orqaga qaytish tugmasi */
+  .back-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
   }
   
-  @keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.05); opacity: 0.8; }
-    100% { transform: scale(1); opacity: 1; }
+  .back-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
   }
   
-  @keyframes bounceIn {
-    0% { transform: scale(0.3); opacity: 0; }
-    50% { transform: scale(1.05); }
-    70% { transform: scale(0.9); }
-    100% { transform: scale(1); opacity: 1; }
+  /* Umumiy tugmalar uslubi (Action Buttons) */
+  .btn-action {
+    width: 100%;
+    max-width: 280px;
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 25px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    text-align: center;
   }
   
-  .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-  .animate-pulse { animation: pulse 2s infinite ease-in-out; }
-  .animate-bounce-in { animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+  /* =========================================================================
+     💰 1. SETUP / STAVKA TANLASH EKRANI (IDLE)
+     ========================================================================= */
+  .setup-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+  }
   
-  /* ==========================================
-     🔍 RADAR SPINNER (YUKLANISH VA QIDIRUV)
-     ========================================== */
-  .radar-spinner {
+  .setup-container h2 {
+    font-size: 24px;
+    margin-bottom: 5px;
+    background: linear-gradient(45deg, #00f2fe, #4facfe);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .user-current-coins {
+    font-size: 16px;
+    color: #a0aec0;
+    margin-bottom: 25px;
+  }
+  
+  /* Stavka kartalari to'plami */
+  .stake-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    width: 100%;
+    margin-bottom: 30px;
+  }
+  
+  .stake-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .stake-card .coin-icon {
+    font-size: 24px;
+    margin-bottom: 5px;
+  }
+  
+  .stake-card .stake-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+  }
+  
+  /* Tanlangan stavka effekti */
+  .stake-card.selected {
+    background: rgba(79, 172, 254, 0.15);
+    border-color: #00f2fe;
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+    transform: translateY(-2px);
+  }
+  
+  .btn-start {
+    background: linear-gradient(45deg, #00f2fe, #4facfe);
+    color: #fff;
+  }
+  
+  .btn-start:hover {
+    box-shadow: 0 6px 20px rgba(0, 242, 254, 0.5);
+    transform: translateY(-2px);
+  }
+  
+  /* =========================================================================
+     ⏳ 2. QIDIRUV EKRANI (SEARCHING)
+     ========================================================================= */
+  .searching-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  /* Radar animatsiyasi */
+  .radar-animation {
     position: relative;
-    width: 80px;
-    height: 80px;
-    margin: 40px auto;
+    width: 100px;
+    height: 100px;
+    margin-bottom: 30px;
   }
   
-  .radar-spinner .circle-1, .radar-spinner .circle-2 {
+  .radar-animation .ring {
     position: absolute;
     width: 100%;
     height: 100%;
-    border: 3px solid var(--accent-color);
+    border: 2px solid #00f2fe;
     border-radius: 50%;
+    animation: radar-pulsate 2s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
     opacity: 0;
-    animation: radarMotion 2s infinite linear;
   }
   
-  .radar-spinner .circle-2 {
+  .radar-animation .ring:nth-child(2) {
     animation-delay: 1s;
   }
   
-  @keyframes radarMotion {
+  @keyframes radar-pulsate {
     0% { transform: scale(0.1); opacity: 1; }
     100% { transform: scale(1.2); opacity: 0; }
   }
   
-  /* ==========================================
-     💳 MENU & ARENA CARD DESIGN
-     ========================================== */
-  .duel-card {
-    background: var(--card-bg);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 20px;
-    padding: 24px;
-    text-align: center;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    max-width: 400px;
-    margin: auto;
-  }
-  
-  .duel-icon-wrapper {
-    font-size: 48px;
-    margin-bottom: 12px;
-  }
-  
-  .duel-title {
-    font-size: 22px;
-    margin: 0 0 8px 0;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-  }
-  
-  .duel-description {
-    color: var(--text-muted);
-    font-size: 14px;
-    margin-bottom: 20px;
-  }
-  
-  .highlight-text {
-    color: var(--warning-color);
-    font-weight: bold;
-  }
-  
-  /* Statisika preview qatori */
-  .stats-preview-row {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-  }
-  
-  .stat-preview-box {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 12px;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .stat-preview-box span {
-    font-size: 11px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-  }
-  
-  .stat-preview-box strong {
-    font-size: 16px;
+  .btn-cancel {
+    background: #e53e3e;
     color: #fff;
+    margin-top: 20px;
   }
   
-  /* Tugmalar */
-  .duel-action-btn {
+  .btn-cancel:hover {
+    background: #c53030;
+  }
+  
+  /* =========================================================================
+     ⚔️ 3. ARENA EKRANI (PLAYING)
+     ========================================================================= */
+  .arena-container {
     width: 100%;
-    padding: 14px;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: bold;
-    border: none;
-    cursor: pointer;
-    margin-bottom: 10px;
-    transition: all 0.2s ease;
-  }
-  
-  .duel-action-btn.start-btn {
-    background: linear-gradient(135deg, #2481cc 0%, #1a6299 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(36, 129, 204, 0.3);
-  }
-  
-  .duel-action-btn.cancel-btn {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--text-main);
-  }
-  
-  .duel-action-btn:active {
-    transform: scale(0.98);
-    opacity: 0.9;
-  }
-  
-  /* ==========================================
-     ⚔️ ARENA ACTIVE PLAYING GAMEPLAY
-     ========================================== */
-  .arena-wrapper {
+    max-width: 450px;
     display: flex;
     flex-direction: column;
-    flex: 1;
-    max-width: 450px;
-    margin: 0 auto;
-    width: 100%;
-    gap: 16px;
+    align-items: center;
   }
   
-  /* O'yinchilar yuqori paneli */
-  .arena-players-bar {
+  /* Tepadagi VS paneli */
+  .versus-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--card-bg);
-    padding: 12px 16px;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 15px 25px;
+    margin-bottom: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-sizing: border-box;
   }
   
-  .arena-player {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    width: 35%;
-  }
-  
-  .arena-player h4 {
-    margin: 0;
-    font-size: 14px;
-    white-space: nowrap;
+  .fighter {
+    font-size: 16px;
+    font-weight: 600;
+    max-width: 40%;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
   
-  .arena-player p {
-    margin: 0;
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-  
-  /* Taymer sirkli */
-  .arena-timer-circle {
-    background: rgba(0, 0, 0, 0.4);
-    border: 2px solid var(--accent-color);
-    width: 46px;
-    height: 46px;
+  /* Taymer dumaloq dizayni */
+  .arena-timer {
+    background: #1a202c;
+    border: 3px solid #ffb703;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    box-shadow: 0 0 10px rgba(255, 183, 3, 0.4);
+  }
+  
+  /* Qurollar (Tosh, qog'oz, qaychi) qatori */
+  .weapons-row {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    gap: 12px;
+    margin-bottom: 25px;
+  }
+  
+  .weapons-row button {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 25px 10px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    gap: 8px;
   }
   
-  .timer-number {
-    font-size: 16px;
-    font-weight: bold;
-    color: var(--warning-color);
+  .weapons-row button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-3px);
+    border-color: #4facfe;
   }
   
-  .timer-label {
-    font-size: 7px;
-    text-transform: uppercase;
-    color: var(--text-muted);
+  /* Tanlangan qurol effekti */
+  .weapons-row button.active {
+    background: #4facfe;
+    border-color: #00f2fe;
+    box-shadow: 0 0 20px rgba(79, 172, 254, 0.6);
+    transform: scale(1.05);
   }
   
-  /* 🔓 Shaxsiy profil sotib olish tugmasi */
-  .pm-link-btn {
-    display: inline-block;
-    padding: 4px 8px;
-    font-size: 10px;
-    font-weight: bold;
-    border-radius: 6px;
-    text-decoration: none;
-    cursor: pointer;
-    border: none;
-    margin-top: 6px;
-    transition: background 0.2s;
-    text-align: center;
+  .weapons-row button:disabled:not(.active) {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
   }
   
-  .pm-link-btn.buy-btn {
-    background: var(--warning-color);
-    color: #000;
-  }
-  
-  .pm-link-btn.opened {
-    background: var(--success-color);
-    color: white;
+  .wait-msg {
+    color: #a0aec0;
+    font-style: italic;
+    font-size: 14px;
+    margin-top: 15px;
     animation: pulse 1.5s infinite;
   }
   
-  /* Markaziy tugmalar maydoni (Gorizontal dizayn) */
-  .arena-main-card {
-    background: var(--card-bg);
-    border-radius: 16px;
-    padding: 16px;
-    text-align: center;
+  @keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
   }
   
-  .arena-main-card h3 {
-    margin: 0 0 14px 0;
-    font-size: 14px;
-    color: var(--text-muted);
-  }
-  
-  .arena-buttons-grid {
-    display: flex;
-    gap: 10px;
-    justify-content: space-between;
-  }
-  
-  .arena-choice-card {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    padding: 16px 8px;
+  /* =========================================================================
+     🏆 4. NATIJA EKRANI (RESULT)
+     ========================================================================= */
+  .result-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    color: white;
-    transition: all 0.2s ease;
+    width: 100%;
+    max-width: 400px;
   }
   
-  .arena-choice-card .choice-emoji {
+  .result-banner {
     font-size: 28px;
-  }
-  
-  .arena-choice-card .choice-text {
-    font-size: 12px;
-    font-weight: 600;
-  }
-  
-  .arena-choice-card:active:not([disabled]) {
-    transform: scale(0.95);
-  }
-  
-  .arena-choice-card.active-choice {
-    background: rgba(36, 129, 204, 0.15);
-    border-color: var(--accent-color);
-    box-shadow: 0 0 10px rgba(36, 129, 204, 0.3);
-  }
-  
-  .waiting-status {
-    font-size: 12px;
-    color: var(--warning-color);
-    margin-top: 12px;
-  }
-  
-  /* ==========================================
-     🏆 NATIJA VA VERSUS SUMMARY STYLES
-     ========================================== */
-  .versus-summary-box {
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 12px;
-    border-radius: 12px;
-    margin: 16px 0;
-  }
-  
-  .summary-col {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .summary-col span {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-  
-  .summary-col strong {
-    font-size: 14px;
-  }
-  
-  .summary-vs {
     font-weight: 900;
-    color: var(--error-color);
-    font-style: italic;
+    margin-bottom: 25px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    letter-spacing: 1px;
   }
   
-  .green-text { color: var(--success-color); font-weight: bold; }
-  .red-text { color: var(--error-color); font-weight: bold; }
-  .gray-text { color: var(--text-muted); }
+  .result-banner.win { color: #48bb78; }
+  .result-banner.lose { color: #f56565; }
+  .result-banner.draw { color: #e2e8f0; }
   
-  /* ==========================================
-     💬 JONLI REAL-TIME CHAT INTERFEYSI
-     ========================================== */
-  .chat-container {
-    display: flex;
-    flex-direction: column;
-    background: var(--card-bg);
-    border-radius: 16px;
-    padding: 12px;
-    flex: 1;
-    max-height: 280px;
-  }
-  
-  /* Xabarlar pufakchalari oynasi */
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding-right: 4px;
-    margin-bottom: 8px;
-  }
-  
-  /* Scrollbarni chiroyli qilish */
-  .chat-messages::-webkit-scrollbar {
-    width: 4px;
-  }
-  .chat-messages::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 2px;
-  }
-  
-  .chat-bubble {
-    max-width: 75%;
-    padding: 6px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    line-height: 1.4;
-    word-break: break-word;
-    animation: fadeIn 0.2s ease-out;
-  }
-  
-  .chat-bubble.me {
-    background: #2481cc;
-    color: white;
-    align-self: flex-end;
-    border-bottom-right-radius: 2px;
-  }
-  
-  .chat-bubble.opponent {
-    background: rgba(255, 255, 255, 0.08);
-    color: white;
-    align-self: flex-start;
-    border-bottom-left-radius: 2px;
-  }
-  
-  /* Tezkor iboralar qatori */
-  .quick-chat-grid {
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-    padding-bottom: 6px;
-    margin-bottom: 6px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  }
-  
-  .quick-chat-grid::-webkit-scrollbar {
-    display: none; /* Skroll satrini yashirish */
-  }
-  
-  .quick-chat-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: white;
-    padding: 4px 10px;
+  .battle-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 20px;
-    font-size: 11px;
-    cursor: pointer;
-    white-space: nowrap;
+    padding: 25px;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 30px;
+    box-sizing: border-box;
   }
   
-  .quick-chat-btn:active {
-    background: rgba(255, 255, 255, 0.15);
+  .battle-card p {
+    font-size: 18px;
+    margin: 10px 0;
   }
   
-  /* 🚀 Real erkin matnli chat input qatori */
-  .chat-input-row {
+  .financial-summary {
     display: flex;
-    gap: 6px;
-  }
-  
-  .chat-input-row input {
-    flex: 1;
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    padding: 8px 12px;
-    color: white;
-    font-size: 13px;
-    outline: none;
-  }
-  
-  .chat-input-row input:focus {
-    border-color: var(--accent-color);
-  }
-  
-  .chat-send-submit {
-    background: var(--accent-color);
-    border: none;
-    color: white;
-    padding: 0 14px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 13px;
-    display: flex;
-    align-items: center;
     justify-content: center;
-  }
-  
-  .chat-send-submit:active {
-    opacity: 0.8;
-  }
-  
-  /* --- BRAUZER BLOKLASH EKRANI --- */
-  .block-screen {
-    display: flex;
     align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    background: #0f172a;
-    padding: 20px;
+    margin-top: 20px;
+    font-size: 20px;
+    font-weight: bold;
+  }
+  
+  .financial-summary .plus { color: #48bb78; }
+  .financial-summary .minus { color: #f56565; }
+  
+  .btn-restart {
+    background: linear-gradient(45deg, #48bb78, #38a169);
+    color: white;
+  }
+  
+  .btn-restart:hover {
+    box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+    transform: translateY(-2px);
+  }
+  
+  /* =========================================================================
+     ⚠️ 5. UZILISH EKRANI (OPPONENT LEFT)
+     ========================================================================= */
+  .disconnected-container {
+    text-align: center;
+    background: rgba(229, 62, 62, 0.1);
+    border: 1px solid #e53e3e;
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 350px;
+  }
+  
+  .disconnected-container h3 {
+    color: #f56565;
+    margin-bottom: 10px;
+  }
+  
+  .disconnected-container p {
+    color: #cbd5e0;
+    margin-bottom: 20px;
+    font-size: 14px;
   }

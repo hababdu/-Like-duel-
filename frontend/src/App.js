@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DuelGame from './components/DuelGame';
-import BotGame from './components/BotGame'; // Sizda tayyor bo'lgan komponent
+import BotGame from './components/BotGame';
 import Leaderboard from './components/Leaderboard';
 import './App.css';
 
@@ -10,7 +10,28 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState('menu'); 
   const [loading, setLoading] = useState(true);
 
+  // 🎯 Markaziy backend server manzili
   const BACKEND_URL = "https://telegram-bot-server-2-matj.onrender.com";
+
+  // O'yinlardan keyin yoki menuga qaytganda foydalanuvchi ma'lumotlarini serverdan yangilab olish
+  const refreshUserData = (tgId) => {
+    fetch(`${BACKEND_URL}/api/user/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tgId: String(tgId),
+        firstName: user?.firstName || "O'yinchi",
+        username: user?.username || ""
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.user) {
+        setUser(data.user);
+      }
+    })
+    .catch(err => console.error("Balansni yangilashda xatolik:", err));
+  };
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -19,9 +40,10 @@ function App() {
       tg.expand();
 
       const tgUser = tg.initDataUnsafe?.user;
-      const startParam = tg.initDataUnsafe?.start_param; 
+      const startParam = tg.initDataUnsafe?.start_param; // Taklif qilgan do'stning tgId'si
 
       if (tgUser) {
+        // Backend API bilan avtorizatsiya va referal integratsiyasi
         fetch(`${BACKEND_URL}/api/user/auth`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -29,14 +51,12 @@ function App() {
             tgId: String(tgUser.id),
             username: tgUser.username || '',
             firstName: tgUser.first_name || "O'yinchi",
-            lastName: tgUser.last_name || '',
-            photoUrl: tgUser.photo_url || '',
-            refParent: startParam ? String(startParam) : null
+            startParam: startParam ? String(startParam) : null // Backend aynan startParam kutmoqda
           })
         })
         .then(res => res.json())
         .then(data => {
-          if (data.success) {
+          if (data.success && data.user) {
             setUser(data.user);
           } else {
             setLocalTestData();
@@ -72,7 +92,7 @@ function App() {
     const inviteLink = `https://t.me/${botUsername}/app?startapp=${user.tgId}`;
     
     navigator.clipboard.writeText(inviteLink)
-      .then(() => alert("🔗 Taklif havolasi nusxalandi! Do'stlaringizga yuboring va 100 tanga oling! 🎉"))
+      .then(() => alert("🔗 Taklif havolasi nusxalandi! Do'stlaringizga yuboring va 100 tanga bonus oling! 🎉"))
       .catch(() => alert("Nusxalashda xatolik yuz berdi."));
   };
 
@@ -104,7 +124,7 @@ function App() {
           </div>
 
           <div className="menu-buttons">
-            {/* Rejim 1: Onlayn odamlar bilan */}
+            {/* Rejim 1: Onlayn odamlar bilan (Real-time Socket.io ulanishi uchun) */}
             <button className="btn-menu btn-play-online" onClick={() => setCurrentScreen('duel_game')}>
               ⚔️ Onlayn Duel (Real Players)
             </button>
@@ -114,10 +134,12 @@ function App() {
               🤖 Bot bilan O'ynash (Practice)
             </button>
 
+            {/* Rejim 3: Peshqadamlar Ro'yxati */}
             <button className="btn-menu btn-leader" onClick={() => setCurrentScreen('leaderboard')}>
               🏆 Peshqadamlar Ro'yxati
             </button>
             
+            {/* Rejim 4: Do'stlarni taklif qilish */}
             <button className="btn-menu btn-invite" onClick={copyInviteLink}>
               👥 Do'stlarni Taklif Qilish
             </button>
@@ -125,19 +147,38 @@ function App() {
         </div>
       )}
 
-      {/* ⚔️ Onlayn Duel Ekraniga yo'naltirish */}
+      {/* ⚔️ Onlayn Duel Ekraniga WebSocket va URL integratsiyasi */}
       {currentScreen === 'duel_game' && (
-        <DuelGame user={user} setUser={setUser} onBack={() => setCurrentScreen('menu')} />
+        <DuelGame 
+          user={user} 
+          setUser={setUser} 
+          backendUrl={BACKEND_URL} 
+          onBack={() => {
+            setCurrentScreen('menu');
+            if (user) refreshUserData(user.tgId); // Menuga qaytganda ochko va tangalarni yangilash
+          }} 
+        />
       )}
 
-      {/* 🤖 Oflayn Bot Ekraniga yo'naltirish (Sizdagi tayyor komponent chaqiriladi) */}
+      {/* 🤖 Oflayn Bot Ekraniga yo'naltirish */}
       {currentScreen === 'bot_game' && (
-        <BotGame user={user} setUser={setUser} onBack={() => setCurrentScreen('menu')} />
+        <BotGame 
+          user={user} 
+          setUser={setUser} 
+          backendUrl={BACKEND_URL}
+          onBack={() => {
+            setCurrentScreen('menu');
+            if (user) refreshUserData(user.tgId); // Bot o'yinidan keyin balansni yangilash
+          }} 
+        />
       )}
 
       {/* 🏆 Peshqadamlar Ekraniga yo'naltirish */}
       {currentScreen === 'leaderboard' && (
-        <Leaderboard onBack={() => setCurrentScreen('menu')} />
+        <Leaderboard 
+          backendUrl={BACKEND_URL} 
+          onBack={() => setCurrentScreen('menu')} 
+        />
       )}
     </div>
   );
