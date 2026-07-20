@@ -8,7 +8,13 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// 🌐 Barcha domenlardan (jumladan, alohida React admin panelingizdan) keladigan so'rovlarga ruxsat berish
+app.use(cors({
+  origin: "*", 
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"]
+}));
 app.use(express.json());
 
 const server = http.createServer(app);
@@ -35,48 +41,59 @@ const userSchema = new mongoose.Schema({
   firstName: { type: String, default: "O'yinchi" },
   lastName: { type: String, default: '' },
   photoUrl: { type: String, default: '' },
-  coins: { type: Number, default: 100 }, // Yangi kirganda 100 tanga
-  rating: { type: Number, default: 100 },
-  refParent: { type: String, default: null },
+  coins: { type: Number, default: 100 }, // Yangi kirganda 100 tanga bonus
+  rating: { type: Number, default: 100 }, // Reyting ochkosi (XP)
+  refParent: { type: String, default: null }, // Uni taklif qilgan odamning tgId si
   isRefRewarded: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
 
 // ==========================================
-// 🛰️ USER API (O'YINCHILAR UCHUN)
+// 🛰️ SERVER TOMONDAGI MANTIQIY API-LAR
 // ==========================================
 
-// O'yinchi avtorizatsiyasi (Kirganda 100 tanga beriladi, referal bo'lsa qo'shimcha bonus)
+/**
+ * 1. AVTORIZATSIYA VA REFERAL TIZIMI (Xavfsiz Server mantiqi)
+ * Yangi o'yinchi kirganda unga 100 tanga beriladi.
+ * Agar kimdir taklif qilgan bo'lsa, taklif qilganga ham 100 tanga serverda avtomatik qo'shiladi.
+ */
 app.post('/api/user/auth', async (req, res) => {
   const { tgId, username, firstName, lastName, photoUrl, refParent } = req.body;
+  
   try {
     let user = await User.findOne({ tgId });
+    
     if (!user) {
+      // 🆕 Yangi o'yinchi yaratish
       user = new User({
         tgId,
         username: username || '',
         firstName: firstName || "O'yinchi",
         lastName: lastName || '',
         photoUrl: photoUrl || '',
-        coins: 100, // Standart bonus
+        coins: 100, // Yangi o'yinchiga standart bonus
         rating: 100,
-        refParent: refParent || null
+        refParent: refParent && refParent !== tgId ? refParent : null
       });
 
-      // Referal tizimi
+      // 🎁 Do'stini taklif qilganni mukofotlash (Server nazorati)
       if (refParent && refParent !== tgId) {
         const parentUser = await User.findOne({ tgId: refParent });
         if (parentUser) {
-          parentUser.coins += 100; // Taklif qilganga 100 tanga
+          parentUser.coins += 100; // Taklif qilgan do'stiga 100 tanga bonus
           await parentUser.save();
-          user.coins += 100;       // Kelganga ham qo'shimcha 100 tanga
+          
+          user.coins += 100; // Taklif orqali kelgan yangi o'yinchiga yana +100 tanga
           user.isRefRewarded = true;
+          
+          // Agar taklif qilgan odam o'yinda onlayn bo'lsa, unga real-vaqtda xabar berish
+          io.emit(`update_${refParent}`, { type: 'REF_BONUS', coins: parentUser.coins });
         }
       }
       await user.save();
     } else {
-      // Mavjud o'yinchi ma'lumotlarini yangilash (Tangalar va XP ga tegmagan holda)
+      // Oldin kirgan o'yinchi bo'lsa, faqat ism/rasmini yangilaymiz (Tangalarga tegilmaydi!)
       let updateFields = {};
       if (username !== undefined) updateFields.username = username;
       if (firstName !== undefined) updateFields.firstName = firstName;
@@ -84,108 +101,113 @@ app.post('/api/user/auth', async (req, res) => {
 
       user = await User.findOneAndUpdate({ tgId }, { $set: updateFields }, { new: true });
     }
+    
     res.status(200).json({ success: true, user });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server avtorizatsiya xatosi" });
+    res.status(500).json({ success: false, message: "Serverda avtorizatsiya xatoligi" });
   }
 });
 
-// 🔓 Shaxsiy chat havolasini ochish (10 tanga yechiladi)
+/**
+ * 2. REYTING TIZIMI (Serverda tangalari va ochkolariga qarab saralash)
+ * Kimda qancha tanga borligi va reytingi yuqoriligiga qarab TOP o'yinchilarni aniqlaydi.
+ */
+app.get('/api/user/leaderboard', async (req, res) => {
+  try {
+    // Ham reyting (XP), ham tangalari ko'pligi bo'yicha TOP 50 talikni chiqaradi
+    const leaders = await User.find()
+      .sort({ rating: -1, coins: -1 })
+      .limit(50)
+      .select('firstName username coins rating photoUrl tgId');
+      
+    res.status(200).json({ success: true, leaders });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Reyting tizimida xatolik" });
+  }
+});
+
+/**
+ * 3. SHAXSIY CHAT LINKINI SOTIB OLISH (Xavfsiz Tranzaksiya)
+ */
 app.post('/api/user/buy-chat-link', async (req, res) => {
   const { tgId } = req.body;
   try {
     const user = await User.findOne({ tgId });
     if (!user || user.coins < 10) {
-      return res.status(400).json({ success: false, message: "Mablag' yetarli emas (Kamida 10 tanga kerak)!" });
+      return res.status(400).json({ success: false, message: "Tangalaringiz yetarli emas (kamida 10 tanga kerak)!" });
     }
-    user.coins -= 10;
+    
+    user.coins -= 10; // Serverda yechib olish
     await user.save();
+    
     res.status(200).json({ success: true, coins: user.coins });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Tranzaksiya xatosi" });
+    res.status(500).json({ success: false, message: "Tranzaksiyani bajarib bo'lmadi" });
   }
 });
 
-
 // ==========================================
-// 👑 ADMIN PANEL API (CRUD & STATS)
+// 👑 ADMIN PANEL API (Barcha ma'lumotlarni nazorat qilish)
 // ==========================================
 
-// 1. Umumiy statistika (O'yinchilar soni va muomaladagi barcha tangalar summasi)
+// Jami o'yinchilar soni va muomaladagi barcha tangalar summasi
 app.get('/api/admin/stats', async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
-    
-    // Barcha o'yinchilar tangalarini yig'ish ($sum)
     const coinResult = await User.aggregate([
       { $group: { _id: null, totalCoins: { $sum: "$coins" } } }
     ]);
-    
     const totalCoins = coinResult.length > 0 ? coinResult[0].totalCoins : 0;
     res.status(200).json({ success: true, totalUsers, totalCoins });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Statistika yuklanmadi" });
+    res.status(500).json({ success: false, message: "Statistika xatosi" });
   }
 });
 
-// 2. Hamma o'yinchilar ro'yxati (Reyting bo'yicha saralangan)
 app.get('/api/admin/users', async (req, res) => {
   try {
     const users = await User.find().sort({ rating: -1 });
     res.status(200).json({ success: true, users });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Ro'yxat yuklanmadi" });
+    res.status(500).json({ success: false, message: "Ro'yxat xatosi" });
   }
 });
 
-// 3. Yangi o'yinchi qo'shish
 app.post('/api/admin/users', async (req, res) => {
-  const { tgId, firstName, username, coins, rating } = req.body;
   try {
-    const existing = await User.findOne({ tgId });
-    if (existing) return res.status(400).json({ success: false, message: "Bu Telegram ID allaqachon ro'yxatda bor!" });
-
-    const newUser = new User({ tgId, firstName, username, coins: Number(coins), rating: Number(rating) });
+    const newUser = new User(req.body);
     await newUser.save();
     res.status(200).json({ success: true, user: newUser });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Qo'shishda xatolik" });
+    res.status(500).json({ success: false, message: "Qo'shish xatosi" });
   }
 });
 
-// 4. O'yinchini tahrirlash (Update)
 app.put('/api/admin/users/:id', async (req, res) => {
-  const { firstName, username, coins, rating } = req.body;
   try {
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      { $set: { firstName, username, coins: Number(coins), rating: Number(rating) } },
-      { new: true }
-    );
+    const updatedUser = await User.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
     res.status(200).json({ success: true, user: updatedUser });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Tahrirlashda xatolik" });
+    res.status(500).json({ success: false, message: "Tahrirlash xatosi" });
   }
 });
 
-// 5. O'yinchini o'chirish (Delete)
 app.delete('/api/admin/users/:id', async (req, res) => {
   try {
     await User.findByIdAndDelete(req.params.id);
     res.status(200).json({ success: true, message: "O'yinchi o'chirildi" });
   } catch (error) {
-    res.status(500).json({ success: false, message: "O'chirishda xatolik" });
+    res.status(500).json({ success: false, message: "O'chirish xatosi" });
   }
 });
 
 
 // ==========================================
-// 🎮 REAL-TIME DUEL MATCHMAKING & SOCKET.IO
+// 🎮 DUEL GAME REAL-TIME MANTIQI (SOCKET.IO)
 // ==========================================
-let searchQueue = []; // O'yin qidirayotganlar ro'yxati
-let activeRooms = {}; // Faol o'yin xonalari
+let searchQueue = []; 
+let activeRooms = {}; 
 
-// Tosh-qaychi-qog'oz g'olibini aniqlash funksiyasi
 function determineWinner(choice1, choice2) {
   if (choice1 === choice2) return 'draw';
   if (
@@ -198,7 +220,7 @@ function determineWinner(choice1, choice2) {
   return 'player2';
 }
 
-// Raund natijasini hisoblash va ma'lumotlar bazasiga yozish
+// O'yin natijasini va balansni faqat server hisoblaydi
 async function evaluateRound(roomId) {
   const room = activeRooms[roomId];
   if (!room) return;
@@ -214,7 +236,7 @@ async function evaluateRound(roomId) {
   let xpChanges = { p1: 0, p2: 0 };
 
   if (c1 === 'timeout' && c2 === 'timeout') {
-    // Ikkala o'yinchi ham ulgurmadi
+    // Har ikkisi uxlab qoldi
   } else if (c1 === 'timeout') {
     res1 = 'lose'; res2 = 'win';
     coinChanges.p1 = -room.stake; coinChanges.p2 = room.stake;
@@ -236,7 +258,7 @@ async function evaluateRound(roomId) {
     }
   }
 
-  // Baza (MongoDB) dagi ma'lumotlarni yangilash
+  // 🔒 DB darajasida xavfsiz hisoblash (Frontend buni o'zgartira olmaydi)
   try {
     const dbUser1 = await User.findOne({ tgId: p1.tgId });
     const dbUser2 = await User.findOne({ tgId: p2.tgId });
@@ -253,36 +275,18 @@ async function evaluateRound(roomId) {
       await dbUser2.save();
     }
   } catch (err) {
-    console.error("O'yin natijasini bazaga yozishda xatolik:", err);
+    console.error("Balansni yangilashda xatolik:", err);
   }
 
-  // Har bir o'yinchiga faqat o'ziga tegishli natijani yuborish
-  io.to(p1.socketId).emit('round_result', {
-    myChoice: c1,
-    opponentChoice: c2,
-    result: res1,
-    rewardCoins: coinChanges.p1,
-    rewardXP: xpChanges.p1
-  });
+  io.to(p1.socketId).emit('round_result', { myChoice: c1, opponentChoice: c2, result: res1, rewardCoins: coinChanges.p1, rewardXP: xpChanges.p1 });
+  io.to(p2.socketId).emit('round_result', { myChoice: c2, opponentChoice: c1, result: res2, rewardCoins: coinChanges.p2, rewardXP: xpChanges.p2 });
 
-  io.to(p2.socketId).emit('round_result', {
-    myChoice: c2,
-    opponentChoice: c1,
-    result: res2,
-    rewardCoins: coinChanges.p2,
-    rewardXP: xpChanges.p2
-  });
-
-  // Xonani tozalash yoki keyingi raundga tayyorlash
   delete activeRooms[roomId];
 }
 
-// Socket ulanish jarayoni
 io.on('connection', (socket) => {
   
-  // 🔍 O'yinchi raqib qidirganda
   socket.on('find_match', ({ player, stake }) => {
-    // Eski so'rovlarni tozalash
     searchQueue = searchQueue.filter(p => p.tgId !== player.tgId);
 
     const newPlayer = {
@@ -291,11 +295,9 @@ io.on('connection', (socket) => {
       name: player.name,
       username: player.username || '',
       rating: player.rating || 100,
-      coins: player.coins || 100,
       stake: Number(stake) || 10
     };
 
-    // Mos keluvchi raqibni qidirish (stavkasi teng bo'lgan)
     const opponentIndex = searchQueue.findIndex(p => p.stake === newPlayer.stake && p.tgId !== newPlayer.tgId);
 
     if (opponentIndex !== -1) {
@@ -306,28 +308,17 @@ io.on('connection', (socket) => {
       const oppSocket = io.sockets.sockets.get(opponent.socketId);
       if (oppSocket) oppSocket.join(roomId);
 
-      // Faol xona yaratish
       activeRooms[roomId] = {
         roomId,
         players: [newPlayer, opponent],
         choices: {},
         stake: newPlayer.stake,
-        timerLeft: 30,
         timerInterval: null
       };
 
-      // Har ikki tomonga raqib ma'lumotlarini uzatish
-      io.to(opponent.socketId).emit('match_found', {
-        roomId,
-        opponent: { tgId: newPlayer.tgId, name: newPlayer.name, username: newPlayer.username, rating: newPlayer.rating }
-      });
+      io.to(opponent.socketId).emit('match_found', { roomId, opponent: { tgId: newPlayer.tgId, name: newPlayer.name, rating: newPlayer.rating } });
+      io.to(socket.id).emit('match_found', { roomId, opponent: { tgId: opponent.tgId, name: opponent.name, rating: opponent.rating } });
 
-      io.to(socket.id).emit('match_found', {
-        roomId,
-        opponent: { tgId: opponent.tgId, name: opponent.name, username: opponent.username, rating: opponent.rating }
-      });
-
-      // 30 soniyalik taymerni boshlash
       let timeLeft = 30;
       activeRooms[roomId].timerInterval = setInterval(() => {
         timeLeft--;
@@ -343,40 +334,26 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ❌ Qidiruvni bekor qilish
-  socket.on('cancel_search', ({ tgId }) => {
-    searchQueue = searchQueue.filter(p => p.tgId !== tgId);
-  });
-  
-  // 🖐️ O'yinchi yurish (tosh, qaychi, qog'oz) qilganda
   socket.on('player_choice', ({ roomId, choice }) => {
     const room = activeRooms[roomId];
     if (!room) return;
 
     room.choices[socket.id] = choice;
-    const p1 = room.players[0];
-    const p2 = room.players[1];
-
-    // Har ikkala o'yinchi ham tanlab bo'lgan bo'lsa
-    if (room.choices[p1.socketId] && room.choices[p2.socketId]) {
+    if (room.choices[room.players[0].socketId] && room.choices[room.players[1].socketId]) {
       clearInterval(room.timerInterval);
       evaluateRound(roomId);
     }
   });
 
-  // 💬 Real-time chat xabarlarini uzatish
-  socket.on('send_chat_message', ({ roomId, senderId, text }) => {
-    socket.to(roomId).emit('chat_message', { senderId, text });
+  socket.on('cancel_search', ({ tgId }) => {
+    searchQueue = searchQueue.filter(p => p.tgId !== tgId);
   });
 
-  // 🔌 Ulanish uzilganda (Disconnect)
   socket.on('disconnect', () => {
     searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
-
     for (const roomId in activeRooms) {
-      const room = activeRooms[roomId];
-      if (room.players.some(p => p.socketId === socket.id)) {
-        clearInterval(room.timerInterval);
+      if (activeRooms[roomId].players.some(p => p.socketId === socket.id)) {
+        clearInterval(activeRooms[roomId].timerInterval);
         socket.to(roomId).emit('opponent_left');
         delete activeRooms[roomId];
         break;
@@ -385,10 +362,5 @@ io.on('connection', (socket) => {
   });
 });
 
-// ==========================================
-// 🚀 SERVERNI ISHGA TUSHIRISH
-// ==========================================
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`🚀 Server muvaffaqiyatli ishlamoqda, Port: ${PORT}`);
-});
+server.listen(PORT, () => console.log(`🚀 Xavfsiz server Port: ${PORT} da yondi.`));
