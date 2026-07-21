@@ -23,17 +23,113 @@ const {
 } = process.env;
 
 // ======================
-// MIDDLEWARE
+// CORS SOZLAMALARI - ENG MUHIM QISM!
 // ======================
+
+// 1. CORS middleware - BARCHA SOROVLARDAN OLDIN
+app.use((req, res, next) => {
+  // Har bir sorov uchun origin ni olish
+  const origin = req.headers.origin;
+  
+  // Ruxsat etilgan origin'lar
+  const allowedOrigins = [
+    'https://telegram-mini-app-gsny.onrender.com',
+    'https://like-admin-m9j1n851q-habibulloabdumutallibovs-projects.vercel.app',
+    'https://like-admin-*.vercel.app',
+    'https://like-admin.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'https://telegram-bot-server-2-matj.onrender.com'
+  ];
+
+  // Origin ni tekshirish
+  let isAllowed = false;
+  
+  // Development da hamma origin ga ruxsat
+  if (NODE_ENV === 'development') {
+    isAllowed = true;
+    res.header('Access-Control-Allow-Origin', '*');
+  } else if (origin) {
+    // Production da specific origin'lar
+    isAllowed = allowedOrigins.some(allowed => {
+      if (allowed.includes('*')) {
+        // Wildcard bilan tekshirish
+        const pattern = allowed.replace(/\*/g, '.*');
+        const regex = new RegExp(`^${pattern}$`);
+        return regex.test(origin);
+      }
+      return allowed === origin;
+    });
+    
+    if (isAllowed) {
+      res.header('Access-Control-Allow-Origin', origin);
+    }
+  }
+
+  // CORS header'lar
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-admin-key, X-Requested-With, x-telegram-init-data, Origin, X-Forwarded-For');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+  res.header('Vary', 'Origin');
+
+  // OPTIONS (preflight) sorovlariga javob
+  if (req.method === 'OPTIONS') {
+    console.log('🔄 Preflight request:', req.path, 'Origin:', origin);
+    return res.sendStatus(200);
+  }
+
+  console.log('📨 Request:', req.method, req.path, 'Origin:', origin, 'Allowed:', isAllowed);
+  next();
+});
+
+// 2. Alternativ: cors package bilan sozlash
 app.use(cors({
-  origin: NODE_ENV === 'production' 
-    ? [WEB_APP_URL, 'https://telegram-mini-app-gsny.onrender.com', 'https://telegram-bot-server-2-matj.onrender.com']
-    : ['http://localhost:3000', 'http://localhost:3001'],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept", "x-admin-key", "x-telegram-init-data"],
-  credentials: true
+  origin: function (origin, callback) {
+    // Ruxsat etilgan origin'lar
+    const allowedOrigins = [
+      'https://telegram-mini-app-gsny.onrender.com',
+      'https://like-admin-m9j1n851q-habibulloabdumutallibovs-projects.vercel.app',
+      'https://like-admin-*.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173'
+    ];
+
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Development da hamma origin ga ruxsat
+    if (NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+
+    // Production da specific origin'lar
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed.includes('*')) {
+        const pattern = allowed.replace(/\*/g, '.*');
+        return new RegExp(`^${pattern}$`).test(origin);
+      }
+      return allowed === origin;
+    });
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-key', 'X-Requested-With', 'x-telegram-init-data'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400
 }));
 
+// ======================
+// MIDDLEWARE
+// ======================
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -49,12 +145,17 @@ app.use('/api/', limiter);
 // SOCKET.IO
 // ======================
 const io = new Server(server, {
-  cors: { 
+  cors: {
     origin: NODE_ENV === 'production' 
-      ? [WEB_APP_URL, 'https://telegram-mini-app-gsny.onrender.com']
+      ? [
+          'https://telegram-mini-app-gsny.onrender.com',
+          'https://like-admin-m9j1n851q-habibulloabdumutallibovs-projects.vercel.app',
+          'https://like-admin-*.vercel.app'
+        ]
       : '*',
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "x-admin-key"]
   },
   transports: ['websocket', 'polling'],
   pingTimeout: 60000,
@@ -66,7 +167,7 @@ let activeRooms = {};
 let onlineUsers = new Map();
 
 // ======================
-// MONGODB ULAGI (YAXSHILANGAN)
+// MONGODB ULAGI
 // ======================
 const connectDB = async () => {
   try {
@@ -75,28 +176,18 @@ const connectDB = async () => {
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
-      family: 4, // Use IPv4, skip trying IPv6
+      family: 4,
       maxPoolSize: 10,
       minPoolSize: 2,
     });
     console.log('💾 MongoDB muvaffaqiyatli ulandi.');
-    console.log(`📊 Database: ${mongoose.connection.name}`);
   } catch (err) {
     console.error('🔴 MongoDB xatolik:', err.message);
-    console.log('⚠️ 5 sekunddan keyin qayta ulanishga harakat qilinadi...');
     setTimeout(connectDB, 5000);
   }
 };
 
 connectDB();
-
-mongoose.connection.on('connected', () => {
-  console.log('🟢 MongoDB ulandi');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('🔴 MongoDB xatolik:', err);
-});
 
 mongoose.connection.on('disconnected', () => {
   console.log('🟡 MongoDB uzildi. Qayta ulanish...');
@@ -255,6 +346,17 @@ const adminAuth = (req, res, next) => {
 // API ROUTES
 // ======================
 
+// Health check - CORS tekshirish uchun
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date(),
+    uptime: process.uptime(),
+    cors: 'enabled'
+  });
+});
+
+// AUTH
 app.post('/api/user/auth', async (req, res) => {
   const { tgId, username, firstName, lastName, photoUrl, refParent } = req.body;
 
@@ -304,6 +406,7 @@ app.post('/api/user/auth', async (req, res) => {
   }
 });
 
+// LEADERBOARD
 app.get('/api/user/leaderboard', async (req, res) => {
   try {
     const leaders = await User.find()
@@ -318,6 +421,7 @@ app.get('/api/user/leaderboard', async (req, res) => {
   }
 });
 
+// BUY CHAT LINK
 app.post('/api/user/buy-chat-link', async (req, res) => {
   const { tgId } = req.body;
   try {
@@ -335,6 +439,7 @@ app.post('/api/user/buy-chat-link', async (req, res) => {
   }
 });
 
+// USER STATS
 app.get('/api/user/:tgId/stats', async (req, res) => {
   try {
     const user = await User.findOne({ tgId: req.params.tgId });
@@ -361,6 +466,7 @@ app.get('/api/user/:tgId/stats', async (req, res) => {
 // ADMIN ROUTES
 // ======================
 
+// Stats
 app.get('/api/admin/stats', adminAuth, async (req, res) => {
   try {
     const [
@@ -399,9 +505,11 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
   }
 });
 
+// Users list
 app.get('/api/admin/users', adminAuth, async (req, res) => {
   try {
-    const { search, page = 1, limit = 50 } = req.query;
+    const { search = '', page = 1, limit = 20, sortBy = 'rating' } = req.query;
+    
     const query = search ? {
       $or: [
         { tgId: { $regex: search, $options: 'i' } },
@@ -410,21 +518,46 @@ app.get('/api/admin/users', adminAuth, async (req, res) => {
       ]
     } : {};
 
+    const sortOptions = {
+      rating: { rating: -1, coins: -1 },
+      coins: { coins: -1, rating: -1 },
+      games: { totalGames: -1, rating: -1 },
+      newest: { createdAt: -1 }
+    };
+
     const users = await User.find(query)
-      .sort({ rating: -1, coins: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit))
+      .sort(sortOptions[sortBy] || sortOptions.rating)
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .limit(parseInt(limit))
       .select('-__v');
 
     const total = await User.countDocuments(query);
 
-    res.json({ success: true, users, total, page: Number(page) });
+    res.json({ 
+      success: true, 
+      users, 
+      total, 
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
   } catch (err) {
     console.error('Admin users xatoligi:', err);
     res.status(500).json({ success: false, message: "Foydalanuvchilarni yuklashda xatolik" });
   }
 });
 
+// Get single user
+app.get('/api/admin/users/:id', adminAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Xatolik" });
+  }
+});
+
+// Update user
 app.put('/api/admin/users/:id', adminAuth, async (req, res) => {
   try {
     const { coins, rating, firstName, username, photoUrl } = req.body;
@@ -448,8 +581,12 @@ app.put('/api/admin/users/:id', adminAuth, async (req, res) => {
   }
 });
 
+// Delete user
 app.delete('/api/admin/users/:id', adminAuth, async (req, res) => {
   try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
+    
     await User.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Foydalanuvchi o'chirildi" });
   } catch (err) {
@@ -458,6 +595,7 @@ app.delete('/api/admin/users/:id', adminAuth, async (req, res) => {
   }
 });
 
+// Update coins
 app.post('/api/admin/users/:id/coins', adminAuth, async (req, res) => {
   const { amount } = req.body;
   try {
@@ -630,6 +768,8 @@ server.listen(PORT, () => {
   console.log(`🚀 Server ${PORT}-portda ishga tushdi`);
   console.log(`🌐 Environment: ${NODE_ENV}`);
   console.log(`📊 Web App URL: ${WEB_APP_URL}`);
+  console.log(`✅ CORS sozlamalari faol`);
+  console.log(`🔍 Health check: /api/health`);
 });
 
 process.on('uncaughtException', (error) => {
