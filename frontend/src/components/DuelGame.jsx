@@ -16,6 +16,18 @@ function DuelGame({ user, setUser, onBack }) {
   const BACKEND_URL = "https://telegram-bot-server-2-matj.onrender.com";
 
   useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+  
+    socket.on("match_found", (data) => {
+      console.log("Raqib topildi:", data);
+      // Game arena'ga o'tish kodi
+    });
+  
+    return () => {
+      socket.off("match_found");
+    };
     // Soket ulanishini sozlash
     socketRef.current = io(BACKEND_URL);
 
