@@ -46,7 +46,7 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // ======================
-// SOCKET.IO - OLDINDAN E'LON QILISH (MUHIM!)
+// SOCKET.IO
 // ======================
 const io = new Server(server, {
   cors: { 
@@ -61,13 +61,75 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
-// Socket holatlari - io e'lon qilingandan KEYIN
 let searchQueue = [];
 let activeRooms = {};
 let onlineUsers = new Map();
 
 // ======================
-// SOCKET HELPER FUNCTIONS - io dan KEYIN
+// MONGODB ULAGI (YAXSHILANGAN)
+// ======================
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      family: 4, // Use IPv4, skip trying IPv6
+      maxPoolSize: 10,
+      minPoolSize: 2,
+    });
+    console.log('💾 MongoDB muvaffaqiyatli ulandi.');
+    console.log(`📊 Database: ${mongoose.connection.name}`);
+  } catch (err) {
+    console.error('🔴 MongoDB xatolik:', err.message);
+    console.log('⚠️ 5 sekunddan keyin qayta ulanishga harakat qilinadi...');
+    setTimeout(connectDB, 5000);
+  }
+};
+
+connectDB();
+
+mongoose.connection.on('connected', () => {
+  console.log('🟢 MongoDB ulandi');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('🔴 MongoDB xatolik:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('🟡 MongoDB uzildi. Qayta ulanish...');
+  setTimeout(connectDB, 5000);
+});
+
+// ======================
+// USER SCHEMA
+// ======================
+const userSchema = new mongoose.Schema({
+  tgId: { type: String, required: true, unique: true, index: true },
+  username: { type: String, default: '' },
+  firstName: { type: String, default: "O'yinchi" },
+  lastName: { type: String, default: '' },
+  photoUrl: { type: String, default: '' },
+  coins: { type: Number, default: 100, min: 0 },
+  rating: { type: Number, default: 100, min: 0 },
+  refParent: { type: String, default: null },
+  isRefRewarded: { type: Boolean, default: false },
+  lastLogin: { type: Date, default: Date.now },
+  totalGames: { type: Number, default: 0 },
+  wins: { type: Number, default: 0 },
+  losses: { type: Number, default: 0 },
+  draws: { type: Number, default: 0 },
+  lastGameAt: { type: Date },
+  isOnline: { type: Boolean, default: false },
+  deviceInfo: { type: String, default: '' }
+}, { timestamps: true });
+
+const User = mongoose.model('User', userSchema);
+
+// ======================
+// HELPER FUNCTIONS
 // ======================
 function determineWinner(choice1, choice2) {
   if (choice1 === choice2) return 'draw';
@@ -81,10 +143,7 @@ function determineWinner(choice1, choice2) {
 
 async function evaluateRound(roomId) {
   const room = activeRooms[roomId];
-  if (!room) {
-    console.log(`⚠️ Room ${roomId} topilmadi`);
-    return;
-  }
+  if (!room) return;
 
   const [p1, p2] = room.players;
   const c1 = room.choices[p1.socketId] || 'timeout';
@@ -124,61 +183,42 @@ async function evaluateRound(roomId) {
     ]);
 
     if (user1) {
-      const newCoins = Math.max(0, user1.coins + coinChange1);
-      const newRating = Math.max(0, user1.rating + xpChange1);
-      user1.coins = newCoins;
-      user1.rating = newRating;
+      user1.coins = Math.max(0, user1.coins + coinChange1);
+      user1.rating = Math.max(0, user1.rating + xpChange1);
       user1.totalGames = (user1.totalGames || 0) + 1;
       user1.lastGameAt = new Date();
-      
       if (result1 === 'win') user1.wins = (user1.wins || 0) + 1;
       else if (result1 === 'lose') user1.losses = (user1.losses || 0) + 1;
       else user1.draws = (user1.draws || 0) + 1;
-      
       await user1.save();
     }
 
     if (user2) {
-      const newCoins = Math.max(0, user2.coins + coinChange2);
-      const newRating = Math.max(0, user2.rating + xpChange2);
-      user2.coins = newCoins;
-      user2.rating = newRating;
+      user2.coins = Math.max(0, user2.coins + coinChange2);
+      user2.rating = Math.max(0, user2.rating + xpChange2);
       user2.totalGames = (user2.totalGames || 0) + 1;
       user2.lastGameAt = new Date();
-      
       if (result2 === 'win') user2.wins = (user2.wins || 0) + 1;
       else if (result2 === 'lose') user2.losses = (user2.losses || 0) + 1;
       else user2.draws = (user2.draws || 0) + 1;
-      
       await user2.save();
     }
 
     io.to(p1.socketId).emit('round_result', {
-      myChoice: c1, 
-      opponentChoice: c2, 
-      result: result1,
-      rewardCoins: coinChange1, 
-      rewardXP: xpChange1
+      myChoice: c1, opponentChoice: c2, result: result1,
+      rewardCoins: coinChange1, rewardXP: xpChange1
     });
 
     io.to(p2.socketId).emit('round_result', {
-      myChoice: c2, 
-      opponentChoice: c1, 
-      result: result2,
-      rewardCoins: coinChange2, 
-      rewardXP: xpChange2
+      myChoice: c2, opponentChoice: c1, result: result2,
+      rewardCoins: coinChange2, rewardXP: xpChange2
     });
 
   } catch (err) {
     console.error("Balans yangilashda xatolik:", err);
-    io.to(roomId).emit('error', { 
-      message: 'Server xatoligi yuz berdi', 
-      code: 'DB_ERROR' 
-    });
   }
 
   delete activeRooms[roomId];
-  console.log(`🧹 Room ${roomId} tozalandi`);
 }
 
 function startRoomTimer(roomId) {
@@ -190,72 +230,12 @@ function startRoomTimer(roomId) {
     timeLeft--;
     io.to(roomId).emit('timer_tick', timeLeft);
 
-    if (timeLeft <= 5 && timeLeft > 0) {
-      io.to(roomId).emit('timer_warning', { timeLeft });
-    }
-
     if (timeLeft <= 0) {
       clearInterval(room.timerInterval);
-      io.to(roomId).emit('timeout', { message: 'Vaqt tugadi!' });
       evaluateRound(roomId);
     }
   }, 1000);
 }
-
-// ======================
-// MONGODB ULAGI
-// ======================
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-})
-  .then(() => {
-    console.log('💾 MongoDB muvaffaqiyatli ulandi.');
-    console.log(`📊 Database: ${mongoose.connection.name}`);
-  })
-  .catch(err => {
-    console.error('🔴 MongoDB xatolik:', err);
-    process.exit(1);
-  });
-
-mongoose.connection.on('connected', () => {
-  console.log('🟢 MongoDB ulandi');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('🔴 MongoDB xatolik:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('🟡 MongoDB uzildi');
-});
-
-// ======================
-// USER SCHEMA
-// ======================
-const userSchema = new mongoose.Schema({
-  tgId: { type: String, required: true, unique: true, index: true },
-  username: { type: String, default: '' },
-  firstName: { type: String, default: "O'yinchi" },
-  lastName: { type: String, default: '' },
-  photoUrl: { type: String, default: '' },
-  coins: { type: Number, default: 100, min: 0 },
-  rating: { type: Number, default: 100, min: 0 },
-  refParent: { type: String, default: null },
-  isRefRewarded: { type: Boolean, default: false },
-  lastLogin: { type: Date, default: Date.now },
-  totalGames: { type: Number, default: 0 },
-  wins: { type: Number, default: 0 },
-  losses: { type: Number, default: 0 },
-  draws: { type: Number, default: 0 },
-  lastGameAt: { type: Date },
-  isOnline: { type: Boolean, default: false },
-  deviceInfo: { type: String, default: '' }
-}, { timestamps: true });
-
-const User = mongoose.model('User', userSchema);
 
 // ======================
 // ADMIN AUTH
@@ -265,8 +245,7 @@ const adminAuth = (req, res, next) => {
   if (!adminKey || adminKey !== ADMIN_TOKEN) {
     return res.status(403).json({ 
       success: false, 
-      message: "Admin ruxsati yo'q",
-      error: 'FORBIDDEN'
+      message: "Admin ruxsati yo'q"
     });
   }
   next();
@@ -276,7 +255,6 @@ const adminAuth = (req, res, next) => {
 // API ROUTES
 // ======================
 
-// AUTH
 app.post('/api/user/auth', async (req, res) => {
   const { tgId, username, firstName, lastName, photoUrl, refParent } = req.body;
 
@@ -304,8 +282,7 @@ app.post('/api/user/auth', async (req, res) => {
           user.isRefRewarded = true;
           io.emit(`update_${refParent}`, { 
             type: 'REF_BONUS', 
-            coins: parent.coins,
-            message: `👤 ${user.firstName} sizning taklifingiz orqali ro'yxatdan o'tdi! +100 🪙`
+            coins: parent.coins
           });
         }
       }
@@ -327,7 +304,6 @@ app.post('/api/user/auth', async (req, res) => {
   }
 });
 
-// LEADERBOARD
 app.get('/api/user/leaderboard', async (req, res) => {
   try {
     const leaders = await User.find()
@@ -342,7 +318,6 @@ app.get('/api/user/leaderboard', async (req, res) => {
   }
 });
 
-// BUY CHAT LINK
 app.post('/api/user/buy-chat-link', async (req, res) => {
   const { tgId } = req.body;
   try {
@@ -360,7 +335,6 @@ app.post('/api/user/buy-chat-link', async (req, res) => {
   }
 });
 
-// USER STATS
 app.get('/api/user/:tgId/stats', async (req, res) => {
   try {
     const user = await User.findOne({ tgId: req.params.tgId });
@@ -502,12 +476,11 @@ app.post('/api/admin/users/:id/coins', adminAuth, async (req, res) => {
 });
 
 // ======================
-// SOCKET.IO EVENTS - io dan KEYIN
+// SOCKET.IO EVENTS
 // ======================
 
 io.on('connection', (socket) => {
   console.log(`🔌 Yangi ulanish: ${socket.id}`);
-  console.log(`📊 Jami ulanishlar: ${io.engine.clientsCount}`);
 
   socket.on('user_connect', async (data) => {
     const { tgId, firstName } = data;
@@ -528,16 +501,12 @@ io.on('connection', (socket) => {
         status: 'online',
         firstName
       });
-
-      console.log(`👤 ${firstName} (${tgId}) online bo'ldi`);
     } catch (error) {
       console.error('User connect error:', error);
     }
   });
 
   socket.on('find_match', ({ player, stake = 10 }) => {
-    console.log(`🔍 ${player.firstName} raqib qidirmoqda...`);
-
     searchQueue = searchQueue.filter(p => io.sockets.sockets.has(p.socketId));
 
     const newPlayer = {
@@ -573,7 +542,7 @@ io.on('connection', (socket) => {
         createdAt: new Date()
       };
 
-      const matchDataForP1 = { 
+      socket.emit('match_found', { 
         roomId, 
         opponent: { 
           tgId: opponent.tgId, 
@@ -582,8 +551,9 @@ io.on('connection', (socket) => {
           username: opponent.username 
         }, 
         stake: newPlayer.stake 
-      };
-      const matchDataForP2 = { 
+      });
+      
+      io.to(opponent.socketId).emit('match_found', { 
         roomId, 
         opponent: { 
           tgId: newPlayer.tgId, 
@@ -592,50 +562,32 @@ io.on('connection', (socket) => {
           username: newPlayer.username 
         }, 
         stake: newPlayer.stake 
-      };
-
-      socket.emit('match_found', matchDataForP1);
-      io.to(opponent.socketId).emit('match_found', matchDataForP2);
-
-      io.emit('match_started', {
-        roomId,
-        players: [newPlayer.name, opponent.name],
-        stake: newPlayer.stake
       });
 
-      console.log(`⚔️ Match topildi: ${newPlayer.name} vs ${opponent.name}`);
       startRoomTimer(roomId);
     } else {
       searchQueue.push(newPlayer);
       socket.emit('searching', { stake: newPlayer.stake });
-      console.log(`⏳ ${newPlayer.name} navbatga qo'shildi. Navbatda: ${searchQueue.length} o'yinchi`);
     }
   });
 
   socket.on('player_choice', ({ roomId, choice }) => {
     const room = activeRooms[roomId];
-    if (!room) {
-      socket.emit('error', { message: 'Xona topilmadi', code: 'ROOM_NOT_FOUND' });
-      return;
-    }
+    if (!room) return;
 
     room.choices[socket.id] = choice;
-    console.log(`🎯 ${socket.id} tanladi: ${choice}`);
 
     if (Object.keys(room.choices).length === 2) {
       if (room.timerInterval) clearInterval(room.timerInterval);
-      io.to(roomId).emit('both_ready', { message: 'Ikkala o\'yinchi ham tayyor!' });
       evaluateRound(roomId);
     }
   });
 
   socket.on('cancel_search', () => {
     searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
-    console.log(`❌ ${socket.id} qidiruvni bekor qildi`);
   });
 
   socket.on('disconnect', () => {
-    console.log(`🔌 Uzilish: ${socket.id}`);
     searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
 
     let disconnectedUser = null;
@@ -658,60 +610,18 @@ io.on('connection', (socket) => {
     for (const roomId in activeRooms) {
       const room = activeRooms[roomId];
       if (room.players.some(p => p.socketId === socket.id)) {
-        socket.to(roomId).emit('opponent_left', {
-          message: 'Raqib o\'yinni tark etdi',
-          timestamp: new Date()
-        });
-        
+        socket.to(roomId).emit('opponent_left');
         if (room.timerInterval) clearInterval(room.timerInterval);
-        
-        setTimeout(() => {
-          delete activeRooms[roomId];
-          console.log(`🧹 Room ${roomId} o'chirildi (disconnect)`);
-        }, 2000);
-        
+        delete activeRooms[roomId];
         break;
       }
     }
-
-    console.log(`📊 Jami ulanishlar: ${io.engine.clientsCount}`);
   });
 
   socket.on('ping', () => {
     socket.emit('pong');
   });
-
-  socket.on('error', (error) => {
-    console.error(`Socket error ${socket.id}:`, error);
-  });
 });
-
-// ======================
-// PERIODIC CLEANUP
-// ======================
-setInterval(async () => {
-  try {
-    const now = Date.now();
-    for (const [roomId, room] of Object.entries(activeRooms)) {
-      const roomAge = now - room.createdAt.getTime();
-      if (roomAge > 30 * 60 * 1000) {
-        delete activeRooms[roomId];
-        console.log(`🧹 Eski room tozalandi: ${roomId}`);
-      }
-    }
-
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-    await User.updateMany(
-      { 
-        lastLogin: { $lt: thirtyMinutesAgo },
-        isOnline: true
-      },
-      { isOnline: false }
-    );
-  } catch (error) {
-    console.error('Cleanup xatoligi:', error);
-  }
-}, 30 * 60 * 1000);
 
 // ======================
 // START SERVER
@@ -720,18 +630,12 @@ server.listen(PORT, () => {
   console.log(`🚀 Server ${PORT}-portda ishga tushdi`);
   console.log(`🌐 Environment: ${NODE_ENV}`);
   console.log(`📊 Web App URL: ${WEB_APP_URL}`);
-  console.log(`👥 Online users: ${onlineUsers.size}`);
-  console.log(`🎮 Active rooms: ${Object.keys(activeRooms).length}`);
-  console.log(`🔍 Search queue: ${searchQueue.length}`);
 });
 
-// ======================
-// ERROR HANDLING
-// ======================
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('❌ Unhandled Rejection:', reason);
 });
