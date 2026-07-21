@@ -91,3 +91,477 @@
   font-weight: bold;
   color: #facc15;
 }
+
+/* Game Header */
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.connection-status {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.status-online {
+  color: #4CAF50;
+}
+
+.status-offline {
+  color: #f44336;
+}
+
+/* Socket Error */
+.socket-error {
+  background: #ffebee;
+  border: 1px solid #ef5350;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-icon {
+  font-size: 32px;
+}
+
+.error-message {
+  color: #c62828;
+  text-align: center;
+  font-size: 14px;
+}
+
+.error-retry-btn {
+  background: #ef5350;
+  color: white;
+  border: none;
+  padding: 8px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.error-retry-btn:hover:not(:disabled) {
+  background: #d32f2f;
+  transform: scale(1.05);
+}
+
+.error-retry-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Connecting */
+.connecting-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
+  background: #e3f2fd;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #90caf9;
+  border-top-color: #1976d2;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Setup */
+.setup-container {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.setup-container h2 {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.user-current-coins {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.stake-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stake-card {
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.stake-card.selected {
+  border-color: #4CAF50;
+  background: #e8f5e9;
+}
+
+.stake-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.coin-icon {
+  font-size: 24px;
+}
+
+.stake-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffb300;
+}
+
+.stake-insufficient {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  font-size: 16px;
+}
+
+.btn-action {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  width: 100%;
+}
+
+.btn-start {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+}
+
+.btn-start:hover:not(:disabled) {
+  transform: scale(1.02);
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+.btn-start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  background: #f44336;
+  color: white;
+}
+
+.btn-cancel:hover {
+  background: #d32f2f;
+}
+
+.btn-restart {
+  background: linear-gradient(135deg, #2196F3, #1976D2);
+  color: white;
+}
+
+.btn-restart:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+}
+
+.hint-text {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #999;
+}
+
+/* Searching */
+.searching-container {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.radar-animation {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 24px;
+}
+
+.ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 3px solid #4CAF50;
+  border-radius: 50%;
+  opacity: 0;
+  animation: radar 2s ease-out infinite;
+}
+
+.ring:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.ring:nth-child(3) {
+  animation-delay: 1s;
+}
+
+@keyframes radar {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+.search-hint {
+  color: #999;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+/* Playing */
+.arena-container {
+  padding: 16px 0;
+}
+
+.versus-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 12px;
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  border-radius: 12px;
+}
+
+.fighter {
+  text-align: center;
+}
+
+.fighter-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.fighter-stats {
+  font-size: 12px;
+  color: #999;
+}
+
+.arena-timer {
+  text-align: center;
+}
+
+.timer-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: #ff5722;
+}
+
+.timer-label {
+  font-size: 14px;
+  color: #999;
+  display: block;
+}
+
+.weapons-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.weapons-row button {
+  padding: 16px;
+  font-size: 18px;
+  font-weight: 600;
+  border: 2px solid var(--tg-theme-secondary-bg-color, #e0e0e0);
+  border-radius: 12px;
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  cursor: pointer;
+  transition: all 0.3s;
+  color: var(--tg-theme-text-color, #000);
+}
+
+.weapons-row button:hover:not(:disabled) {
+  transform: scale(1.05);
+  border-color: #4CAF50;
+}
+
+.weapons-row button.active {
+  border-color: #4CAF50;
+  background: #e8f5e9;
+}
+
+.weapons-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wait-msg {
+  text-align: center;
+  font-size: 16px;
+  color: #ff9800;
+  padding: 12px;
+  background: #fff3e0;
+  border-radius: 8px;
+}
+
+.game-hint {
+  text-align: center;
+  padding: 12px;
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  border-radius: 8px;
+  margin-top: 16px;
+  font-size: 14px;
+  color: #999;
+}
+
+/* Result */
+.result-container {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.result-banner {
+  font-size: 28px;
+  font-weight: 700;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.result-banner.win {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.result-banner.lose {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.result-banner.draw {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.battle-card {
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.battle-choices {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.choice-display {
+  text-align: center;
+}
+
+.choice-label {
+  display: block;
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.choice-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.vs-divider {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ff5722;
+}
+
+.financial-summary {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.financial-summary .plus {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.financial-summary .minus {
+  color: #f44336;
+  font-weight: 600;
+}
+
+.xp-summary {
+  color: #ffb300;
+  font-weight: 600;
+}
+
+/* Opponent Left */
+.disconnected-container {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.disconnected-container h3 {
+  color: #f44336;
+  margin-bottom: 12px;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .stake-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .weapons-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .weapons-row button {
+    padding: 12px;
+    font-size: 14px;
+  }
+  
+  .result-banner {
+    font-size: 20px;
+    padding: 16px;
+  }
+}

@@ -12,6 +12,10 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+// Brauzer konsolida:
+const socket = io('wss://telegram-bot-server-2-matj.onrender.com');
+socket.on('connect', () => console.log('✅ Connected'));
+socket.on('connect_error', (err) => console.log('❌ Error:', err));
 
 // ======================
 // ENVIRONMENT VARIABLES
