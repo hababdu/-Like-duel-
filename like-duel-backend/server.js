@@ -5,17 +5,11 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
-import TelegramBot from 'node-telegram-bot-api';
-import { createServer } from 'node:http';
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-// Brauzer konsolida:
-const socket = io('wss://telegram-bot-server-2-matj.onrender.com');
-socket.on('connect', () => console.log('✅ Connected'));
-socket.on('connect_error', (err) => console.log('❌ Error:', err));
 
 // ======================
 // ENVIRONMENT VARIABLES
@@ -23,37 +17,17 @@ socket.on('connect_error', (err) => console.log('❌ Error:', err));
 const {
   PORT = 10000,
   NODE_ENV = 'production',
-  BOT_TOKEN,
-  ADMIN_ID,
-  ADMIN_TOKEN,
-  WEB_APP_URL,
-  APP_URL,
-  MONGODB_URI
+  MONGODB_URI,
+  ADMIN_TOKEN = 'admin-secret-key',
+  WEB_APP_URL = 'https://telegram-mini-app-gsny.onrender.com'
 } = process.env;
-
-// ======================
-// TELEGRAM BOT SETUP
-// ======================
-let bot = null;
-try {
-  bot = new TelegramBot(BOT_TOKEN, { 
-    polling: NODE_ENV === 'development',
-    webHook: NODE_ENV === 'production' ? {
-      url: `${APP_URL}/webhook/${BOT_TOKEN}`
-    } : undefined
-  });
-  
-  console.log('🤖 Telegram bot muvaffaqiyatli ishga tushdi');
-} catch (error) {
-  console.error('❌ Bot ishga tushmadi:', error);
-}
 
 // ======================
 // MIDDLEWARE
 // ======================
 app.use(cors({
   origin: NODE_ENV === 'production' 
-    ? [WEB_APP_URL, 'https://telegram-mini-app-gsny.onrender.com']
+    ? [WEB_APP_URL, 'https://telegram-mini-app-gsny.onrender.com', 'https://telegram-bot-server-2-matj.onrender.com']
     : ['http://localhost:3000', 'http://localhost:3001'],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Accept", "x-admin-key", "x-telegram-init-data"],
@@ -72,105 +46,7 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // ======================
-// MONGODB ULAGI
-// ======================
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-})
-  .then(() => {
-    console.log('💾 MongoDB muvaffaqiyatli ulandi.');
-    console.log(`📊 Database: ${mongoose.connection.name}`);
-  })
-  .catch(err => {
-    console.error('🔴 MongoDB xatolik:', err);
-    process.exit(1);
-  });
-
-// MongoDB event'lari
-mongoose.connection.on('connected', () => {
-  console.log('🟢 MongoDB ulandi');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('🔴 MongoDB xatolik:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('🟡 MongoDB uzildi');
-});
-
-// ======================
-// USER SCHEMA
-// ======================
-const userSchema = new mongoose.Schema({
-  tgId: { type: String, required: true, unique: true, index: true },
-  username: { type: String, default: '' },
-  firstName: { type: String, default: "O'yinchi" },
-  lastName: { type: String, default: '' },
-  photoUrl: { type: String, default: '' },
-  coins: { type: Number, default: 100, min: 0 },
-  rating: { type: Number, default: 100, min: 0 },
-  refParent: { type: String, default: null },
-  isRefRewarded: { type: Boolean, default: false },
-  lastLogin: { type: Date, default: Date.now },
-  totalGames: { type: Number, default: 0 },
-  wins: { type: Number, default: 0 },
-  losses: { type: Number, default: 0 },
-  draws: { type: Number, default: 0 },
-  lastGameAt: { type: Date },
-  isOnline: { type: Boolean, default: false },
-  deviceInfo: { type: String, default: '' }
-}, { timestamps: true });
-
-// Index'lar
-userSchema.index({ tgId: 1 });
-userSchema.index({ rating: -1, coins: -1 });
-userSchema.index({ username: 1 });
-
-const User = mongoose.model('User', userSchema);
-
-// ======================
-// ADMIN AUTH
-// ======================
-const adminAuth = (req, res, next) => {
-  const adminKey = req.headers['x-admin-key'] || req.headers['authorization'];
-  if (!adminKey || adminKey !== ADMIN_TOKEN) {
-    return res.status(403).json({ 
-      success: false, 
-      message: "Admin ruxsati yo'q",
-      error: 'FORBIDDEN'
-    });
-  }
-  next();
-};
-
-// ======================
-// HELPER FUNCTIONS
-// ======================
-function determineWinner(choice1, choice2) {
-  if (choice1 === choice2) return 'draw';
-  if (
-    (choice1 === 'rock' && choice2 === 'scissors') ||
-    (choice1 === 'paper' && choice2 === 'rock') ||
-    (choice1 === 'scissors' && choice2 === 'paper')
-  ) return 'player1';
-  return 'player2';
-}
-
-function getEmojiForChoice(choice) {
-  const map = {
-    'rock': '🪨',
-    'paper': '📄',
-    'scissors': '✂️'
-  };
-  return map[choice] || '❓';
-}
-
-// ======================
-// SOCKET.IO SETUP
+// SOCKET.IO - OLDINDAN E'LON QILISH (MUHIM!)
 // ======================
 const io = new Server(server, {
   cors: { 
@@ -185,14 +61,24 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
-// Socket holatlari
+// Socket holatlari - io e'lon qilingandan KEYIN
 let searchQueue = [];
 let activeRooms = {};
 let onlineUsers = new Map();
 
 // ======================
-// SOCKET HELPER FUNCTIONS
+// SOCKET HELPER FUNCTIONS - io dan KEYIN
 // ======================
+function determineWinner(choice1, choice2) {
+  if (choice1 === choice2) return 'draw';
+  if (
+    (choice1 === 'rock' && choice2 === 'scissors') ||
+    (choice1 === 'paper' && choice2 === 'rock') ||
+    (choice1 === 'scissors' && choice2 === 'paper')
+  ) return 'player1';
+  return 'player2';
+}
+
 async function evaluateRound(roomId) {
   const room = activeRooms[roomId];
   if (!room) {
@@ -208,7 +94,6 @@ async function evaluateRound(roomId) {
   let coinChange1 = 0, coinChange2 = 0;
   let xpChange1 = 0, xpChange2 = 0;
 
-  // Natijani hisoblash
   if (c1 === 'timeout' && c2 === 'timeout') {
     // Hech narsa o'zgarmaydi
   } else if (c1 === 'timeout') {
@@ -232,7 +117,6 @@ async function evaluateRound(roomId) {
     }
   }
 
-  // DB ni yangilash
   try {
     const [user1, user2] = await Promise.all([
       User.findOne({ tgId: p1.tgId }),
@@ -269,7 +153,6 @@ async function evaluateRound(roomId) {
       await user2.save();
     }
 
-    // Natijalarni yuborish
     io.to(p1.socketId).emit('round_result', {
       myChoice: c1, 
       opponentChoice: c2, 
@@ -286,24 +169,14 @@ async function evaluateRound(roomId) {
       rewardXP: xpChange2
     });
 
-    // Telegram notification (agar g'alaba bo'lsa)
-    if (result1 === 'win' && bot) {
-      bot.sendMessage(p1.tgId, `🎉 Tabriklaymiz! Siz ${p2.name} ga qarshi dueldan g'alaba qozondingiz!\n🪙 +${coinChange1} tanga\n🏆 +${xpChange1} XP`);
-    }
-    if (result2 === 'win' && bot) {
-      bot.sendMessage(p2.tgId, `🎉 Tabriklaymiz! Siz ${p1.name} ga qarshi dueldan g'alaba qozondingiz!\n🪙 +${coinChange2} tanga\n🏆 +${xpChange2} XP`);
-    }
-
   } catch (err) {
     console.error("Balans yangilashda xatolik:", err);
-    // Xatolik haqida socket orqali xabar yuborish
     io.to(roomId).emit('error', { 
       message: 'Server xatoligi yuz berdi', 
       code: 'DB_ERROR' 
     });
   }
 
-  // Xonani tozalash
   delete activeRooms[roomId];
   console.log(`🧹 Room ${roomId} tozalandi`);
 }
@@ -317,7 +190,6 @@ function startRoomTimer(roomId) {
     timeLeft--;
     io.to(roomId).emit('timer_tick', timeLeft);
 
-    // Oxirgi 5 sekundda event
     if (timeLeft <= 5 && timeLeft > 0) {
       io.to(roomId).emit('timer_warning', { timeLeft });
     }
@@ -331,37 +203,86 @@ function startRoomTimer(roomId) {
 }
 
 // ======================
-// TELEGRAM WEBHOOK
+// MONGODB ULAGI
 // ======================
-app.post(`/webhook/${BOT_TOKEN}`, (req, res) => {
-  if (bot) {
-    bot.processUpdate(req.body);
-    res.sendStatus(200);
-  } else {
-    res.sendStatus(500);
-  }
+mongoose.connect(MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+})
+  .then(() => {
+    console.log('💾 MongoDB muvaffaqiyatli ulandi.');
+    console.log(`📊 Database: ${mongoose.connection.name}`);
+  })
+  .catch(err => {
+    console.error('🔴 MongoDB xatolik:', err);
+    process.exit(1);
+  });
+
+mongoose.connection.on('connected', () => {
+  console.log('🟢 MongoDB ulandi');
 });
+
+mongoose.connection.on('error', (err) => {
+  console.error('🔴 MongoDB xatolik:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('🟡 MongoDB uzildi');
+});
+
+// ======================
+// USER SCHEMA
+// ======================
+const userSchema = new mongoose.Schema({
+  tgId: { type: String, required: true, unique: true, index: true },
+  username: { type: String, default: '' },
+  firstName: { type: String, default: "O'yinchi" },
+  lastName: { type: String, default: '' },
+  photoUrl: { type: String, default: '' },
+  coins: { type: Number, default: 100, min: 0 },
+  rating: { type: Number, default: 100, min: 0 },
+  refParent: { type: String, default: null },
+  isRefRewarded: { type: Boolean, default: false },
+  lastLogin: { type: Date, default: Date.now },
+  totalGames: { type: Number, default: 0 },
+  wins: { type: Number, default: 0 },
+  losses: { type: Number, default: 0 },
+  draws: { type: Number, default: 0 },
+  lastGameAt: { type: Date },
+  isOnline: { type: Boolean, default: false },
+  deviceInfo: { type: String, default: '' }
+}, { timestamps: true });
+
+const User = mongoose.model('User', userSchema);
+
+// ======================
+// ADMIN AUTH
+// ======================
+const adminAuth = (req, res, next) => {
+  const adminKey = req.headers['x-admin-key'] || req.headers['authorization'];
+  if (!adminKey || adminKey !== ADMIN_TOKEN) {
+    return res.status(403).json({ 
+      success: false, 
+      message: "Admin ruxsati yo'q",
+      error: 'FORBIDDEN'
+    });
+  }
+  next();
+};
 
 // ======================
 // API ROUTES
 // ======================
 
-// 1. AUTH + REFERRAL (TELEGRAM EVENT)
+// AUTH
 app.post('/api/user/auth', async (req, res) => {
-  const { 
-    tgId, 
-    username, 
-    firstName, 
-    lastName, 
-    photoUrl, 
-    refParent,
-    deviceInfo 
-  } = req.body;
+  const { tgId, username, firstName, lastName, photoUrl, refParent } = req.body;
 
   try {
     let user = await User.findOne({ tgId });
 
-    // Telegram event - yangi foydalanuvchi
     if (!user) {
       user = new User({
         tgId,
@@ -372,102 +293,47 @@ app.post('/api/user/auth', async (req, res) => {
         coins: 100,
         rating: 100,
         refParent: refParent && refParent !== tgId ? refParent : null,
-        deviceInfo: deviceInfo || '',
-        isOnline: true
       });
 
-      // Referral mukofoti - EVENT
       if (refParent && refParent !== tgId) {
         const parent = await User.findOne({ tgId: refParent });
         if (parent) {
-          // Ota-onaga 100 tanga
           parent.coins += 100;
           await parent.save();
-
-          // Yangi foydalanuvchiga 100 tanga bonus
           user.coins += 100;
           user.isRefRewarded = true;
-
-          // Online bo'lsa socket orqali bildirish
           io.emit(`update_${refParent}`, { 
             type: 'REF_BONUS', 
             coins: parent.coins,
             message: `👤 ${user.firstName} sizning taklifingiz orqali ro'yxatdan o'tdi! +100 🪙`
           });
-
-          // Telegram notification
-          if (bot) {
-            bot.sendMessage(refParent, 
-              `🎉 Yangi foydalanuvchi sizning taklifingiz orqali ro'yxatdan o'tdi!\n👤 ${user.firstName}\n🪙 +100 tanga bonus`
-            );
-          }
         }
       }
       await user.save();
-
-      // Telegram event - yangi foydalanuvchi haqida admin ga xabar
-      if (bot && ADMIN_ID) {
-        bot.sendMessage(ADMIN_ID, 
-          `🆕 Yangi foydalanuvchi:\n👤 ${user.firstName}\n🆔 ${user.tgId}\n👥 Referal: ${refParent || 'Yo\'q'}`
-        );
-      }
-
     } else {
-      // Mavjud foydalanuvchini yangilash - EVENT
-      const oldData = { ...user._doc };
-      
       user.username = username || user.username;
       user.firstName = firstName || user.firstName;
       user.lastName = lastName || user.lastName;
       user.photoUrl = photoUrl || user.photoUrl;
       user.lastLogin = new Date();
       user.isOnline = true;
-      user.deviceInfo = deviceInfo || user.deviceInfo;
       await user.save();
-
-      // Ma'lumot o'zgarganligi haqida event
-      if (oldData.coins !== user.coins || oldData.rating !== user.rating) {
-        io.emit(`user_update_${tgId}`, {
-          type: 'USER_UPDATE',
-          coins: user.coins,
-          rating: user.rating,
-          totalGames: user.totalGames
-        });
-      }
     }
 
     res.status(200).json({ success: true, user });
   } catch (error) {
     console.error('Auth xatoligi:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Avtorizatsiya xatoligi",
-      error: error.message 
-    });
+    res.status(500).json({ success: false, message: "Avtorizatsiya xatoligi" });
   }
 });
 
-// 2. USER STATUS (ONLINE/OFFLINE)
-app.post('/api/user/status', async (req, res) => {
-  const { tgId, isOnline } = req.body;
-  try {
-    await User.findOneAndUpdate(
-      { tgId },
-      { isOnline, lastLogin: new Date() }
-    );
-    res.status(200).json({ success: true });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Status yangilashda xatolik" });
-  }
-});
-
-// 3. LEADERBOARD
+// LEADERBOARD
 app.get('/api/user/leaderboard', async (req, res) => {
   try {
     const leaders = await User.find()
       .sort({ rating: -1, coins: -1 })
       .limit(50)
-      .select('tgId firstName username coins rating photoUrl totalGames wins losses draws');
+      .select('tgId firstName username coins rating photoUrl totalGames wins');
 
     res.status(200).json({ success: true, leaders });
   } catch (error) {
@@ -476,7 +342,7 @@ app.get('/api/user/leaderboard', async (req, res) => {
   }
 });
 
-// 4. BUY CHAT LINK
+// BUY CHAT LINK
 app.post('/api/user/buy-chat-link', async (req, res) => {
   const { tgId } = req.body;
   try {
@@ -487,11 +353,6 @@ app.post('/api/user/buy-chat-link', async (req, res) => {
     user.coins -= 10;
     await user.save();
 
-    // Telegram notification
-    if (bot) {
-      bot.sendMessage(tgId, `🔗 Chat link sotib olindingiz!\n🪙 Qolgan tangalar: ${user.coins}`);
-    }
-
     res.status(200).json({ success: true, coins: user.coins });
   } catch (error) {
     console.error('Xarid xatoligi:', error);
@@ -499,7 +360,7 @@ app.post('/api/user/buy-chat-link', async (req, res) => {
   }
 });
 
-// 5. USER STATS
+// USER STATS
 app.get('/api/user/:tgId/stats', async (req, res) => {
   try {
     const user = await User.findOne({ tgId: req.params.tgId });
@@ -522,57 +383,37 @@ app.get('/api/user/:tgId/stats', async (req, res) => {
   }
 });
 
-// 6. REFERRAL STATS
-app.get('/api/user/:tgId/referrals', async (req, res) => {
-  try {
-    const referrals = await User.find({ refParent: req.params.tgId })
-      .select('firstName username coins rating createdAt');
-    
-    res.status(200).json({ 
-      success: true, 
-      referrals,
-      count: referrals.length
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Referal statistikasi xatoligi" });
-  }
-});
-
 // ======================
 // ADMIN ROUTES
 // ======================
 
-// Admin statistika
 app.get('/api/admin/stats', adminAuth, async (req, res) => {
   try {
     const [
       totalUsers,
-      onlineUsers,
+      onlineUsersCount,
       totalCoins,
       totalRating,
       totalGames,
-      top10,
-      recentUsers
+      top10
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ isOnline: true }),
       User.aggregate([{ $group: { _id: null, total: { $sum: "$coins" } } }]),
       User.aggregate([{ $group: { _id: null, total: { $sum: "$rating" } } }]),
       User.aggregate([{ $group: { _id: null, total: { $sum: "$totalGames" } } }]),
-      User.find().sort({ rating: -1, coins: -1 }).limit(10).select('firstName username coins rating totalGames wins'),
-      User.find().sort({ createdAt: -1 }).limit(10).select('firstName username coins rating createdAt')
+      User.find().sort({ rating: -1, coins: -1 }).limit(10).select('firstName username coins rating totalGames wins')
     ]);
 
     res.json({
       success: true,
       data: {
         totalUsers,
-        onlineUsers,
+        onlineUsers: onlineUsersCount,
         totalCoins: totalCoins[0]?.total || 0,
         totalRating: totalRating[0]?.total || 0,
         totalGames: totalGames[0]?.total || 0,
         top10,
-        recentUsers,
         activeRooms: Object.keys(activeRooms).length,
         searchQueue: searchQueue.length,
         timestamp: new Date()
@@ -584,10 +425,9 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
   }
 });
 
-// Barcha foydalanuvchilar (qidiruv bilan)
 app.get('/api/admin/users', adminAuth, async (req, res) => {
   try {
-    const { search, page = 1, limit = 50, sortBy = 'rating' } = req.query;
+    const { search, page = 1, limit = 50 } = req.query;
     const query = search ? {
       $or: [
         { tgId: { $regex: search, $options: 'i' } },
@@ -596,40 +436,21 @@ app.get('/api/admin/users', adminAuth, async (req, res) => {
       ]
     } : {};
 
-    const sortOptions = {
-      'rating': { rating: -1, coins: -1 },
-      'coins': { coins: -1, rating: -1 },
-      'games': { totalGames: -1, rating: -1 },
-      'newest': { createdAt: -1 }
-    };
-
     const users = await User.find(query)
-      .sort(sortOptions[sortBy] || sortOptions.rating)
+      .sort({ rating: -1, coins: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .select('-__v');
 
     const total = await User.countDocuments(query);
 
-    res.json({ success: true, users, total, page: Number(page), totalPages: Math.ceil(total / limit) });
+    res.json({ success: true, users, total, page: Number(page) });
   } catch (err) {
     console.error('Admin users xatoligi:', err);
     res.status(500).json({ success: false, message: "Foydalanuvchilarni yuklashda xatolik" });
   }
 });
 
-// Bitta foydalanuvchini olish
-app.get('/api/admin/users/:id', adminAuth, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
-    res.json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Xatolik" });
-  }
-});
-
-// Foydalanuvchini tahrirlash
 app.put('/api/admin/users/:id', adminAuth, async (req, res) => {
   try {
     const { coins, rating, firstName, username, photoUrl } = req.body;
@@ -646,11 +467,6 @@ app.put('/api/admin/users/:id', adminAuth, async (req, res) => {
     );
     if (!user) return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
 
-    // Telegram notification
-    if (bot) {
-      bot.sendMessage(user.tgId, `🔄 Admin tomonidan profilingiz yangilandi!\n🪙 Tangalar: ${user.coins}\n🏆 Reyting: ${user.rating}`);
-    }
-
     res.json({ success: true, user, message: "Muvaffaqiyatli yangilandi" });
   } catch (err) {
     console.error('Update xatoligi:', err);
@@ -658,19 +474,9 @@ app.put('/api/admin/users/:id', adminAuth, async (req, res) => {
   }
 });
 
-// Foydalanuvchini o'chirish
 app.delete('/api/admin/users/:id', adminAuth, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
-    
     await User.findByIdAndDelete(req.params.id);
-    
-    // Telegram notification
-    if (bot) {
-      bot.sendMessage(ADMIN_ID, `🗑️ Foydalanuvchi o'chirildi:\n👤 ${user.firstName}\n🆔 ${user.tgId}`);
-    }
-    
     res.json({ success: true, message: "Foydalanuvchi o'chirildi" });
   } catch (err) {
     console.error('Delete xatoligi:', err);
@@ -678,9 +484,8 @@ app.delete('/api/admin/users/:id', adminAuth, async (req, res) => {
   }
 });
 
-// Coin qo'shish / ayirish
 app.post('/api/admin/users/:id/coins', adminAuth, async (req, res) => {
-  const { amount, reason } = req.body;
+  const { amount } = req.body;
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
@@ -688,13 +493,6 @@ app.post('/api/admin/users/:id/coins', adminAuth, async (req, res) => {
     const newCoins = Math.max(0, user.coins + (amount || 0));
     user.coins = newCoins;
     await user.save();
-    
-    // Telegram notification
-    if (bot && reason) {
-      bot.sendMessage(user.tgId, 
-        `🪙 Tanga balansingiz o'zgartirildi!\n${amount > 0 ? '+' : ''}${amount} 🪙\nSabab: ${reason}\nJoriy balans: ${newCoins} 🪙`
-      );
-    }
     
     res.json({ success: true, user });
   } catch (err) {
@@ -704,14 +502,13 @@ app.post('/api/admin/users/:id/coins', adminAuth, async (req, res) => {
 });
 
 // ======================
-// SOCKET.IO EVENTS
+// SOCKET.IO EVENTS - io dan KEYIN
 // ======================
 
 io.on('connection', (socket) => {
   console.log(`🔌 Yangi ulanish: ${socket.id}`);
   console.log(`📊 Jami ulanishlar: ${io.engine.clientsCount}`);
 
-  // USER CONNECT EVENT
   socket.on('user_connect', async (data) => {
     const { tgId, firstName } = data;
     try {
@@ -720,14 +517,12 @@ io.on('connection', (socket) => {
         { isOnline: true, lastLogin: new Date() }
       );
       
-      // Online foydalanuvchilarga qo'shish
       onlineUsers.set(tgId, {
         socketId: socket.id,
         firstName,
         connectedAt: new Date()
       });
 
-      // Barchaga online status haqida xabar
       io.emit('user_status', {
         tgId,
         status: 'online',
@@ -740,11 +535,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  // FIND MATCH EVENT
   socket.on('find_match', ({ player, stake = 10 }) => {
     console.log(`🔍 ${player.firstName} raqib qidirmoqda...`);
 
-    // Eski qidiruvlarni tozalash
     searchQueue = searchQueue.filter(p => io.sockets.sockets.has(p.socketId));
 
     const newPlayer = {
@@ -757,7 +550,6 @@ io.on('connection', (socket) => {
       joinedAt: new Date()
     };
 
-    // Bir xil stavkadagi raqibni qidirish
     const opponentIndex = searchQueue.findIndex(p => 
       p.stake === newPlayer.stake && 
       p.tgId !== newPlayer.tgId &&
@@ -781,7 +573,6 @@ io.on('connection', (socket) => {
         createdAt: new Date()
       };
 
-      // MATCH FOUND EVENT
       const matchDataForP1 = { 
         roomId, 
         opponent: { 
@@ -806,7 +597,6 @@ io.on('connection', (socket) => {
       socket.emit('match_found', matchDataForP1);
       io.to(opponent.socketId).emit('match_found', matchDataForP2);
 
-      // MATCH START EVENT - barchaga xabar
       io.emit('match_started', {
         roomId,
         players: [newPlayer.name, opponent.name],
@@ -822,7 +612,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // PLAYER CHOICE EVENT
   socket.on('player_choice', ({ roomId, choice }) => {
     const room = activeRooms[roomId];
     if (!room) {
@@ -833,7 +622,6 @@ io.on('connection', (socket) => {
     room.choices[socket.id] = choice;
     console.log(`🎯 ${socket.id} tanladi: ${choice}`);
 
-    // Ikkala o'yinchi ham tanlagan bo'lsa
     if (Object.keys(room.choices).length === 2) {
       if (room.timerInterval) clearInterval(room.timerInterval);
       io.to(roomId).emit('both_ready', { message: 'Ikkala o\'yinchi ham tayyor!' });
@@ -841,20 +629,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  // CANCEL SEARCH EVENT
   socket.on('cancel_search', () => {
     searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
     console.log(`❌ ${socket.id} qidiruvni bekor qildi`);
   });
 
-  // USER DISCONNECT EVENT
   socket.on('disconnect', () => {
     console.log(`🔌 Uzilish: ${socket.id}`);
-
-    // Qidiruvdan o'chirish
     searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
 
-    // Online foydalanuvchilardan o'chirish
     let disconnectedUser = null;
     for (const [tgId, data] of onlineUsers.entries()) {
       if (data.socketId === socket.id) {
@@ -864,7 +647,6 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Offline status haqida xabar
     if (disconnectedUser) {
       io.emit('user_status', {
         tgId: disconnectedUser.tgId,
@@ -873,11 +655,9 @@ io.on('connection', (socket) => {
       });
     }
 
-    // Faol xonalarni tekshirish
     for (const roomId in activeRooms) {
       const room = activeRooms[roomId];
       if (room.players.some(p => p.socketId === socket.id)) {
-        // Raqibga xabar
         socket.to(roomId).emit('opponent_left', {
           message: 'Raqib o\'yinni tark etdi',
           timestamp: new Date()
@@ -885,7 +665,6 @@ io.on('connection', (socket) => {
         
         if (room.timerInterval) clearInterval(room.timerInterval);
         
-        // Xonani tozalash
         setTimeout(() => {
           delete activeRooms[roomId];
           console.log(`🧹 Room ${roomId} o'chirildi (disconnect)`);
@@ -898,23 +677,20 @@ io.on('connection', (socket) => {
     console.log(`📊 Jami ulanishlar: ${io.engine.clientsCount}`);
   });
 
-  // PING/PONG EVENT (keepalive)
   socket.on('ping', () => {
     socket.emit('pong');
   });
 
-  // ERROR EVENT
   socket.on('error', (error) => {
     console.error(`Socket error ${socket.id}:`, error);
   });
 });
 
 // ======================
-// PERIODIC CLEANUP (30 daqiqada)
+// PERIODIC CLEANUP
 // ======================
 setInterval(async () => {
   try {
-    // 30 daqiqadan ortiq vaqt davomida faol bo'lmagan xonalarni tozalash
     const now = Date.now();
     for (const [roomId, room] of Object.entries(activeRooms)) {
       const roomAge = now - room.createdAt.getTime();
@@ -924,7 +700,6 @@ setInterval(async () => {
       }
     }
 
-    // Offline foydalanuvchilarni belgilash
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
     await User.updateMany(
       { 
@@ -945,8 +720,6 @@ server.listen(PORT, () => {
   console.log(`🚀 Server ${PORT}-portda ishga tushdi`);
   console.log(`🌐 Environment: ${NODE_ENV}`);
   console.log(`📊 Web App URL: ${WEB_APP_URL}`);
-  console.log(`🤖 Bot username: @${BOT_TOKEN.split(':')[0]}`);
-  console.log(`👨‍💼 Admin ID: ${ADMIN_ID}`);
   console.log(`👥 Online users: ${onlineUsers.size}`);
   console.log(`🎮 Active rooms: ${Object.keys(activeRooms).length}`);
   console.log(`🔍 Search queue: ${searchQueue.length}`);
@@ -957,9 +730,6 @@ server.listen(PORT, () => {
 // ======================
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
-  if (bot && ADMIN_ID) {
-    bot.sendMessage(ADMIN_ID, `⚠️ Server xatolik:\n${error.message}`);
-  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
