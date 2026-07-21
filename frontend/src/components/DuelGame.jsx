@@ -2,134 +2,297 @@ import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import './DuelGame.css';
 
-// Backend URL manzili
-const BACKEND_URL = "https://telegram-bot-server-2-matj.onrender.com";
-
-function DuelGame({ user, setUser, onBack }) {
-  const [gameState, setGameState] = useState('idle'); // 'idle', 'searching', 'playing', 'result', 'opponent_left'
+function DuelGame({ 
+  user, 
+  setUser, 
+  backendUrl, 
+  wsUrl, 
+  onBack, 
+  onNotification,
+  triggerHaptic 
+}) {
+  const [gameState, setGameState] = useState('idle');
   const [opponent, setOpponent] = useState(null);
   const [roomId, setRoomId] = useState(null);
   const [timer, setTimer] = useState(30);
   const [myChoice, setMyChoice] = useState(null);
   const [roundResult, setRoundResult] = useState(null);
   const [stake, setStake] = useState(10);
+  const [socketError, setSocketError] = useState(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  // Socket obyekti uchun ref (re-render bo'lganda ulanish qayta yaratilmasligi uchun)
   const socketRef = useRef(null);
 
+  // Telegram WebApp event'lari
   useEffect(() => {
-    // 1. Socket ulanishini hosil qilish
-    socketRef.current = io(BACKEND_URL, {
-      transports: ['websocket', 'polling']
-    });
-
-    const socket = socketRef.current;
-
-    // 2. Server Event tinglovchilari
-    socket.on('searching', ({ stake: confirmedStake }) => {
-      setGameState('searching');
-      if (confirmedStake) setStake(confirmedStake);
-    });
-
-    socket.on('match_found', ({ roomId, opponent, stake: matchStake }) => {
-      setRoomId(roomId);
-      setOpponent(opponent);
-      if (matchStake) setStake(matchStake);
-      setMyChoice(null);
-      setRoundResult(null);
-      setGameState('playing');
-    });
-
-    socket.on('timer_tick', (timeLeft) => {
-      setTimer(timeLeft);
-    });
-
-    socket.on('round_result', ({ myChoice, opponentChoice, result, rewardCoins, rewardXP }) => {
-      setRoundResult({ myChoice, opponentChoice, result, rewardCoins, rewardXP });
-      setGameState('result');
+    const tg = window.Telegram?.WebApp;
+    
+    if (tg) {
+      // O'yin boshlanganda Main button ni yashirish
+      tg.MainButton?.hide();
       
-      // Balans va reytingni xavfsiz yangilash
-      if (setUser) {
-        setUser(prev => ({
-          ...prev,
-          coins: Math.max(0, (prev?.coins || 0) + (rewardCoins || 0)),
-          rating: Math.max(0, (prev?.rating || 0) + (rewardXP || 0))
-        }));
-      }
-    });
+      // Back button ni ko'rsatish
+      tg.BackButton?.show();
+      tg.BackButton?.onClick(() => {
+        if (gameState === 'searching') {
+          handleCancelSearch();
+        } else if (gameState === 'playing') {
+          tg.showAlert('O\'yin davom etmoqda! Raqibni tashlab ketolmaysiz.');
+        } else {
+          onBack();
+        }
+      });
+    }
 
-    socket.on('opponent_left', () => {
-      setGameState('opponent_left');
-    });
-
-    // 3. Komponent yopilganda soketni toza uzish
     return () => {
-      if (socket) {
-        socket.disconnect();
+      if (tg) {
+        tg.BackButton?.hide();
+        tg.BackButton?.offClick();
       }
     };
-  }, [setUser]);
+  }, [gameState, onBack]);
 
-  // 🚀 Raqib qidirishni boshlash funksiyasi
+  // Socket ulanishi
+  useEffect(() => {
+    const connectSocket = () => {
+      setIsConnecting(true);
+      
+      socketRef.current = io(wsUrl || backendUrl, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000
+      });
+
+      const socket = socketRef.current;
+
+      socket.on('connect', () => {
+        console.log('✅ Socket ulandi');
+        setSocketError(null);
+        setIsConnecting(false);
+        
+        // Haptic feedback
+        triggerHaptic?.('light');
+        
+        // Notification
+        onNotification?.('🔌 Serverga ulandi!');
+      });
+
+      socket.on('connect_error', (err) => {
+        console.error('❌ Socket xatolik:', err);
+        setSocketError('Serverga ulanishda xatolik. Qayta urinish...');
+        setIsConnecting(false);
+      });
+
+      socket.on('reconnect_attempt', (attempt) => {
+        setSocketError(`Qayta ulanish ${attempt}...`);
+      });
+
+      socket.on('reconnect', () => {
+        setSocketError(null);
+        onNotification?.('✅ Qayta ulandi!');
+      });
+
+      socket.on('disconnect', (reason) => {
+        console.log('❌ Socket uzildi:', reason);
+        if (reason === 'io server disconnect') {
+          // Server tomonidan uzilgan, qayta ulanish
+          socket.connect();
+        }
+        if (gameState === 'playing' || gameState === 'searching') {
+          setSocketError('Ulanish uzildi. Qayta ulanish...');
+        }
+      });
+
+      socket.on('searching', ({ stake: confirmedStake }) => {
+        setGameState('searching');
+        if (confirmedStake) setStake(confirmedStake);
+        triggerHaptic?.('light');
+      });
+
+      socket.on('match_found', ({ roomId, opponent, stake: matchStake }) => {
+        setRoomId(roomId);
+        setOpponent(opponent);
+        if (matchStake) setStake(matchStake);
+        setMyChoice(null);
+        setRoundResult(null);
+        setGameState('playing');
+        
+        // Haptic feedback
+        triggerHaptic?.('heavy');
+        
+        // Notification
+        onNotification?.(`🎯 Raqib topildi! ${opponent.name} bilan duel!`);
+        
+        // Telegram Main button ni yashirish
+        window.Telegram?.WebApp?.MainButton?.hide();
+      });
+
+      socket.on('timer_tick', (timeLeft) => {
+        setTimer(timeLeft);
+        // Oxirgi 5 sekundda haptic
+        if (timeLeft <= 5 && timeLeft > 0) {
+          triggerHaptic?.('light');
+        }
+      });
+
+      socket.on('round_result', ({ myChoice, opponentChoice, result, rewardCoins, rewardXP }) => {
+        setRoundResult({ myChoice, opponentChoice, result, rewardCoins, rewardXP });
+        setGameState('result');
+        
+        // Haptic feedback
+        if (result === 'win') {
+          triggerHaptic?.('heavy');
+          onNotification?.('🎉 Siz yutdingiz!');
+        } else if (result === 'lose') {
+          triggerHaptic?.('medium');
+          onNotification?.('😢 Mag\'lub bo\'ldingiz');
+        } else {
+          triggerHaptic?.('light');
+          onNotification?.('🤝 Durang');
+        }
+        
+        // Balansni yangilash
+        if (setUser && user) {
+          setUser(prev => ({
+            ...prev,
+            coins: Math.max(0, (prev?.coins || 0) + (rewardCoins || 0)),
+            rating: Math.max(0, (prev?.rating || 0) + (rewardXP || 0)),
+            totalGames: (prev?.totalGames || 0) + 1,
+            wins: (prev?.wins || 0) + (result === 'win' ? 1 : 0),
+            losses: (prev?.losses || 0) + (result === 'lose' ? 1 : 0)
+          }));
+        }
+      });
+
+      socket.on('opponent_left', () => {
+        setGameState('opponent_left');
+        triggerHaptic?.('medium');
+        onNotification?.('⚠️ Raqib o\'yinni tark etdi!');
+      });
+
+      return () => {
+        if (socket) {
+          socket.off('connect');
+          socket.off('connect_error');
+          socket.off('reconnect_attempt');
+          socket.off('reconnect');
+          socket.off('disconnect');
+          socket.off('searching');
+          socket.off('match_found');
+          socket.off('timer_tick');
+          socket.off('round_result');
+          socket.off('opponent_left');
+        }
+      };
+    };
+
+    connectSocket();
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, [backendUrl, wsUrl, gameState, setUser, user, onNotification, triggerHaptic]);
+
   const handleStartSearch = () => {
-    // User ma'lumotlarini xavfsiz shakllantirish
     const currentCoins = user?.coins ?? 0;
 
     if (currentCoins < stake) {
-      alert("⚠️ Balansingizda ushbu stavka uchun yetarli tanga yo'q!");
+      // Telegram alert
+      window.Telegram?.WebApp?.showAlert('⚠️ Balansingizda ushbu stavka uchun yetarli tanga yo\'q!');
+      return;
+    }
+
+    if (socketError) {
+      setSocketError(null);
+    }
+
+    if (!socketRef.current?.connected) {
+      setSocketError('Serverga ulanish yo\'q. Qayta ulanish...');
+      socketRef.current?.connect();
       return;
     }
 
     const playerData = {
-      tgId: String(user?.tgId || user?.id || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || "guest_123"),
-      firstName: user?.firstName || user?.first_name || window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name || "O'yinchi",
+      tgId: String(user?.tgId || "guest_123"),
+      firstName: user?.firstName || "O'yinchi",
       username: user?.username || '',
       rating: user?.rating || 100
     };
 
     setGameState('searching');
+    triggerHaptic?.('light');
 
-    // Serverga ma'lumot yuborish
-    if (socketRef.current) {
-      socketRef.current.emit('find_match', {
-        player: playerData,
-        stake: Number(stake)
-      });
-    }
+    socketRef.current.emit('find_match', {
+      player: playerData,
+      stake: Number(stake)
+    });
   };
 
-  // ✖️ Qidiruvni bekor qilish
   const handleCancelSearch = () => {
     if (socketRef.current) {
       socketRef.current.emit('cancel_search');
     }
     setGameState('idle');
+    triggerHaptic?.('light');
   };
 
-  // 🪨📄✂️ Tosh, qog'oz yoki qaychi tanlash
   const submitChoice = (choice) => {
     setMyChoice(choice);
+    triggerHaptic?.('medium');
+    
     if (socketRef.current && roomId) {
       socketRef.current.emit('player_choice', { roomId, choice });
     }
   };
 
-  // Matnlarni emoji bilan formatlash
   const formatChoice = (str) => {
     if (str === 'rock') return '🪨 Tosh';
     if (str === 'paper') return '📄 Qog\'oz';
     if (str === 'scissors') return '✂️ Qaychi';
-    return '⏳ Kechikdi (Timeout)';
+    return '⏳ Kechikdi';
+  };
+
+  // Tugmani bosishda haptic
+  const handleButtonClick = (action) => {
+    triggerHaptic?.('light');
+    action();
   };
 
   return (
     <div className="game-screen">
-      {/* O'yin o'ynalayotgan paytdan tashqari orqaga qaytish tugmasi */}
       {gameState !== 'playing' && onBack && (
-        <button className="back-btn" onClick={onBack}>⬅️ Menuga Qaytish</button>
+        <button 
+          className="back-btn" 
+          onClick={() => handleButtonClick(onBack)}
+        >
+          ⬅️ Menuga Qaytish
+        </button>
       )}
 
-      {/* 1-HOLAT: IDLE (Asosiy menyu va stavka tanlash) */}
+      {socketError && (
+        <div className="socket-error">
+          ⚠️ {socketError}
+          <button onClick={() => {
+            setSocketError(null);
+            socketRef.current?.connect();
+          }}>
+            🔄 Qayta ulanish
+          </button>
+        </div>
+      )}
+
+      {isConnecting && (
+        <div className="connecting-indicator">
+          <span className="spinner-small"></span>
+          <span>Ulanish...</span>
+        </div>
+      )}
+
       {gameState === 'idle' && (
         <div className="setup-container">
           <h2>⚔️ Onlayn Duel Rejimi</h2>
@@ -140,42 +303,60 @@ function DuelGame({ user, setUser, onBack }) {
               <button 
                 key={value} 
                 className={`stake-card ${stake === value ? 'selected' : ''}`}
-                onClick={() => setStake(value)}
+                onClick={() => handleButtonClick(() => setStake(value))}
+                disabled={user?.coins < value}
               >
                 <div className="coin-icon">🪙</div>
                 <div className="stake-value">{value}</div>
+                {user?.coins < value && <div className="stake-insufficient">❌</div>}
               </button>
             ))}
           </div>
 
-          <button className="btn-action btn-start" onClick={handleStartSearch}>
-            🚀 Jonli Raqib Qidirish
+          <button 
+            className="btn-action btn-start" 
+            onClick={handleStartSearch}
+            disabled={!user || user.coins < stake || isConnecting}
+          >
+            {isConnecting ? '⏳ Ulanish...' : '🚀 Jonli Raqib Qidirish'}
           </button>
         </div>
       )}
 
-      {/* 2-HOLAT: SEARCHING (Raqib qidirilmoqda) */}
       {gameState === 'searching' && (
         <div className="searching-container">
           <div className="radar-animation">
             <div className="ring"></div>
             <div className="ring"></div>
+            <div className="ring"></div>
           </div>
-          <h3>Jonli raqib qidirilmoqda...</h3>
+          <h3>🔍 Jonli raqib qidirilmoqda...</h3>
           <p>Stavka: 🪙 {stake}</p>
-          <button className="btn-action btn-cancel" onClick={handleCancelSearch}>
+          <p className="search-hint">⏳ O'rtacha 5-30 soniya davom etadi</p>
+          <button 
+            className="btn-action btn-cancel" 
+            onClick={handleCancelSearch}
+          >
             ✖️ Bekor qilish
           </button>
         </div>
       )}
 
-      {/* 3-HOLAT: PLAYING (O'yin Maydoni / Arena) */}
       {gameState === 'playing' && (
         <div className="arena-container">
           <div className="versus-header">
-            <div className="fighter">🥊 {user?.firstName || "Siz"}</div>
-            <div className="arena-timer"><span>{timer}</span>s</div>
-            <div className="fighter">🥷 {opponent?.firstName || opponent?.name || "Raqib"}</div>
+            <div className="fighter">
+              <div className="fighter-name">🥊 {user?.firstName || "Siz"}</div>
+              <div className="fighter-stats">🏆 {user?.rating || 0} XP</div>
+            </div>
+            <div className="arena-timer">
+              <span className="timer-value">{timer}</span>
+              <span className="timer-label">s</span>
+            </div>
+            <div className="fighter">
+              <div className="fighter-name">🥷 {opponent?.name || "Raqib"}</div>
+              <div className="fighter-stats">🏆 {opponent?.rating || 0} XP</div>
+            </div>
           </div>
 
           <div className="weapons-row">
@@ -202,11 +383,16 @@ function DuelGame({ user, setUser, onBack }) {
             </button>
           </div>
 
-          {myChoice && <p className="wait-msg">Siz yurgansiz. Raqib yurishi kutilmoqda...</p>}
+          {myChoice && (
+            <p className="wait-msg">⏳ Siz {formatChoice(myChoice)} tanladingiz. Raqib yurishi kutilmoqda...</p>
+          )}
+
+          <div className="game-hint">
+            <span>💡 Tezroq tanlang! Vaqt tugab boryapti</span>
+          </div>
         </div>
       )}
 
-      {/* 4-HOLAT: RESULT (Natijalar) */}
       {gameState === 'result' && (
         <div className="result-container">
           <div className={`result-banner ${roundResult?.result}`}>
@@ -216,8 +402,17 @@ function DuelGame({ user, setUser, onBack }) {
           </div>
           
           <div className="battle-card">
-            <p>Siz: {formatChoice(roundResult?.myChoice)}</p>
-            <p>Raqib: {formatChoice(roundResult?.opponentChoice)}</p>
+            <div className="battle-choices">
+              <div className="choice-display">
+                <span className="choice-label">Siz</span>
+                <span className="choice-value">{formatChoice(roundResult?.myChoice)}</span>
+              </div>
+              <div className="vs-divider">⚡</div>
+              <div className="choice-display">
+                <span className="choice-label">Raqib</span>
+                <span className="choice-value">{formatChoice(roundResult?.opponentChoice)}</span>
+              </div>
+            </div>
             
             <div className="financial-summary">
               <span className={(roundResult?.rewardCoins || 0) >= 0 ? "plus" : "minus"}>
@@ -225,7 +420,7 @@ function DuelGame({ user, setUser, onBack }) {
                   ? `+🪙 ${roundResult?.rewardCoins}` 
                   : `-🪙 ${Math.abs(roundResult?.rewardCoins || 0)}`}
               </span>
-              <span className="xp-summary" style={{ marginLeft: '15px', color: '#ffb703', fontWeight: 'bold' }}>
+              <span className="xp-summary">
                 {(roundResult?.rewardXP || 0) >= 0 
                   ? `+🏆 ${roundResult?.rewardXP} XP` 
                   : `-🏆 ${Math.abs(roundResult?.rewardXP || 0)} XP`}
@@ -233,18 +428,31 @@ function DuelGame({ user, setUser, onBack }) {
             </div>
           </div>
           
-          <button className="btn-action btn-restart" onClick={() => setGameState('idle')}>
+          <button 
+            className="btn-action btn-restart" 
+            onClick={() => handleButtonClick(() => {
+              setGameState('idle');
+              setRoundResult(null);
+              setMyChoice(null);
+            })}
+          >
             🔄 Yana O'ynash
           </button>
         </div>
       )}
 
-      {/* 5-HOLAT: OPPONENT LEFT (Raqib tark etgan xolat) */}
       {gameState === 'opponent_left' && (
         <div className="disconnected-container">
           <h3>⚠️ Raqib o'yinni tark etdi!</h3>
-          <p>O'yin xonasi yopildi.</p>
-          <button className="btn-action" onClick={() => setGameState('idle')}>
+          <p>O'yin xonasi yopildi. Sizga hech qanday jarima berilmadi.</p>
+          <button 
+            className="btn-action" 
+            onClick={() => handleButtonClick(() => {
+              setGameState('idle');
+              setRoundResult(null);
+              setMyChoice(null);
+            })}
+          >
             Bosh sahifaga
           </button>
         </div>
