@@ -1,366 +1,93 @@
-/* =========================================================================
-   🎨 DUEL GAME ASOSIY EKRAN STUNLARI
-   ========================================================================= */
-   .game-screen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 80vh;
-    padding: 20px;
-    color: #ffffff;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    box-sizing: border-box;
-  }
-  
-  /* Orqaga qaytish tugmasi */
-  .back-btn {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(5px);
-  }
-  
-  .back-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-  
-  /* Umumiy tugmalar uslubi (Action Buttons) */
-  .btn-action {
-    width: 100%;
-    max-width: 280px;
-    padding: 14px 28px;
-    font-size: 16px;
-    font-weight: bold;
-    border-radius: 25px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    text-align: center;
-  }
-  
-  /* =========================================================================
-     💰 1. SETUP / STAVKA TANLASH EKRANI (IDLE)
-     ========================================================================= */
-  .setup-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
-  }
-  
-  .setup-container h2 {
-    font-size: 24px;
-    margin-bottom: 5px;
-    background: linear-gradient(45deg, #00f2fe, #4facfe);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  
-  .user-current-coins {
-    font-size: 16px;
-    color: #a0aec0;
-    margin-bottom: 25px;
-  }
-  
-  /* Stavka kartalari to'plami */
-  .stake-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-    width: 100%;
-    margin-bottom: 30px;
-  }
-  
-  .stake-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 20px;
-    cursor: pointer;
-    transition: all 0.25s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .stake-card .coin-icon {
-    font-size: 24px;
-    margin-bottom: 5px;
-  }
-  
-  .stake-card .stake-value {
-    font-size: 18px;
-    font-weight: bold;
-    color: #fff;
-  }
-  
-  /* Tanlangan stavka effekti */
-  .stake-card.selected {
-    background: rgba(79, 172, 254, 0.15);
-    border-color: #00f2fe;
-    box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
-    transform: translateY(-2px);
-  }
-  
-  .btn-start {
-    background: linear-gradient(45deg, #00f2fe, #4facfe);
-    color: #fff;
-  }
-  
-  .btn-start:hover {
-    box-shadow: 0 6px 20px rgba(0, 242, 254, 0.5);
-    transform: translateY(-2px);
-  }
-  
-  /* =========================================================================
-     ⏳ 2. QIDIRUV EKRANI (SEARCHING)
-     ========================================================================= */
-  .searching-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-  
-  /* Radar animatsiyasi */
-  .radar-animation {
-    position: relative;
-    width: 100px;
-    height: 100px;
-    margin-bottom: 30px;
-  }
-  
-  .radar-animation .ring {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    border: 2px solid #00f2fe;
-    border-radius: 50%;
-    animation: radar-pulsate 2s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
-    opacity: 0;
-  }
-  
-  .radar-animation .ring:nth-child(2) {
-    animation-delay: 1s;
-  }
-  
-  @keyframes radar-pulsate {
-    0% { transform: scale(0.1); opacity: 1; }
-    100% { transform: scale(1.2); opacity: 0; }
-  }
-  
-  .btn-cancel {
-    background: #e53e3e;
-    color: #fff;
-    margin-top: 20px;
-  }
-  
-  .btn-cancel:hover {
-    background: #c53030;
-  }
-  
-  /* =========================================================================
-     ⚔️ 3. ARENA EKRANI (PLAYING)
-     ========================================================================= */
-  .arena-container {
-    width: 100%;
-    max-width: 450px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  /* Tepadagi VS paneli */
-  .versus-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    padding: 15px 25px;
-    margin-bottom: 40px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-sizing: border-box;
-  }
-  
-  .fighter {
-    font-size: 16px;
-    font-weight: 600;
-    max-width: 40%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  
-  /* Taymer dumaloq dizayni */
-  .arena-timer {
-    background: #1a202c;
-    border: 3px solid #ffb703;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    font-weight: bold;
-    box-shadow: 0 0 10px rgba(255, 183, 3, 0.4);
-  }
-  
-  /* Qurollar (Tosh, qog'oz, qaychi) qatori */
-  .weapons-row {
-    display: flex;
-    justify-content: space-around;
-    width: 100%;
-    gap: 12px;
-    margin-bottom: 25px;
-  }
-  
-  .weapons-row button {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #fff;
-    padding: 25px 10px;
-    font-size: 16px;
-    font-weight: 600;
-    border-radius: 16px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .weapons-row button:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateY(-3px);
-    border-color: #4facfe;
-  }
-  
-  /* Tanlangan qurol effekti */
-  .weapons-row button.active {
-    background: #4facfe;
-    border-color: #00f2fe;
-    box-shadow: 0 0 20px rgba(79, 172, 254, 0.6);
-    transform: scale(1.05);
-  }
-  
-  .weapons-row button:disabled:not(.active) {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-  }
-  
-  .wait-msg {
-    color: #a0aec0;
-    font-style: italic;
-    font-size: 14px;
-    margin-top: 15px;
-    animation: pulse 1.5s infinite;
-  }
-  
-  @keyframes pulse {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
-  }
-  
-  /* =========================================================================
-     🏆 4. NATIJA EKRANI (RESULT)
-     ========================================================================= */
-  .result-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    max-width: 400px;
-  }
-  
-  .result-banner {
-    font-size: 28px;
-    font-weight: 900;
-    margin-bottom: 25px;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-    letter-spacing: 1px;
-  }
-  
-  .result-banner.win { color: #48bb78; }
-  .result-banner.lose { color: #f56565; }
-  .result-banner.draw { color: #e2e8f0; }
-  
-  .battle-card {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 25px;
-    width: 100%;
-    text-align: center;
-    margin-bottom: 30px;
-    box-sizing: border-box;
-  }
-  
-  .battle-card p {
-    font-size: 18px;
-    margin: 10px 0;
-  }
-  
-  .financial-summary {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 20px;
-    font-size: 20px;
-    font-weight: bold;
-  }
-  
-  .financial-summary .plus { color: #48bb78; }
-  .financial-summary .minus { color: #f56565; }
-  
-  .btn-restart {
-    background: linear-gradient(45deg, #48bb78, #38a169);
-    color: white;
-  }
-  
-  .btn-restart:hover {
-    box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
-    transform: translateY(-2px);
-  }
-  
-  /* =========================================================================
-     ⚠️ 5. UZILISH EKRANI (OPPONENT LEFT)
-     ========================================================================= */
-  .disconnected-container {
-    text-align: center;
-    background: rgba(229, 62, 62, 0.1);
-    border: 1px solid #e53e3e;
-    border-radius: 20px;
-    padding: 30px;
-    max-width: 350px;
-  }
-  
-  .disconnected-container h3 {
-    color: #f56565;
-    margin-bottom: 10px;
-  }
-  
-  .disconnected-container p {
-    color: #cbd5e0;
-    margin-bottom: 20px;
-    font-size: 14px;
-  }
+.game-screen {
+  background-color: #0f172a;
+  color: #ffffff;
+  min-height: 100vh;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.setup-container, .searching-container, .arena-container, .result-container, .disconnected-container {
+  background: #1e293b;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+
+.stake-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.stake-card {
+  background: #334155;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 10px 5px;
+  color: white;
+  cursor: pointer;
+}
+
+.stake-card.selected {
+  border-color: #facc15;
+  background: #475569;
+}
+
+.btn-action {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn-start { background: #3b82f6; color: white; }
+.btn-cancel { background: #ef4444; color: white; }
+.btn-restart { background: #22c55e; color: white; }
+.back-btn {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.weapons-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.weapons-row button {
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: none;
+  background: #334155;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.weapons-row button.active {
+  background: #3b82f6;
+}
+
+.arena-timer span {
+  font-size: 24px;
+  font-weight: bold;
+  color: #facc15;
+}
