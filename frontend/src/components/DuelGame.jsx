@@ -137,13 +137,46 @@ function DuelGame({
         }
       });
 
-      // QIDIRUV EVENTLARI
-      socket.on('searching', ({ stake: confirmedStake }) => {
-        console.log('🔍 Qidiruv boshlandi');
-        setGameState('searching');
-        if (confirmedStake) setStake(confirmedStake);
-        triggerHaptic?.('light');
-      });
+ // Match qidirish funksiyasi
+const findMatch = (stake = 10) => {
+  console.log('🔍 Finding match with stake:', stake);
+  
+  socket.emit('find_match', {
+    player: {
+      tgId: user.tgId,
+      firstName: user.firstName,
+      username: user.username,
+      rating: user.rating,
+      coins: user.coins
+    },
+    stake: stake
+  });
+};
+
+// Match found event
+socket.on('match_found', (data) => {
+  console.log('🎯 Match found!', data);
+  // O'yin boshlanishi
+  // data.roomId, data.opponent, data.stake
+});
+
+// Searching event
+socket.on('searching', (data) => {
+  console.log('⏳ Searching...', data);
+  // UI da "Qidirilmoqda..." ko'rsatish
+});
+
+// Timer tick
+socket.on('timer_tick', (timeLeft) => {
+  console.log('⏱️ Timer:', timeLeft);
+  // UI da timer ko'rsatish
+});
+
+// Round result
+socket.on('round_result', (result) => {
+  console.log('🏆 Round result:', result);
+  // Natijani ko'rsatish
+});
 
       // MATCH TOPILDI
       socket.on('match_found', ({ roomId, opponent, stake: matchStake }) => {
