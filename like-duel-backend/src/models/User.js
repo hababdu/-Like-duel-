@@ -83,31 +83,5 @@ userSchema.index({ rating: -1, coins: -1 });
 userSchema.index({ username: 1 });
 userSchema.index({ refParent: 1 });
 
-// Virtual field'lar
-userSchema.virtual('winRate').get(function() {
-  if (this.totalGames === 0) return 0;
-  return Math.round((this.wins / this.totalGames) * 100);
-});
-
-// Methods
-userSchema.methods.updateCoins = function(amount) {
-  this.coins = Math.max(0, this.coins + amount);
-  return this.save();
-};
-
-userSchema.methods.updateRating = function(amount) {
-  this.rating = Math.max(0, this.rating + amount);
-  return this.save();
-};
-
-userSchema.methods.addGame = function(result) {
-  this.totalGames += 1;
-  if (result === 'win') this.wins += 1;
-  else if (result === 'lose') this.losses += 1;
-  else this.draws += 1;
-  this.lastGameAt = new Date();
-  return this.save();
-};
-
 export const User = mongoose.model('User', userSchema);
 export default User;

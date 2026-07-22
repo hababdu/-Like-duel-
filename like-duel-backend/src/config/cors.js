@@ -1,6 +1,5 @@
 // src/config/cors.js
 import cors from 'cors';
-import logger from '../utils/logger.js';
 
 const allowedOrigins = [
   'https://telegram-mini-app-gsny.onrender.com',
@@ -13,11 +12,12 @@ const allowedOrigins = [
 ];
 
 export const setupCORS = (app) => {
-  // CORS middleware
+  // Custom CORS middleware
   app.use((req, res, next) => {
     const origin = req.headers.origin;
+    const NODE_ENV = process.env.NODE_ENV || 'production';
     
-    if (process.env.NODE_ENV === 'development') {
+    if (NODE_ENV === 'development') {
       res.header('Access-Control-Allow-Origin', '*');
     } else if (origin) {
       const isAllowed = allowedOrigins.some(allowed => {
@@ -39,7 +39,6 @@ export const setupCORS = (app) => {
     res.header('Access-Control-Max-Age', '86400');
 
     if (req.method === 'OPTIONS') {
-      logger.debug('🔄 Preflight request:', req.path);
       return res.sendStatus(200);
     }
 
@@ -51,7 +50,9 @@ export const setupCORS = (app) => {
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
       
-      if (process.env.NODE_ENV === 'development') {
+      const NODE_ENV = process.env.NODE_ENV || 'production';
+      
+      if (NODE_ENV === 'development') {
         return callback(null, true);
       }
 
@@ -75,5 +76,5 @@ export const setupCORS = (app) => {
     maxAge: 86400
   }));
 
-  logger.info('✅ CORS sozlamalari faollashtirildi');
+  console.log('✅ CORS sozlamalari faollashtirildi');
 };

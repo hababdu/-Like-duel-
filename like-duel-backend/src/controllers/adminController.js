@@ -1,8 +1,6 @@
 // src/controllers/adminController.js
 import User from '../models/User.js';
-import { matchService } from '../services/matchService.js';
-import { getOnlineUsers } from '../sockets/index.js';
-import logger from '../utils/logger.js';
+import { getActiveRooms, getSearchQueue } from '../sockets/index.js';
 
 export const adminController = {
   // Statistika
@@ -10,7 +8,7 @@ export const adminController = {
     try {
       const [
         totalUsers,
-        onlineUsers,
+        onlineUsersCount,
         totalCoins,
         totalRating,
         totalGames,
@@ -25,22 +23,25 @@ export const adminController = {
           .select('firstName username coins rating totalGames wins')
       ]);
 
+      const activeRooms = getActiveRooms();
+      const searchQueue = getSearchQueue();
+
       res.json({
         success: true,
         data: {
           totalUsers,
-          onlineUsers,
+          onlineUsers: onlineUsersCount,
           totalCoins: totalCoins[0]?.total || 0,
           totalRating: totalRating[0]?.total || 0,
           totalGames: totalGames[0]?.total || 0,
           top10,
-          activeRooms: Object.keys(matchService.getRooms()).length,
-          searchQueue: matchService.getQueueLength(),
+          activeRooms: Object.keys(activeRooms).length,
+          searchQueue: searchQueue.length,
           timestamp: new Date()
         }
       });
-    } catch (error) {
-      logger.error('Admin stats xatoligi:', error);
+    } catch (err) {
+      console.error('Admin stats xatoligi:', err);
       res.status(500).json({ success: false, message: "Statistika xatoligi" });
     }
   },
@@ -80,8 +81,8 @@ export const adminController = {
         page: parseInt(page),
         totalPages: Math.ceil(total / parseInt(limit))
       });
-    } catch (error) {
-      logger.error('Admin users xatoligi:', error);
+    } catch (err) {
+      console.error('Admin users xatoligi:', err);
       res.status(500).json({ success: false, message: "Foydalanuvchilarni yuklashda xatolik" });
     }
   },
@@ -90,12 +91,9 @@ export const adminController = {
   async getUser(req, res) {
     try {
       const user = await User.findById(req.params.id);
-      if (!user) {
-        return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
-      }
+      if (!user) return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
       res.json({ success: true, user });
-    } catch (error) {
-      logger.error('Get user xatoligi:', error);
+    } catch (err) {
       res.status(500).json({ success: false, message: "Xatolik" });
     }
   },
@@ -121,8 +119,8 @@ export const adminController = {
       }
 
       res.json({ success: true, user, message: "Muvaffaqiyatli yangilandi" });
-    } catch (error) {
-      logger.error('Update user xatoligi:', error);
+    } catch (err) {
+      console.error('Update user xatoligi:', err);
       res.status(500).json({ success: false, message: "Tahrirlashda xatolik" });
     }
   },
@@ -137,8 +135,8 @@ export const adminController = {
       
       await User.findByIdAndDelete(req.params.id);
       res.json({ success: true, message: "Foydalanuvchi o'chirildi" });
-    } catch (error) {
-      logger.error('Delete user xatoligi:', error);
+    } catch (err) {
+      console.error('Delete user xatoligi:', err);
       res.status(500).json({ success: false, message: "O'chirishda xatolik" });
     }
   },
@@ -157,8 +155,8 @@ export const adminController = {
       await user.save();
       
       res.json({ success: true, user });
-    } catch (error) {
-      logger.error('Coin update xatoligi:', error);
+    } catch (err) {
+      console.error('Coin update xatoligi:', err);
       res.status(500).json({ success: false, message: "Coin o'zgartirishda xatolik" });
     }
   }

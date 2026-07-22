@@ -1,10 +1,8 @@
 // src/controllers/authController.js
 import User from '../models/User.js';
-import { referralService } from '../services/referralService.js';
-import logger from '../utils/logger.js';
+import { getIO } from '../config/socket.js';
 
 export const authController = {
-  // Foydalanuvchi autentifikatsiyasi
   async auth(req, res) {
     const { 
       tgId, 
@@ -18,12 +16,11 @@ export const authController = {
     try {
       let user = await User.findOne({ tgId });
       let isNewUser = false;
-      let referralResult = null;
+      let referralBonus = 0;
 
       if (!user) {
         isNewUser = true;
         
-        // Yangi foydalanuvchi yaratish
         user = new User({
           tgId,
           username: username || '',
@@ -38,14 +35,31 @@ export const authController = {
 
         // Referral bonus
         if (refParent && refParent !== tgId) {
-          referralResult = await referralService.processReferral(user, refParent);
+          const parent = await User.findOne({ tgId: refParent });
+          
+          if (parent) {
+            parent.coins = (parent.coins || 0) + 100;
+            await parent.save();
+            
+            user.coins = (user.coins || 0) + 100;
+            user.isRefRewarded = true;
+            referralBonus = 100;
+
+            const io = getIO();
+            io.emit(`update_${refParent}`, {
+              type: 'REF_BONUS',
+              coins: parent.coins,
+              message: `👤 ${user.firstName} sizning taklifingiz orqali ro'yxatdan o'tdi! +100 🪙`
+            });
+
+            console.log(`✅ Referral: ${parent.firstName} -> ${user.firstName} (+100 tanga)`);
+          }
         }
 
         await user.save();
-        logger.info(`🆕 Yangi foydalanuvchi: ${user.firstName} (${user.tgId})`);
+        console.log(`🆕 Yangi foydalanuvchi: ${user.firstName} (${user.tgId})`);
 
       } else {
-        // Mavjud foydalanuvchini yangilash
         user.username = username || user.username;
         user.firstName = firstName || user.firstName;
         user.lastName = lastName || user.lastName;
@@ -53,22 +67,20 @@ export const authController = {
         user.lastLogin = new Date();
         user.isOnline = true;
         await user.save();
-        
-        logger.info(`👤 Mavjud foydalanuvchi: ${user.firstName} (${user.tgId})`);
       }
 
       res.status(200).json({
         success: true,
         user,
         isNewUser,
-        referralBonus: referralResult?.success ? referralService.BONUS_AMOUNT : 0,
-        message: referralResult?.success 
-          ? '🎉 Sizga va do\'stingizga 100 tangadan bonus berildi!' 
+        referralBonus,
+        message: isNewUser && referralBonus > 0
+          ? '🎉 Sizga va do\'stingizga 100 tangadan bonus berildi!'
           : 'Muvaffaqiyatli kirdingiz'
       });
 
     } catch (error) {
-      logger.error('Auth xatoligi:', error);
+      console.error('Auth xatoligi:', error);
       res.status(500).json({
         success: false,
         message: "Avtorizatsiya xatoligi",

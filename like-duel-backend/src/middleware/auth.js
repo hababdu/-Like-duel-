@@ -6,8 +6,7 @@ export const adminAuth = (req, res, next) => {
     if (!adminKey || adminKey !== expectedKey) {
       return res.status(403).json({
         success: false,
-        message: "Admin ruxsati yo'q",
-        error: 'FORBIDDEN'
+        message: "Admin ruxsati yo'q"
       });
     }
     
