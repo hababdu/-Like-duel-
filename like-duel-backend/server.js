@@ -660,116 +660,140 @@ app.post('/api/admin/users/:id/coins', adminAuth, async (req, res) => {
 // ======================
 // SOCKET.IO - TO'G'RILANGAN VERSION
 // ======================
-
+// Serverda - socket eventlarni log qilish
 io.on('connection', (socket) => {
-  console.log(`🔌 Yangi ulanish: ${socket.id}`);
+  console.log('🟢 New connection:', socket.id);
 
-  // USER CONNECT - to'g'rilandi
-  socket.on('user_connect', async (data) => {
-    console.log('👤 User connect:', data);
-    const { tgId, firstName } = data;
-    try {
-      // User ni topish yoki yaratish
-      let user = await User.findOne({ tgId });
-      if (!user) {
-        user = new User({
-          tgId,
-          firstName: firstName || "O'yinchi",
-          coins: 100,
-          rating: 100
-        });
-        await user.save();
-      } else {
-        user.isOnline = true;
-        user.lastLogin = new Date();
-        await user.save();
-      }
-      
-      // Online users ga qo'shish
-      onlineUsers.set(tgId, {
-        socketId: socket.id,
-        firstName: user.firstName,
-        username: user.username,
-        rating: user.rating,
-        coins: user.coins,
-        connectedAt: new Date()
-      });
-
-      // Barchaga xabar berish
-      io.emit('user_status', {
-        tgId,
-        status: 'online',
-        firstName: user.firstName,
-        rating: user.rating
-      });
-
-      // Foydalanuvchiga ma'lumot yuborish
-      socket.emit('user_connected', {
-        success: true,
-        user: {
-          tgId: user.tgId,
-          firstName: user.firstName,
-          username: user.username,
-          coins: user.coins,
-          rating: user.rating
-        }
-      });
-
-    } catch (error) {
-      console.error('User connect error:', error);
-      socket.emit('error', { message: 'Ulanishda xatolik' });
-    }
+  // BARCHA EVENTLARNI LOG QILISH
+  socket.onAny((event, ...args) => {
+    console.log(`📨 Event: ${event}`, JSON.stringify(args, null, 2));
   });
 
-  // FIND MATCH - TO'G'RILANGAN
-  socket.on('find_match', ({ player, stake = 10 }) => {
-    console.log('🔍 Find match:', { player, stake });
+  // Serverda user_connect - TO'G'RILANGAN
+socket.on('user_connect', async (data) => {
+  console.log('👤 User connect:', data);
+  
+  try {
+    const { tgId, firstName } = data;
     
-    // Avval queue dan o'chirish (takrorlanmaslik uchun)
+    if (!tgId) {
+      console.error('❌ No tgId provided');
+      socket.emit('error', { message: 'Foydalanuvchi ID si kerak' });
+      return;
+    }
+
+    // User ni topish yoki yaratish
+    let user = await User.findOne({ tgId: String(tgId) });
+    
+    if (!user) {
+      user = new User({
+        tgId: String(tgId),
+        firstName: firstName || "O'yinchi",
+        coins: 100,
+        rating: 100
+      });
+      await user.save();
+      console.log('✅ New user created:', user.tgId);
+    } else {
+      user.isOnline = true;
+      user.lastLogin = new Date();
+      await user.save();
+      console.log('✅ User updated:', user.tgId);
+    }
+
+    // Online users ga qo'shish
+    onlineUsers.set(String(tgId), {
+      socketId: socket.id,
+      firstName: user.firstName,
+      username: user.username,
+      rating: user.rating,
+      coins: user.coins
+    });
+
+    // Javob yuborish
+    socket.emit('user_connected', {
+      success: true,
+      user: {
+        tgId: user.tgId,
+        firstName: user.firstName,
+        username: user.username,
+        coins: user.coins,
+        rating: user.rating,
+        totalGames: user.totalGames || 0,
+        wins: user.wins || 0,
+        losses: user.losses || 0
+      }
+    });
+
+    // Barchaga xabar
+    io.emit('user_status', {
+      tgId: String(tgId),
+      status: 'online',
+      firstName: user.firstName
+    });
+
+  } catch (error) {
+    console.error('❌ User connect error:', error);
+    socket.emit('error', { 
+      message: 'Foydalanuvchi ulanishida xatolik: ' + error.message 
+    });
+  }
+});
+
+// Serverda find_match - TO'G'RILANGAN
+socket.on('find_match', ({ player, stake = 10 }) => {
+  console.log('🔍 Find match:', { player, stake });
+  
+  try {
+    // 1. Ma'lumotlarni tekshirish
+    if (!player || !player.tgId) {
+      console.error('❌ Invalid player data:', player);
+      socket.emit('error', { message: 'Noto\'g\'ri o\'yinchi ma\'lumotlari' });
+      return;
+    }
+
+    // 2. Queue dan o'chirish
     searchQueue = searchQueue.filter(p => {
-      // Socket mavjudligini tekshirish
-      const socketExists = io.sockets.sockets.has(p.socketId);
-      if (!socketExists) return false;
+      const exists = io.sockets.sockets.has(p.socketId);
+      if (!exists) return false;
       return p.socketId !== socket.id;
     });
 
-    // Player ma'lumotlarini to'g'rilash
+    // 3. Yangi o'yinchi
     const newPlayer = {
       socketId: socket.id,
-      tgId: player.tgId,
-      name: player.firstName || player.name || "O'yinchi",
+      tgId: String(player.tgId),
+      name: player.firstName || "O'yinchi",
       username: player.username || '',
       rating: player.rating || 100,
-      coins: player.coins || 100,
       stake: Math.max(1, Number(stake) || 10),
       joinedAt: new Date()
     };
 
-    console.log('🆕 New player in queue:', newPlayer);
+    console.log('🆕 New player:', newPlayer);
 
-    // Mos raqibni qidirish (stake bo'yicha + o'zi emas)
+    // 4. Raqib qidirish
     const opponentIndex = searchQueue.findIndex(p => 
       p.stake === newPlayer.stake && 
       p.tgId !== newPlayer.tgId &&
       p.socketId !== socket.id &&
-      io.sockets.sockets.has(p.socketId) // Socket hali ulanganligini tekshirish
+      io.sockets.sockets.has(p.socketId)
     );
 
     if (opponentIndex !== -1) {
-      // RAQIB TOPILDI!
+      // Raqib topildi
       const opponent = searchQueue.splice(opponentIndex, 1)[0];
       const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 
       console.log('✅ Match found!', { roomId, player1: newPlayer.tgId, player2: opponent.tgId });
 
-      // Ikkala o'yinchini ham xonaga qo'shish
+      // Xonaga qo'shish
       socket.join(roomId);
       const oppSocket = io.sockets.sockets.get(opponent.socketId);
       if (oppSocket) {
         oppSocket.join(roomId);
       } else {
-        // Raqib socket mavjud emas, queue dan o'chirish va qayta qidirish
-        console.log('⚠️ Opponent socket not found, re-queueing');
+        // Raqib yo'q
         searchQueue.push(newPlayer);
         socket.emit('searching', { stake: newPlayer.stake });
         return;
@@ -782,154 +806,89 @@ io.on('connection', (socket) => {
         choices: {},
         stake: newPlayer.stake,
         timerInterval: null,
-        createdAt: new Date(),
-        roundStarted: false
+        createdAt: new Date()
       };
 
-      // IKKALA O'YINCHIGA HAM MATCH FOUND XABARI
+      // Match found xabari
       const opponentData = {
         tgId: opponent.tgId,
         name: opponent.name,
         username: opponent.username,
-        rating: opponent.rating,
-        coins: opponent.coins
+        rating: opponent.rating
       };
 
       const playerData = {
         tgId: newPlayer.tgId,
         name: newPlayer.name,
         username: newPlayer.username,
-        rating: newPlayer.rating,
-        coins: newPlayer.coins
+        rating: newPlayer.rating
       };
 
-      // Player1 ga (hozirgi socket) raqib ma'lumotlarini yuborish
       socket.emit('match_found', { 
         roomId, 
         opponent: opponentData,
-        stake: newPlayer.stake,
-        you: playerData
+        stake: newPlayer.stake
       });
       
-      // Player2 ga (opponent) raqib ma'lumotlarini yuborish
       io.to(opponent.socketId).emit('match_found', { 
         roomId, 
         opponent: playerData,
-        stake: newPlayer.stake,
-        you: opponentData
+        stake: newPlayer.stake
       });
 
       // Timer boshlash
       startRoomTimer(roomId);
 
     } else {
-      // RAQIB TOPILMADI - QUEUE GA QO'SHISH
-      console.log('⏳ No match found, adding to queue:', newPlayer.tgId);
+      // Raqib topilmadi
+      console.log('⏳ No match, adding to queue');
       searchQueue.push(newPlayer);
-      
-      // Queue holatini yuborish
       socket.emit('searching', { 
         stake: newPlayer.stake,
-        queueLength: searchQueue.length,
-        message: 'Raqib qidirilmoqda...'
+        queueLength: searchQueue.length
       });
     }
-  });
+  } catch (error) {
+    console.error('❌ Find match error:', error);
+    socket.emit('error', { 
+      message: 'O\'yin boshlashda xatolik: ' + error.message 
+    });
+  }
+});
 
-  // PLAYER CHOICE - TO'G'RILANGAN
-  socket.on('player_choice', ({ roomId, choice }) => {
-    console.log('🎯 Player choice:', { roomId, socketId: socket.id, choice });
-    
-    const room = activeRooms[roomId];
-    if (!room) {
-      console.log('❌ Room not found:', roomId);
-      socket.emit('error', { message: 'Xona topilmadi' });
-      return;
-    }
-
-    // Tanlovni saqlash
-    room.choices[socket.id] = choice;
-    console.log('📝 Choices:', room.choices);
-
-    // Ikkala o'yinchi ham tanlov qildimi?
-    const playerIds = room.players.map(p => p.socketId);
-    const allChose = playerIds.every(id => room.choices[id] !== undefined);
-
-    if (allChose) {
-      console.log('✅ Both players chose!');
-      // Timer ni to'xtatish
-      if (room.timerInterval) {
-        clearInterval(room.timerInterval);
-        room.timerInterval = null;
-      }
-      // Natijani hisoblash
-      evaluateRound(roomId);
-    }
-  });
-
-  // CANCEL SEARCH - TO'G'RILANGAN
-  socket.on('cancel_search', () => {
-    console.log('❌ Cancel search:', socket.id);
-    searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
-    socket.emit('search_cancelled', { success: true });
-  });
-
-  // DISCONNECT - TO'G'RILANGAN
-  socket.on('disconnect', () => {
-    console.log(`🔌 Disconnect: ${socket.id}`);
-    
-    // Queue dan o'chirish
-    searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
-
-    // Online users dan o'chirish
-    let disconnectedUser = null;
-    for (const [tgId, data] of onlineUsers.entries()) {
-      if (data.socketId === socket.id) {
-        disconnectedUser = { tgId, ...data };
-        onlineUsers.delete(tgId);
-        break;
-      }
-    }
-
-    if (disconnectedUser) {
-      console.log('👋 User disconnected:', disconnectedUser.tgId);
-      io.emit('user_status', {
-        tgId: disconnectedUser.tgId,
-        status: 'offline',
-        firstName: disconnectedUser.firstName
-      });
-    }
-
-    // Faol xonalardan o'chirish
-    for (const roomId in activeRooms) {
-      const room = activeRooms[roomId];
-      if (room.players.some(p => p.socketId === socket.id)) {
-        console.log('🏠 Removing from room:', roomId);
-        // Raqibga xabar berish
-        socket.to(roomId).emit('opponent_left', { 
-          message: 'Raqib o\'yinni tark etdi' 
-        });
-        // Timer to'xtatish
-        if (room.timerInterval) {
-          clearInterval(room.timerInterval);
-        }
-        delete activeRooms[roomId];
-        break;
-      }
-    }
-  });
-
-  // PING/PONG
-  socket.on('ping', () => {
-    socket.emit('pong');
-  });
-
-  // Xatoliklarni ushlash
+  // XATOLIKLARNI USHLASH
   socket.on('error', (error) => {
-    console.error('Socket error:', error);
+    console.error('❌ Socket error event:', error);
   });
 });
 
+// GLOBAL XATOLIKLARNI USHLASH
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection:', reason);
+});
+// Serverda - GLOBAL ERROR HANDLER
+io.use((socket, next) => {
+  try {
+    next();
+  } catch (error) {
+    console.error('❌ Socket middleware error:', error);
+    next(new Error('Internal server error'));
+  }
+});
+
+// Har bir socket eventini try-catch bilan o'rab olish
+socket.on('find_match', (data) => {
+  try {
+    // ... kod
+  } catch (error) {
+    console.error('❌ Find match error:', error);
+    socket.emit('error', { message: error.message });
+  }
+});
 // ======================
 // START SERVER
 // ======================

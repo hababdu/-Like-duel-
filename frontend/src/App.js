@@ -336,12 +336,18 @@ function App() {
         });
 
         // XATOLIK
-        socket.on('error', (data) => {
-          console.error('❌ Server error:', data);
-          setSocketError(data.message || 'Xatolik yuz berdi');
-          showNotification(`⚠️ ${data.message || 'Xatolik yuz berdi'}`);
-        });
-
+      // App.js da socket error handler
+socket.on('error', (data) => {
+  console.error('❌ Server error DETAILS:', {
+    message: data?.message,
+    stack: data?.stack,
+    code: data?.code,
+    fullData: data
+  });
+  
+  setSocketError(data?.message || 'Xatolik yuz berdi');
+  showNotification(`⚠️ ${data?.message || 'Xatolik yuz berdi'}`);
+});
         // USER STATUS
         socket.on('user_status', (data) => {
           // Online/offline status
