@@ -1,12 +1,20 @@
 // src/config/database.js
 import mongoose from 'mongoose';
-import logger from '../utils/logger.js';
 
 let isConnected = false;
+let retryCount = 0;
+const MAX_RETRIES = 5;
 
 export const connectDB = async () => {
+  // Agar allaqachon ulangan bo'lsa
   if (isConnected) {
-    logger.info('📊 MongoDB allaqachon ulangan');
+    console.log('📊 MongoDB allaqachon ulangan');
+    return;
+  }
+
+  // Maksimal urinishlar soni
+  if (retryCount >= MAX_RETRIES) {
+    console.error(`❌ MongoDB ulanish ${MAX_RETRIES} marta urinildi va muvaffaqiyatsiz tugadi`);
     return;
   }
 
@@ -17,30 +25,55 @@ export const connectDB = async () => {
       throw new Error('MONGODB_URI environment variable is not defined');
     }
 
+    console.log(`🔄 MongoDB ulanishga urinish ${retryCount + 1}/${MAX_RETRIES}...`);
+
     await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // 30 sekund
-      socketTimeoutMS: 60000, // 60 sekund
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 60000,
+      family: 4,
+      maxPoolSize: 10,
+      minPoolSize: 2,
     });
 
     isConnected = true;
-    logger.info('💾 MongoDB muvaffaqiyatli ulandi');
-    logger.info(`📊 Database: ${mongoose.connection.name}`);
+    retryCount = 0;
+    console.log('💾 MongoDB muvaffaqiyatli ulandi');
+    console.log(`📊 Database: ${mongoose.connection.name}`);
 
+    // MongoDB event'lar
     mongoose.connection.on('error', (err) => {
-      logger.error('🔴 MongoDB xatolik:', err);
+      console.error('🔴 MongoDB xatolik:', err);
     });
 
     mongoose.connection.on('disconnected', () => {
-      logger.warn('🟡 MongoDB uzildi');
+      console.warn('🟡 MongoDB uzildi');
       isConnected = false;
-      setTimeout(connectDB, 5000);
+      retryCount = 0;
+      // 5 sekunddan keyin qayta ulanish
+      setTimeout(() => {
+        if (!isConnected) {
+          connectDB();
+        }
+      }, 5000);
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      console.log('🟢 MongoDB qayta ulandi');
+      isConnected = true;
     });
 
   } catch (error) {
-    logger.error('🔴 MongoDB ulanish xatoligi:', error.message);
-    setTimeout(connectDB, 5000);
+    console.error('🔴 MongoDB ulanish xatoligi:', error.message);
+    isConnected = false;
+    retryCount++;
+    
+    if (retryCount < MAX_RETRIES) {
+      console.log(`⏳ 5 sekunddan keyin qayta urinish (${retryCount}/${MAX_RETRIES})...`);
+      setTimeout(connectDB, 5000);
+    } else {
+      console.error(`❌ MongoDB ulanish ${MAX_RETRIES} marta urinildi va muvaffaqiyatsiz tugadi`);
+    }
+    
     throw error;
   }
 };
@@ -49,7 +82,8 @@ export const disconnectDB = async () => {
   if (isConnected) {
     await mongoose.disconnect();
     isConnected = false;
-    logger.info('📊 MongoDB uzildi');
+    retryCount = 0;
+    console.log('📊 MongoDB uzildi');
   }
 };
 
