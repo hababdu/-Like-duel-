@@ -194,6 +194,204 @@ mongoose.connection.on('disconnected', () => {
   setTimeout(connectDB, 5000);
 });
 
+
+// ======================
+// REFERRAL FUNKSIYALARI
+// ======================
+
+// 1. FOYDALANUVCHI AUTH + REFERRAL
+app.post('/api/user/auth', async (req, res) => {
+  const { 
+    tgId, 
+    username, 
+    firstName, 
+    lastName, 
+    photoUrl, 
+    refParent // BU MUHIM! Frontenddan startParam -> refParent
+  } = req.body;
+
+  try {
+    let user = await User.findOne({ tgId });
+    let isNewUser = false;
+    let referralBonus = 0;
+
+    // YANGI FOYDALANUVCHI
+    if (!user) {
+      isNewUser = true;
+      
+      // Yangi foydalanuvchi yaratish
+      user = new User({
+        tgId,
+        username: username || '',
+        firstName: firstName || "O'yinchi",
+        lastName: lastName || '',
+        photoUrl: photoUrl || '',
+        coins: 100, // Boshlang'ich tanga
+        rating: 100,
+        refParent: refParent && refParent !== tgId ? refParent : null,
+        isRefRewarded: false
+      });
+
+      // REFERRAL BONUS - FAQAT YANGI FOYDALANUVCHI UCHUN
+      if (refParent && refParent !== tgId) {
+        // Taklif qilgan foydalanuvchini topish
+        const parent = await User.findOne({ tgId: refParent });
+        
+        if (parent) {
+          // 1. TAKLIF QILGAN O'YINCHIGA 100 TANGA
+          parent.coins = (parent.coins || 0) + 100;
+          await parent.save();
+          
+          // 2. YANGI O'YINCHIGA 100 TANGA BONUS
+          user.coins = (user.coins || 0) + 100;
+          user.isRefRewarded = true;
+          referralBonus = 100;
+
+          // 3. REAL-TIME SOCKET XABAR (taklif qilgan foydalanuvchiga)
+          io.emit(`update_${refParent}`, { 
+            type: 'REF_BONUS', 
+            coins: parent.coins,
+            message: `👤 ${user.firstName} sizning taklifingiz orqali ro'yxatdan o'tdi! +100 🪙`
+          });
+
+          // 4. TELEGRAM XABAR (agar bot ulangan bo'lsa)
+          if (bot) {
+            try {
+              await bot.sendMessage(
+                refParent, 
+                `🎉 Yangi foydalanuvchi sizning taklifingiz orqali ro'yxatdan o'tdi!\n\n` +
+                `👤 Ismi: ${user.firstName}\n` +
+                `🆔 ID: ${user.tgId}\n` +
+                `🪙 Sizga +100 tanga bonus berildi!\n` +
+                `💰 Jami tangalaringiz: ${parent.coins}`
+              );
+            } catch (err) {
+              console.error('Telegram xabar yuborishda xatolik:', err);
+            }
+          }
+
+          console.log(`✅ Referral: ${parent.firstName} -> ${user.firstName} (+100 tanga)`);
+        } else {
+          console.log(`⚠️ Referral parent topilmadi: ${refParent}`);
+        }
+      }
+
+      await user.save();
+
+      // ADMINGA XABAR (yangi foydalanuvchi haqida)
+      if (bot && process.env.ADMIN_ID) {
+        try {
+          await bot.sendMessage(
+            process.env.ADMIN_ID,
+            `🆕 Yangi foydalanuvchi ro'yxatdan o'tdi!\n\n` +
+            `👤 Ismi: ${user.firstName}\n` +
+            `🆔 ID: ${user.tgId}\n` +
+            `👥 Referal: ${refParent || 'Yo\'q'}\n` +
+            `🪙 Tangalar: ${user.coins}`
+          );
+        } catch (err) {
+          console.error('Admin xabar xatolik:', err);
+        }
+      }
+
+    } else {
+      // MAVJUD FOYDALANUVCHI
+      user.username = username || user.username;
+      user.firstName = firstName || user.firstName;
+      user.lastName = lastName || user.lastName;
+      user.photoUrl = photoUrl || user.photoUrl;
+      user.lastLogin = new Date();
+      user.isOnline = true;
+      await user.save();
+    }
+
+    // JAVOB
+    res.status(200).json({ 
+      success: true, 
+      user,
+      isNewUser,
+      referralBonus,
+      message: isNewUser && referralBonus > 0 
+        ? '🎉 Sizga va do\'stingizga 100 tangadan bonus berildi!' 
+        : 'Muvaffaqiyatli kirdingiz'
+    });
+
+  } catch (error) {
+    console.error('Auth xatoligi:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Avtorizatsiya xatoligi",
+      error: error.message 
+    });
+  }
+});
+
+// 2. REFERRAL STATISTIKASI
+app.get('/api/user/:tgId/referrals', async (req, res) => {
+  try {
+    const tgId = req.params.tgId;
+    
+    // Taklif qilingan foydalanuvchilar
+    const referrals = await User.find({ refParent: tgId })
+      .select('firstName username coins rating createdAt isRefRewarded')
+      .sort({ createdAt: -1 });
+
+    // Taklif qilgan foydalanuvchi
+    const user = await User.findOne({ tgId });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        referrals,
+        count: referrals.length,
+        totalBonus: referrals.length * 100,
+        user: user ? {
+          coins: user.coins,
+          firstName: user.firstName
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('Referral stats xatoligi:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Referal statistikasi xatoligi" 
+    });
+  }
+});
+
+// 3. REFERRAL LINK YARATISH
+app.post('/api/user/generate-referral-link', async (req, res) => {
+  const { tgId } = req.body;
+  
+  try {
+    const user = await User.findOne({ tgId });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Foydalanuvchi topilmadi" 
+      });
+    }
+
+    const botUsername = process.env.BOT_USERNAME || 'like_duel_bot';
+    const referralLink = `https://t.me/${botUsername}/app?startapp=${tgId}`;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        link: referralLink,
+        tgId: tgId,
+        botUsername: botUsername
+      }
+    });
+  } catch (error) {
+    console.error('Referral link xatoligi:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Referal link yaratishda xatolik" 
+    });
+  }
+});
 // ======================
 // USER SCHEMA
 // ======================

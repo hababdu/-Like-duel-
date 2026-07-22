@@ -1,184 +1,987 @@
-/* --- ASOSIY SOZLAMALAR --- */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  -webkit-tap-highlight-color: transparent; /* Mobil bosilgandagi ko'k effektni yo'qotadi */
-}
+/* ============================================================
+   APP - LIKE-DUEL TO'LIQ STILLAR
+   ============================================================ */
 
-body {
-  background-color: #1c1c1e; /* Telegram to'q rejimi fon rangi */
-  color: #ffffff;
-  overflow-x: hidden;
-}
-
-.game-app {
-  max-width: 480px;
-  margin: 0 auto;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #121214 0%, #1a1a24 100%);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-/* --- YUKLANISH (LOADING) EKRANI --- */
-.loading-screen {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background-color: #121214;
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 5px solid rgba(255, 255, 255, 0.1);
-  border-top: 5px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 20px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* --- ASOSIY MENYU --- */
-.main-menu {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex-grow: 1;
-  padding-top: 20px;
-}
-
-.game-logo h1 {
-  font-size: 2.5rem;
-  font-weight: 900;
-  text-align: center;
-  background: linear-gradient(45deg, #ff416c, #ff4b2b);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 30px;
-  letter-spacing: 2px;
-  animation: pulse 2s infinite alternate;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.05); }
-}
-
-/* --- PROFIL VA BALANSLAR --- */
-.profile-badge {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 30px;
-  backdrop-filter: blur(10px);
-}
-
-.profile-info h3 {
-  font-size: 1.2rem;
-  margin-bottom: 12px;
-  color: #e4e4e7;
-}
-
-.balances-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.balance-item {
-  flex: 1;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-weight: bold;
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.balance-item span {
-  color: #f1c40f; /* Tanga uchun oltin rang */
-}
-
-.balance-item:last-child span {
-  color: #2ecc71; /* XP/Reyting uchun yashil rang */
-}
-
-/* --- MENYU TUGMALARI --- */
-.menu-buttons {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.btn-menu {
-  width: 100%;
-  padding: 16px 20px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #ffffff;
-  border: none;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
-
-.btn-menu:active {
-  transform: scale(0.98);
-  filter: brightness(0.9);
-}
-
-/* Har bir tugma uchun alohida dizayn */
-.btn-play-online {
-  background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
-}
-
-.btn-play-bot {
-  background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%);
-}
-
-.btn-leader {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-}
-
-.btn-invite {
-  background: linear-gradient(135deg, #8a2be2 0%, #4a00e0 100%);
-}
-
-/* --- UMUMIY ICHKI SAHIFALAR UCHUN (Ortga qaytish va boshqalar) --- */
-.btn-back {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 8px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  margin-bottom: 20px;
-  align-self: flex-start;
-}
-
-.btn-back:active {
-  background: rgba(255, 255, 255, 0.2);
-}
+   * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--tg-bg-color, #ffffff);
+    color: var(--tg-text-color, #000000);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  
+  /* ============================================================
+     LOADING
+     ============================================================ */
+  .loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    gap: 16px;
+  }
+  
+  .loading-screen .spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  .loading-screen p {
+    font-size: 18px;
+    font-weight: 500;
+  }
+  
+  .loading-subtitle {
+    font-size: 14px;
+    opacity: 0.8;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* ============================================================
+     NOTIFICATION
+     ============================================================ */
+  .notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2d3748;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 10000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease;
+    max-width: 90%;
+    font-size: 14px;
+  }
+  
+  .notification-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    opacity: 0.6;
+  }
+  
+  .notification-close:hover {
+    opacity: 1;
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+  
+  /* ============================================================
+     MAIN MENU
+     ============================================================ */
+  .game-app {
+    padding: 20px;
+    max-width: 500px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+  
+  .main-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .game-logo {
+    text-align: center;
+    padding: 20px 0;
+  }
+  
+  .game-logo h1 {
+    font-size: 32px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .game-logo .subtitle {
+    color: var(--tg-hint-color, #999);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  
+  /* ============================================================
+     PROFILE BADGE
+     ============================================================ */
+  .profile-badge {
+    background: var(--tg-secondary-bg-color, #f7fafc);
+    border-radius: 16px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+  
+  .profile-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .profile-info h3 {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  
+  .profile-info .username {
+    font-size: 13px;
+    color: var(--tg-hint-color, #999);
+  }
+  
+  .balances-row {
+    display: flex;
+    gap: 20px;
+  }
+  
+  .balance-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .balance-icon {
+    font-size: 18px;
+  }
+  
+  .balance-value {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  
+  .balance-label {
+    font-size: 13px;
+    color: var(--tg-hint-color, #999);
+  }
+  
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--tg-hint-color, #999);
+  }
+  
+  /* ============================================================
+     MENU BUTTONS
+     ============================================================ */
+  .menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .btn-menu {
+    padding: 14px 20px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+  }
+  
+  .btn-menu:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  .btn-menu .btn-badge {
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 10px;
+    border-radius: 20px;
+  }
+  
+  .btn-play-online {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+  }
+  
+  .btn-leader {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+  }
+  
+  .btn-invite {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+  }
+  
+  .btn-refresh {
+    background: var(--tg-secondary-bg-color, #e2e8f0);
+    color: var(--tg-text-color, #000);
+  }
+  
+  /* ============================================================
+     CONNECTION STATUS
+     ============================================================ */
+  .connection-status {
+    text-align: center;
+    font-size: 13px;
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--tg-secondary-bg-color, #f7fafc);
+  }
+  
+  .status-online {
+    color: #48bb78;
+  }
+  
+  .status-offline {
+    color: #fc8181;
+  }
+  
+  /* ============================================================
+     BACK BUTTON
+     ============================================================ */
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--tg-link-color, #667eea);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 8px 0;
+    margin-bottom: 16px;
+  }
+  
+  /* ============================================================
+     GAME SCREEN
+     ============================================================ */
+  .game-screen {
+    animation: fadeIn 0.3s ease;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  /* SETUP */
+  .setup-container {
+    text-align: center;
+    padding: 20px 0;
+  }
+  
+  .setup-container h2 {
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+  
+  .user-current-coins {
+    font-size: 16px;
+    color: var(--tg-hint-color, #999);
+    margin-bottom: 20px;
+  }
+  
+  .stake-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  
+  .stake-card {
+    background: var(--tg-secondary-bg-color, #f5f5f5);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
+  
+  .stake-card.selected {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+  }
+  
+  .stake-card:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .coin-icon {
+    font-size: 24px;
+  }
+  
+  .stake-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ed8936;
+  }
+  
+  .stake-insufficient {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 16px;
+  }
+  
+  .btn-action {
+    padding: 14px 32px;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    width: 100%;
+  }
+  
+  .btn-start {
+    background: linear-gradient(135deg, #48bb78, #38a169);
+    color: white;
+  }
+  
+  .btn-start:hover:not(:disabled) {
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(72, 187, 120, 0.4);
+  }
+  
+  .btn-start:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .btn-cancel {
+    background: #fc8181;
+    color: white;
+  }
+  
+  .btn-cancel:hover {
+    background: #f56565;
+  }
+  
+  .btn-restart {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+  }
+  
+  .btn-restart:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  }
+  
+  /* SEARCHING */
+  .searching-container {
+    text-align: center;
+    padding: 40px 0;
+  }
+  
+  .radar-animation {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 24px;
+  }
+  
+  .ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 3px solid #667eea;
+    border-radius: 50%;
+    opacity: 0;
+    animation: radar 2s ease-out infinite;
+  }
+  
+  .ring:nth-child(2) {
+    animation-delay: 0.5s;
+  }
+  
+  .ring:nth-child(3) {
+    animation-delay: 1s;
+  }
+  
+  @keyframes radar {
+    0% {
+      transform: scale(0.3);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(1.2);
+      opacity: 0;
+    }
+  }
+  
+  .search-hint {
+    color: var(--tg-hint-color, #999);
+    font-size: 14px;
+    margin-top: 8px;
+  }
+  
+  /* PLAYING */
+  .arena-container {
+    padding: 16px 0;
+  }
+  
+  .versus-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding: 16px;
+    background: var(--tg-secondary-bg-color, #f5f5f5);
+    border-radius: 12px;
+  }
+  
+  .fighter {
+    text-align: center;
+  }
+  
+  .fighter-name {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  
+  .fighter-stats {
+    font-size: 12px;
+    color: var(--tg-hint-color, #999);
+  }
+  
+  .arena-timer {
+    text-align: center;
+  }
+  
+  .timer-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: #fc8181;
+  }
+  
+  .timer-label {
+    font-size: 12px;
+    color: var(--tg-hint-color, #999);
+    display: block;
+  }
+  
+  .weapons-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .weapons-row button {
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    border: 2px solid var(--tg-secondary-bg-color, #e0e0e0);
+    border-radius: 12px;
+    background: var(--tg-secondary-bg-color, #f5f5f5);
+    cursor: pointer;
+    transition: all 0.3s;
+    color: var(--tg-text-color, #000);
+  }
+  
+  .weapons-row button:hover:not(:disabled) {
+    transform: scale(1.05);
+    border-color: #667eea;
+  }
+  
+  .weapons-row button.active {
+    border-color: #48bb78;
+    background: rgba(72, 187, 120, 0.1);
+  }
+  
+  .weapons-row button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .wait-msg {
+    text-align: center;
+    font-size: 14px;
+    color: #ed8936;
+    padding: 12px;
+    background: rgba(237, 137, 54, 0.1);
+    border-radius: 8px;
+  }
+  
+  /* RESULT */
+  .result-container {
+    text-align: center;
+    padding: 20px 0;
+  }
+  
+  .result-banner {
+    font-size: 28px;
+    font-weight: 700;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .result-banner.win {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  
+  .result-banner.lose {
+    background: #fbe9e7;
+    color: #b71c1c;
+  }
+  
+  .result-banner.draw {
+    background: #fff3e0;
+    color: #e65100;
+  }
+  
+  .battle-card {
+    background: var(--tg-secondary-bg-color, #f5f5f5);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .battle-choices {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .choice-display {
+    text-align: center;
+  }
+  
+  .choice-label {
+    display: block;
+    font-size: 12px;
+    color: var(--tg-hint-color, #999);
+    margin-bottom: 4px;
+  }
+  
+  .choice-value {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  
+  .vs-divider {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fc8181;
+  }
+  
+  .financial-summary {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--tg-secondary-bg-color, #e0e0e0);
+  }
+  
+  .financial-summary .plus {
+    color: #48bb78;
+    font-weight: 600;
+  }
+  
+  .financial-summary .minus {
+    color: #fc8181;
+    font-weight: 600;
+  }
+  
+  .xp-summary {
+    color: #ed8936;
+    font-weight: 600;
+  }
+  
+  /* OPPONENT LEFT */
+  .disconnected-container {
+    text-align: center;
+    padding: 40px 0;
+  }
+  
+  .disconnected-container h3 {
+    color: #fc8181;
+    margin-bottom: 12px;
+  }
+  
+  /* SOCKET ERROR */
+  .socket-error {
+    background: #fbe9e7;
+    border: 1px solid #fc8181;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .socket-error button {
+    background: #fc8181;
+    color: white;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  
+  .socket-error button:hover {
+    background: #f56565;
+  }
+  
+  /* ============================================================
+     MODAL
+     ============================================================ */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .modal-header h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+  }
+  
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #a0aec0;
+    transition: color 0.3s;
+  }
+  
+  .modal-close:hover {
+    color: #2d3748;
+  }
+  
+  /* REFERRAL */
+  .referral-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .referral-stats .stat-item {
+    background: #f7fafc;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+  }
+  
+  .referral-stats .stat-label {
+    display: block;
+    font-size: 12px;
+    color: #a0aec0;
+    margin-bottom: 4px;
+  }
+  
+  .referral-stats .stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #2d3748;
+  }
+  
+  .referral-link-box {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  
+  .link-display {
+    flex: 1;
+    background: #f7fafc;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 2px dashed #e2e8f0;
+    overflow: hidden;
+  }
+  
+  .link-text {
+    font-size: 13px;
+    color: #4a5568;
+    word-break: break-all;
+  }
+  
+  .btn-copy {
+    padding: 10px 20px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+  }
+  
+  .btn-copy:hover {
+    background: #5a67d8;
+    transform: scale(1.05);
+  }
+  
+  .referral-info {
+    background: #e8f5e9;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #1b5e20;
+  }
+  
+  .referral-info strong {
+    color: #2e7d32;
+  }
+  
+  .referral-list {
+    margin-top: 16px;
+  }
+  
+  .referral-list h4 {
+    font-size: 14px;
+    color: #4a5568;
+    margin-bottom: 8px;
+  }
+  
+  .referral-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f7fafc;
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+  
+  .referral-item .ref-name {
+    font-weight: 500;
+    color: #2d3748;
+  }
+  
+  .referral-item .ref-date {
+    font-size: 12px;
+    color: #a0aec0;
+  }
+  
+  .referral-item .ref-bonus {
+    color: #48bb78;
+    font-weight: 600;
+  }
+  
+  /* LEADERBOARD */
+  .leaderboard-modal {
+    max-width: 600px;
+  }
+  
+  .leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .leader-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f7fafc;
+    border-radius: 10px;
+    transition: background 0.3s;
+  }
+  
+  .leader-item:hover {
+    background: #edf2f7;
+  }
+  
+  .leader-item.rank-1 { border-left: 4px solid #ed8936; }
+  .leader-item.rank-2 { border-left: 4px solid #a0aec0; }
+  .leader-item.rank-3 { border-left: 4px solid #d69e2e; }
+  
+  .leader-rank {
+    font-size: 20px;
+    min-width: 40px;
+  }
+  
+  .leader-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e2e8f0;
+  }
+  
+  .leader-info {
+    flex: 1;
+  }
+  
+  .leader-name {
+    font-weight: 600;
+    color: #2d3748;
+  }
+  
+  .leader-username {
+    display: block;
+    font-size: 12px;
+    color: #a0aec0;
+  }
+  
+  .leader-stats {
+    display: flex;
+    gap: 12px;
+    font-size: 14px;
+  }
+  
+  .leader-rating {
+    font-weight: 600;
+    color: #ed8936;
+  }
+  
+  .leader-coins {
+    font-weight: 600;
+    color: #48bb78;
+  }
+  
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width: 480px) {
+    .game-app {
+      padding: 12px;
+    }
+    
+    .game-logo h1 {
+      font-size: 26px;
+    }
+    
+    .stake-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .referral-stats {
+      grid-template-columns: 1fr;
+    }
+    
+    .referral-link-box {
+      flex-direction: column;
+    }
+    
+    .btn-copy {
+      width: 100%;
+    }
+    
+    .weapons-row {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .weapons-row button {
+      padding: 12px;
+      font-size: 14px;
+    }
+    
+    .battle-choices {
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .modal-content {
+      padding: 20px;
+    }
+    
+    .leader-item {
+      flex-wrap: wrap;
+    }
+    
+    .leader-stats {
+      margin-left: auto;
+    }
+  }
+  
+  /* ============================================================
+     UTILITIES
+     ============================================================ */
+  .text-center { text-align: center; }
+  .mt-8 { margin-top: 8px; }
+  .mt-16 { margin-top: 16px; }
+  .mb-16 { margin-bottom: 16px; }
+  .gap-8 { gap: 8px; }
+  .gap-16 { gap: 16px; }
+  
+  .flex { display: flex; }
+  .flex-col { flex-direction: column; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+  .flex-1 { flex: 1; }
