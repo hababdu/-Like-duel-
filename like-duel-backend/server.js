@@ -1,86 +1,65 @@
-// src/config/database.js
-import mongoose from 'mongoose';
+// server.js
+import express from 'express';
+import http from 'http';
+import dotenv from 'dotenv';
+import { connectDB } from './src/config/database.js';
+import { setupCORS } from './src/config/cors.js';
+import { setupSocket } from './src/config/socket.js';
+import routes from './src/routes/index.js';
+import { errorHandler } from './src/middleware/errorHandler.js';
+import { rateLimiter } from './src/middleware/rateLimit.js';
 
-let isConnected = false;
-let retryCount = 0;
-const MAX_RETRIES = 5;
+dotenv.config();
 
-export const connectDB = async () => {
-  // Agar allaqachon ulangan bo'lsa
-  if (isConnected) {
-    console.log('📊 MongoDB allaqachon ulangan');
-    return;
-  }
+const app = express();
+const server = http.createServer(app);
+const PORT = process.env.PORT || 10000;
 
-  // Maksimal urinishlar soni
-  if (retryCount >= MAX_RETRIES) {
-    console.error(`❌ MongoDB ulanish ${MAX_RETRIES} marta urinildi va muvaffaqiyatsiz tugadi`);
-    return;
-  }
+// ======================
+// MIDDLEWARE
+// ======================
+setupCORS(app);
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(rateLimiter);
 
-  try {
-    const MONGODB_URI = process.env.MONGODB_URI;
-    
-    if (!MONGODB_URI) {
-      throw new Error('MONGODB_URI environment variable is not defined');
-    }
+// ======================
+// ROUTES
+// ======================
+app.use('/api', routes);
 
-    console.log(`🔄 MongoDB ulanishga urinish ${retryCount + 1}/${MAX_RETRIES}...`);
+// ======================
+// ERROR HANDLER
+// ======================
+app.use(errorHandler);
 
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 30000,
-      socketTimeoutMS: 60000,
-      family: 4,
-      maxPoolSize: 10,
-      minPoolSize: 2,
-    });
+// ======================
+// DATABASE
+// ======================
+await connectDB();
 
-    isConnected = true;
-    retryCount = 0;
-    console.log('💾 MongoDB muvaffaqiyatli ulandi');
-    console.log(`📊 Database: ${mongoose.connection.name}`);
+// ======================
+// SOCKET.IO
+// ======================
+setupSocket(server);
 
-    // MongoDB event'lar
-    mongoose.connection.on('error', (err) => {
-      console.error('🔴 MongoDB xatolik:', err);
-    });
+// ======================
+// START SERVER
+// ======================
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server ${PORT}-portda ishga tushdi`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📊 Web App URL: ${process.env.WEB_APP_URL || 'https://telegram-mini-app-gsny.onrender.com'}`);
+});
 
-    mongoose.connection.on('disconnected', () => {
-      console.warn('🟡 MongoDB uzildi');
-      isConnected = false;
-      setTimeout(() => {
-        if (!isConnected) {
-          connectDB();
-        }
-      }, 5000);
-    });
+// ======================
+// UNHANDLED REJECTIONS
+// ======================
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection:', reason);
+});
 
-    mongoose.connection.on('reconnected', () => {
-      console.log('🟢 MongoDB qayta ulandi');
-      isConnected = true;
-    });
-
-  } catch (error) {
-    console.error('🔴 MongoDB ulanish xatoligi:', error.message);
-    isConnected = false;
-    retryCount++;
-    
-    if (retryCount < MAX_RETRIES) {
-      console.log(`⏳ 5 sekunddan keyin qayta urinish (${retryCount}/${MAX_RETRIES})...`);
-      setTimeout(connectDB, 5000);
-    }
-    
-    throw error;
-  }
-};
-
-export const disconnectDB = async () => {
-  if (isConnected) {
-    await mongoose.disconnect();
-    isConnected = false;
-    retryCount = 0;
-    console.log('📊 MongoDB uzildi');
-  }
-};
-
-export const getConnectionStatus = () => isConnected;
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  process.exit(1);
+});
