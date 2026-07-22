@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 
 // ============================================================
-// APP - LIKE-DUEL O'YININING TO'LIQ FRONTENDI
+// TO'LIQ QAYTA YOZILGAN APP - LIKE-DUEL
 // ============================================================
 
 function App() {
@@ -42,9 +42,9 @@ function App() {
   // ======================
   // KONSTANTALAR
   // ======================
-  const BACKEND_URL = import.meta.env?.VITE_API_URL || 'https://telegram-bot-server-2-matj.onrender.com';
-  const WS_URL = import.meta.env?.VITE_WS_URL || 'wss://telegram-bot-server-2-matj.onrender.com';
-  const BOT_USERNAME = import.meta.env?.VITE_BOT_USERNAME || 'like_duel_bot';
+  const BACKEND_URL = 'https://telegram-bot-server-2-matj.onrender.com';
+  const WS_URL = 'wss://telegram-bot-server-2-matj.onrender.com';
+  const BOT_USERNAME = 'like_duel_bot';
 
   // ======================
   // 1. TELEGRAM WEBAPP BOSHLANG'ICH SOZLAMALAR
@@ -58,15 +58,6 @@ function App() {
           tg.ready();
           tg.expand();
           
-          // Telegram event'lar
-          tg.onEvent('themeChanged', () => {
-            applyTelegramTheme(tg);
-          });
-          
-          tg.onEvent('viewportChanged', () => {
-            // Viewport o'zgarishi
-          });
-
           const tgUser = tg.initDataUnsafe?.user;
           const startParam = tg.initDataUnsafe?.start_param;
 
@@ -121,11 +112,6 @@ function App() {
 
     // Cleanup
     return () => {
-      const tg = window.Telegram?.WebApp;
-      if (tg) {
-        tg.offEvent('themeChanged');
-        tg.offEvent('viewportChanged');
-      }
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
@@ -133,20 +119,7 @@ function App() {
   }, []);
 
   // ======================
-  // 2. TELEGRAM THEMA QO'LLASH
-  // ======================
-  const applyTelegramTheme = (tg) => {
-    const root = document.documentElement;
-    root.style.setProperty('--tg-bg-color', tg.backgroundColor || '#ffffff');
-    root.style.setProperty('--tg-text-color', tg.textColor || '#000000');
-    root.style.setProperty('--tg-hint-color', tg.hintColor || '#999999');
-    root.style.setProperty('--tg-link-color', tg.linkColor || '#2481cc');
-    root.style.setProperty('--tg-button-color', tg.buttonColor || '#2481cc');
-    root.style.setProperty('--tg-button-text-color', tg.buttonTextColor || '#ffffff');
-  };
-
-  // ======================
-  // 3. TEST USER (FALLBACK)
+  // 2. TEST USER (FALLBACK)
   // ======================
   const setTestUser = () => {
     setUser({
@@ -163,7 +136,7 @@ function App() {
   };
 
   // ======================
-  // 4. NOTIFICATION
+  // 3. NOTIFICATION
   // ======================
   const showNotification = (message) => {
     setNotification(message);
@@ -171,7 +144,7 @@ function App() {
   };
 
   // ======================
-  // 5. REFERRAL FUNKSIYALARI
+  // 4. REFERRAL FUNKSIYALARI
   // ======================
   const fetchReferrals = async (tgId) => {
     try {
@@ -217,21 +190,14 @@ function App() {
 
     try {
       await navigator.clipboard.writeText(link);
-      
-      // Telegram haptic
-      const tg = window.Telegram?.WebApp;
-      tg?.HapticFeedback?.impactOccurred?.('medium');
-      
-      showNotification('✅ Havola nusxalandi! Do\'stlaringizga yuboring!');
-      
+      showNotification('✅ Havola nusxalandi!');
     } catch (error) {
-      // Fallback
       alert(`🔗 Taklif havolasi:\n\n${link}`);
     }
   };
 
   // ======================
-  // 6. LEADERBOARD
+  // 5. LEADERBOARD
   // ======================
   const fetchLeaderboard = async () => {
     setLeadersLoading(true);
@@ -250,115 +216,140 @@ function App() {
   };
 
   // ======================
-  // 7. SOCKET.IO ULAGI
+  // 6. SOCKET.IO ULAGI - TO'LIQ QAYTA YOZILGAN
   // ======================
   const connectSocket = useCallback(() => {
     if (socketRef.current?.connected) {
-      console.log('Socket allaqachon ulangan');
+      console.log('Socket already connected');
       return;
     }
 
     try {
-      // Dinamik import socket.io-client
       import('socket.io-client').then(({ io }) => {
         socketRef.current = io(WS_URL, {
           transports: ['websocket', 'polling'],
           reconnection: true,
-          reconnectionAttempts: 5,
+          reconnectionAttempts: 10,
           reconnectionDelay: 1000,
-          timeout: 20000,
-          autoConnect: true
+          reconnectionDelayMax: 5000,
+          timeout: 30000,
+          autoConnect: true,
+          forceNew: true,
+          withCredentials: true
         });
 
         const socket = socketRef.current;
 
+        // ULANGANDA
         socket.on('connect', () => {
-          console.log('✅ Socket ulandi');
+          console.log('✅ Socket connected');
           setSocketConnected(true);
           setSocketError(null);
           
-          // User connect event
           if (user) {
             socket.emit('user_connect', {
-              tgId: user.tgId,
-              firstName: user.firstName
+              tgId: String(user.tgId),
+              firstName: user.firstName || "O'yinchi"
             });
           }
         });
 
+        // ULANGANDA XATOLIK
         socket.on('connect_error', (err) => {
-          console.error('❌ Socket error:', err);
+          console.error('❌ Socket connect error:', err);
           setSocketError('Serverga ulanishda xatolik');
           setSocketConnected(false);
         });
 
-        socket.on('disconnect', () => {
-          console.log('❌ Socket uzildi');
+        // UZILGANDA
+        socket.on('disconnect', (reason) => {
+          console.log('❌ Socket disconnected:', reason);
           setSocketConnected(false);
         });
 
-        socket.on('searching', ({ stake: confirmedStake }) => {
-          setSearching(true);
-          if (confirmedStake) setStake(confirmedStake);
+        // USER CONNECTED
+        socket.on('user_connected', (data) => {
+          console.log('✅ User connected:', data);
+          if (data.success && data.user) {
+            setUser(prev => ({ ...prev, ...data.user }));
+          }
         });
 
-        socket.on('match_found', ({ roomId, opponent, stake: matchStake }) => {
-          setRoomId(roomId);
-          setOpponent(opponent);
-          if (matchStake) setStake(matchStake);
+        // QIDIRUV
+        socket.on('searching', (data) => {
+          console.log('🔍 Searching:', data);
+          setSearching(true);
+          if (data?.stake) setStake(data.stake);
+        });
+
+        // MATCH TOPILDI
+        socket.on('match_found', (data) => {
+          console.log('🎯 Match found:', data);
+          setRoomId(data.roomId);
+          setOpponent(data.opponent);
+          if (data.stake) setStake(data.stake);
           setMyChoice(null);
           setRoundResult(null);
           setGameState('playing');
           setSearching(false);
           
-          showNotification(`🎯 Raqib topildi! ${opponent.name} bilan duel!`);
+          showNotification(`🎯 Raqib topildi! ${data.opponent.name} bilan duel!`);
         });
 
+        // TIMER
         socket.on('timer_tick', (timeLeft) => {
           setTimer(timeLeft);
         });
 
-        socket.on('round_result', ({ myChoice, opponentChoice, result, rewardCoins, rewardXP }) => {
-          setRoundResult({ myChoice, opponentChoice, result, rewardCoins, rewardXP });
+        // NATIJA
+        socket.on('round_result', (result) => {
+          console.log('📊 Round result:', result);
+          setRoundResult(result);
           setGameState('result');
           
           // Balansni yangilash
-          if (setUser && user) {
+          if (user) {
             setUser(prev => ({
               ...prev,
-              coins: Math.max(0, (prev?.coins || 0) + (rewardCoins || 0)),
-              rating: Math.max(0, (prev?.rating || 0) + (rewardXP || 0)),
+              coins: Math.max(0, (prev?.coins || 0) + (result.rewardCoins || 0)),
+              rating: Math.max(0, (prev?.rating || 0) + (result.rewardXP || 0)),
               totalGames: (prev?.totalGames || 0) + 1,
-              wins: (prev?.wins || 0) + (result === 'win' ? 1 : 0),
-              losses: (prev?.losses || 0) + (result === 'lose' ? 1 : 0)
+              wins: (prev?.wins || 0) + (result.result === 'win' ? 1 : 0),
+              losses: (prev?.losses || 0) + (result.result === 'lose' ? 1 : 0)
             }));
           }
           
-          if (result === 'win') {
+          if (result.result === 'win') {
             showNotification('🎉 Siz yutdingiz!');
-          } else if (result === 'lose') {
+          } else if (result.result === 'lose') {
             showNotification('😢 Mag\'lub bo\'ldingiz');
           } else {
             showNotification('🤝 Durang');
           }
         });
 
+        // RAQIB KETDI
         socket.on('opponent_left', () => {
+          console.log('🚪 Opponent left');
           setGameState('opponent_left');
           showNotification('⚠️ Raqib o\'yinni tark etdi!');
         });
 
-        socket.on('timeout', () => {
-          showNotification('⏰ Vaqt tugadi!');
+        // XATOLIK
+        socket.on('error', (data) => {
+          console.error('❌ Server error:', data);
+          setSocketError(data.message || 'Xatolik yuz berdi');
+          showNotification(`⚠️ ${data.message || 'Xatolik yuz berdi'}`);
         });
 
-        socket.on('error', ({ message }) => {
-          setSocketError(message);
-          showNotification(`⚠️ ${message}`);
-        });
-
-        socket.on('user_status', ({ tgId, status, firstName }) => {
+        // USER STATUS
+        socket.on('user_status', (data) => {
           // Online/offline status
+        });
+
+        // PONG
+        socket.on('pong', () => {
+          // Keepalive
         });
       });
     } catch (error) {
@@ -381,7 +372,7 @@ function App() {
   }, [user, connectSocket]);
 
   // ======================
-  // 8. O'YIN FUNKSIYALARI
+  // 7. O'YIN FUNKSIYALARI
   // ======================
   const startSearch = () => {
     if (!user || user.coins < stake) {
@@ -398,7 +389,8 @@ function App() {
       tgId: String(user.tgId),
       firstName: user.firstName || "O'yinchi",
       username: user.username || '',
-      rating: user.rating || 100
+      rating: user.rating || 100,
+      coins: user.coins || 0
     };
 
     setSearching(true);
@@ -431,10 +423,11 @@ function App() {
     setOpponent(null);
     setRoomId(null);
     setTimer(30);
+    setSearching(false);
   };
 
   // ======================
-  // 9. USER MA'LUMOTLARINI YANGILASH
+  // 8. USER MA'LUMOTLARINI YANGILASH
   // ======================
   const refreshUserData = async () => {
     if (!user) return;
@@ -460,7 +453,7 @@ function App() {
   };
 
   // ======================
-  // 10. FORMAT FUNKSIYALARI
+  // 9. FORMAT FUNKSIYALARI
   // ======================
   const formatChoice = (str) => {
     if (str === 'rock') return '🪨 Tosh';
@@ -470,18 +463,21 @@ function App() {
     return '❓ Noma\'lum';
   };
 
-  const formatDate = (date) => {
-    if (!date) return '—';
-    return new Date(date).toLocaleDateString('uz-UZ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  // ============================================================
+  // 10. LOADING
+  // ============================================================
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner"></div>
+        <p>Like-Duel yuklanmoqda...</p>
+      </div>
+    );
+  }
 
-  // ======================
+  // ============================================================
   // 11. REFERRAL MODAL
-  // ======================
+  // ============================================================
   const ReferralModal = () => {
     if (!showReferralModal) return null;
 
@@ -510,13 +506,8 @@ function App() {
             </div>
 
             <div className="referral-link-box">
-              <div className="link-display">
-                <span className="link-text">
-                  {`https://t.me/${BOT_USERNAME}/app?startapp=${user?.tgId}`}
-                </span>
-              </div>
               <button className="btn-copy" onClick={copyReferralLink}>
-                📋 Nusxalash
+                📋 Taklif havolasini nusxalash
               </button>
             </div>
 
@@ -531,7 +522,6 @@ function App() {
                 {referrals.map((ref, index) => (
                   <div key={ref._id || index} className="referral-item">
                     <span className="ref-name">👤 {ref.firstName}</span>
-                    <span className="ref-date">{formatDate(ref.createdAt)}</span>
                     <span className="ref-bonus">+100 🪙</span>
                   </div>
                 ))}
@@ -543,9 +533,9 @@ function App() {
     );
   };
 
-  // ======================
+  // ============================================================
   // 12. LEADERBOARD PANEL
-  // ======================
+  // ============================================================
   const LeaderboardPanel = () => {
     if (!showLeaderboard) return null;
 
@@ -603,20 +593,7 @@ function App() {
   };
 
   // ============================================================
-  // LOADING
-  // ============================================================
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="spinner"></div>
-        <p>Like-Duel yuklanmoqda...</p>
-        <p className="loading-subtitle">Telegram ilovasi tayyorlanmoqda</p>
-      </div>
-    );
-  }
-
-  // ============================================================
-  // ASOSIY UI
+  // 13. ASOSIY UI
   // ============================================================
   return (
     <div className="game-app">
@@ -685,7 +662,7 @@ function App() {
               }}
             >
               🏆 Peshqadamlar
-              <span className="btn-badge">TOP 50</span>
+              <span className="btn-badge">TOP</span>
             </button>
             
             <button 

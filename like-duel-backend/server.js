@@ -142,26 +142,65 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // ======================
-// SOCKET.IO
+// TO'G'RILANGAN SOCKET.IO SOZLAMALARI
 // ======================
+
+// Server.js - CORS sozlamalari
 const io = new Server(server, {
   cors: {
-    origin: NODE_ENV === 'production' 
-      ? [
-          'https://telegram-mini-app-gsny.onrender.com',
-          'https://like-admin-m9j1n851q-habibulloabdumutallibovs-projects.vercel.app',
-          'https://like-admin-*.vercel.app'
-        ]
-      : '*',
-    methods: ["GET", "POST"],
+    origin: true, // Barcha originlarga ruxsat
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization", "x-admin-key"]
+    allowedHeaders: [
+      "Content-Type", 
+      "Authorization", 
+      "Accept", 
+      "x-admin-key", 
+      "X-Requested-With", 
+      "x-telegram-init-data"
+    ]
   },
   transports: ['websocket', 'polling'],
   pingTimeout: 60000,
   pingInterval: 25000,
+  allowEIO3: true
 });
 
+// Express CORS
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-key', 'X-Requested-With', 'x-telegram-init-data']
+}));
+
+// CORS middleware ni to'g'rilash
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // HAMMA ORIGIN GA RUXSAT - TEST UCHUN
+  res.header('Access-Control-Allow-Origin', origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-admin-key, X-Requested-With, x-telegram-init-data, Origin, X-Forwarded-For');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+  res.header('Vary', 'Origin');
+  
+  if (req.method === 'OPTIONS') {
+    console.log('🔄 Preflight request:', req.path, 'Origin:', origin);
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+
+// CORS package - qo'shimcha
+app.use(cors({
+  origin: true, // Barcha originlarga ruxsat
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-key', 'X-Requested-With', 'x-telegram-init-data']
+}));
 let searchQueue = [];
 let activeRooms = {};
 let onlineUsers = new Map();
