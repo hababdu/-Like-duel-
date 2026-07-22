@@ -196,203 +196,6 @@ mongoose.connection.on('disconnected', () => {
 
 
 // ======================
-// REFERRAL FUNKSIYALARI
-// ======================
-
-// 1. FOYDALANUVCHI AUTH + REFERRAL
-app.post('/api/user/auth', async (req, res) => {
-  const { 
-    tgId, 
-    username, 
-    firstName, 
-    lastName, 
-    photoUrl, 
-    refParent // BU MUHIM! Frontenddan startParam -> refParent
-  } = req.body;
-
-  try {
-    let user = await User.findOne({ tgId });
-    let isNewUser = false;
-    let referralBonus = 0;
-
-    // YANGI FOYDALANUVCHI
-    if (!user) {
-      isNewUser = true;
-      
-      // Yangi foydalanuvchi yaratish
-      user = new User({
-        tgId,
-        username: username || '',
-        firstName: firstName || "O'yinchi",
-        lastName: lastName || '',
-        photoUrl: photoUrl || '',
-        coins: 100, // Boshlang'ich tanga
-        rating: 100,
-        refParent: refParent && refParent !== tgId ? refParent : null,
-        isRefRewarded: false
-      });
-
-      // REFERRAL BONUS - FAQAT YANGI FOYDALANUVCHI UCHUN
-      if (refParent && refParent !== tgId) {
-        // Taklif qilgan foydalanuvchini topish
-        const parent = await User.findOne({ tgId: refParent });
-        
-        if (parent) {
-          // 1. TAKLIF QILGAN O'YINCHIGA 100 TANGA
-          parent.coins = (parent.coins || 0) + 100;
-          await parent.save();
-          
-          // 2. YANGI O'YINCHIGA 100 TANGA BONUS
-          user.coins = (user.coins || 0) + 100;
-          user.isRefRewarded = true;
-          referralBonus = 100;
-
-          // 3. REAL-TIME SOCKET XABAR (taklif qilgan foydalanuvchiga)
-          io.emit(`update_${refParent}`, { 
-            type: 'REF_BONUS', 
-            coins: parent.coins,
-            message: `👤 ${user.firstName} sizning taklifingiz orqali ro'yxatdan o'tdi! +100 🪙`
-          });
-
-          // 4. TELEGRAM XABAR (agar bot ulangan bo'lsa)
-          if (bot) {
-            try {
-              await bot.sendMessage(
-                refParent, 
-                `🎉 Yangi foydalanuvchi sizning taklifingiz orqali ro'yxatdan o'tdi!\n\n` +
-                `👤 Ismi: ${user.firstName}\n` +
-                `🆔 ID: ${user.tgId}\n` +
-                `🪙 Sizga +100 tanga bonus berildi!\n` +
-                `💰 Jami tangalaringiz: ${parent.coins}`
-              );
-            } catch (err) {
-              console.error('Telegram xabar yuborishda xatolik:', err);
-            }
-          }
-
-          console.log(`✅ Referral: ${parent.firstName} -> ${user.firstName} (+100 tanga)`);
-        } else {
-          console.log(`⚠️ Referral parent topilmadi: ${refParent}`);
-        }
-      }
-
-      await user.save();
-
-      // ADMINGA XABAR (yangi foydalanuvchi haqida)
-      if (bot && process.env.ADMIN_ID) {
-        try {
-          await bot.sendMessage(
-            process.env.ADMIN_ID,
-            `🆕 Yangi foydalanuvchi ro'yxatdan o'tdi!\n\n` +
-            `👤 Ismi: ${user.firstName}\n` +
-            `🆔 ID: ${user.tgId}\n` +
-            `👥 Referal: ${refParent || 'Yo\'q'}\n` +
-            `🪙 Tangalar: ${user.coins}`
-          );
-        } catch (err) {
-          console.error('Admin xabar xatolik:', err);
-        }
-      }
-
-    } else {
-      // MAVJUD FOYDALANUVCHI
-      user.username = username || user.username;
-      user.firstName = firstName || user.firstName;
-      user.lastName = lastName || user.lastName;
-      user.photoUrl = photoUrl || user.photoUrl;
-      user.lastLogin = new Date();
-      user.isOnline = true;
-      await user.save();
-    }
-
-    // JAVOB
-    res.status(200).json({ 
-      success: true, 
-      user,
-      isNewUser,
-      referralBonus,
-      message: isNewUser && referralBonus > 0 
-        ? '🎉 Sizga va do\'stingizga 100 tangadan bonus berildi!' 
-        : 'Muvaffaqiyatli kirdingiz'
-    });
-
-  } catch (error) {
-    console.error('Auth xatoligi:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Avtorizatsiya xatoligi",
-      error: error.message 
-    });
-  }
-});
-
-// 2. REFERRAL STATISTIKASI
-app.get('/api/user/:tgId/referrals', async (req, res) => {
-  try {
-    const tgId = req.params.tgId;
-    
-    // Taklif qilingan foydalanuvchilar
-    const referrals = await User.find({ refParent: tgId })
-      .select('firstName username coins rating createdAt isRefRewarded')
-      .sort({ createdAt: -1 });
-
-    // Taklif qilgan foydalanuvchi
-    const user = await User.findOne({ tgId });
-
-    res.status(200).json({
-      success: true,
-      data: {
-        referrals,
-        count: referrals.length,
-        totalBonus: referrals.length * 100,
-        user: user ? {
-          coins: user.coins,
-          firstName: user.firstName
-        } : null
-      }
-    });
-  } catch (error) {
-    console.error('Referral stats xatoligi:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Referal statistikasi xatoligi" 
-    });
-  }
-});
-
-// 3. REFERRAL LINK YARATISH
-app.post('/api/user/generate-referral-link', async (req, res) => {
-  const { tgId } = req.body;
-  
-  try {
-    const user = await User.findOne({ tgId });
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Foydalanuvchi topilmadi" 
-      });
-    }
-
-    const botUsername = process.env.BOT_USERNAME || 'like_duel_bot';
-    const referralLink = `https://t.me/${botUsername}/app?startapp=${tgId}`;
-
-    res.status(200).json({
-      success: true,
-      data: {
-        link: referralLink,
-        tgId: tgId,
-        botUsername: botUsername
-      }
-    });
-  } catch (error) {
-    console.error('Referral link xatoligi:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Referal link yaratishda xatolik" 
-    });
-  }
-});
-// ======================
 // USER SCHEMA
 // ======================
 const userSchema = new mongoose.Schema({
@@ -815,117 +618,231 @@ app.post('/api/admin/users/:id/coins', adminAuth, async (req, res) => {
 // SOCKET.IO EVENTS
 // ======================
 
+// ======================
+// SOCKET.IO - TO'G'RILANGAN VERSION
+// ======================
+
 io.on('connection', (socket) => {
   console.log(`🔌 Yangi ulanish: ${socket.id}`);
 
+  // USER CONNECT - to'g'rilandi
   socket.on('user_connect', async (data) => {
+    console.log('👤 User connect:', data);
     const { tgId, firstName } = data;
     try {
-      await User.findOneAndUpdate(
-        { tgId },
-        { isOnline: true, lastLogin: new Date() }
-      );
+      // User ni topish yoki yaratish
+      let user = await User.findOne({ tgId });
+      if (!user) {
+        user = new User({
+          tgId,
+          firstName: firstName || "O'yinchi",
+          coins: 100,
+          rating: 100
+        });
+        await user.save();
+      } else {
+        user.isOnline = true;
+        user.lastLogin = new Date();
+        await user.save();
+      }
       
+      // Online users ga qo'shish
       onlineUsers.set(tgId, {
         socketId: socket.id,
-        firstName,
+        firstName: user.firstName,
+        username: user.username,
+        rating: user.rating,
+        coins: user.coins,
         connectedAt: new Date()
       });
 
+      // Barchaga xabar berish
       io.emit('user_status', {
         tgId,
         status: 'online',
-        firstName
+        firstName: user.firstName,
+        rating: user.rating
       });
+
+      // Foydalanuvchiga ma'lumot yuborish
+      socket.emit('user_connected', {
+        success: true,
+        user: {
+          tgId: user.tgId,
+          firstName: user.firstName,
+          username: user.username,
+          coins: user.coins,
+          rating: user.rating
+        }
+      });
+
     } catch (error) {
       console.error('User connect error:', error);
+      socket.emit('error', { message: 'Ulanishda xatolik' });
     }
   });
 
+  // FIND MATCH - TO'G'RILANGAN
   socket.on('find_match', ({ player, stake = 10 }) => {
-    searchQueue = searchQueue.filter(p => io.sockets.sockets.has(p.socketId));
+    console.log('🔍 Find match:', { player, stake });
+    
+    // Avval queue dan o'chirish (takrorlanmaslik uchun)
+    searchQueue = searchQueue.filter(p => {
+      // Socket mavjudligini tekshirish
+      const socketExists = io.sockets.sockets.has(p.socketId);
+      if (!socketExists) return false;
+      return p.socketId !== socket.id;
+    });
 
+    // Player ma'lumotlarini to'g'rilash
     const newPlayer = {
       socketId: socket.id,
       tgId: player.tgId,
       name: player.firstName || player.name || "O'yinchi",
       username: player.username || '',
       rating: player.rating || 100,
-      stake: Number(stake),
+      coins: player.coins || 100,
+      stake: Math.max(1, Number(stake) || 10),
       joinedAt: new Date()
     };
 
+    console.log('🆕 New player in queue:', newPlayer);
+
+    // Mos raqibni qidirish (stake bo'yicha + o'zi emas)
     const opponentIndex = searchQueue.findIndex(p => 
       p.stake === newPlayer.stake && 
       p.tgId !== newPlayer.tgId &&
-      p.socketId !== socket.id
+      p.socketId !== socket.id &&
+      io.sockets.sockets.has(p.socketId) // Socket hali ulanganligini tekshirish
     );
 
     if (opponentIndex !== -1) {
+      // RAQIB TOPILDI!
       const opponent = searchQueue.splice(opponentIndex, 1)[0];
       const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 
+      console.log('✅ Match found!', { roomId, player1: newPlayer.tgId, player2: opponent.tgId });
+
+      // Ikkala o'yinchini ham xonaga qo'shish
       socket.join(roomId);
       const oppSocket = io.sockets.sockets.get(opponent.socketId);
-      if (oppSocket) oppSocket.join(roomId);
+      if (oppSocket) {
+        oppSocket.join(roomId);
+      } else {
+        // Raqib socket mavjud emas, queue dan o'chirish va qayta qidirish
+        console.log('⚠️ Opponent socket not found, re-queueing');
+        searchQueue.push(newPlayer);
+        socket.emit('searching', { stake: newPlayer.stake });
+        return;
+      }
 
+      // Xona yaratish
       activeRooms[roomId] = {
         roomId,
         players: [newPlayer, opponent],
         choices: {},
         stake: newPlayer.stake,
         timerInterval: null,
-        createdAt: new Date()
+        createdAt: new Date(),
+        roundStarted: false
       };
 
+      // IKKALA O'YINCHIGA HAM MATCH FOUND XABARI
+      const opponentData = {
+        tgId: opponent.tgId,
+        name: opponent.name,
+        username: opponent.username,
+        rating: opponent.rating,
+        coins: opponent.coins
+      };
+
+      const playerData = {
+        tgId: newPlayer.tgId,
+        name: newPlayer.name,
+        username: newPlayer.username,
+        rating: newPlayer.rating,
+        coins: newPlayer.coins
+      };
+
+      // Player1 ga (hozirgi socket) raqib ma'lumotlarini yuborish
       socket.emit('match_found', { 
         roomId, 
-        opponent: { 
-          tgId: opponent.tgId, 
-          name: opponent.name, 
-          rating: opponent.rating,
-          username: opponent.username 
-        }, 
-        stake: newPlayer.stake 
+        opponent: opponentData,
+        stake: newPlayer.stake,
+        you: playerData
       });
       
+      // Player2 ga (opponent) raqib ma'lumotlarini yuborish
       io.to(opponent.socketId).emit('match_found', { 
         roomId, 
-        opponent: { 
-          tgId: newPlayer.tgId, 
-          name: newPlayer.name, 
-          rating: newPlayer.rating,
-          username: newPlayer.username 
-        }, 
-        stake: newPlayer.stake 
+        opponent: playerData,
+        stake: newPlayer.stake,
+        you: opponentData
       });
 
+      // Timer boshlash
       startRoomTimer(roomId);
+
     } else {
+      // RAQIB TOPILMADI - QUEUE GA QO'SHISH
+      console.log('⏳ No match found, adding to queue:', newPlayer.tgId);
       searchQueue.push(newPlayer);
-      socket.emit('searching', { stake: newPlayer.stake });
+      
+      // Queue holatini yuborish
+      socket.emit('searching', { 
+        stake: newPlayer.stake,
+        queueLength: searchQueue.length,
+        message: 'Raqib qidirilmoqda...'
+      });
     }
   });
 
+  // PLAYER CHOICE - TO'G'RILANGAN
   socket.on('player_choice', ({ roomId, choice }) => {
+    console.log('🎯 Player choice:', { roomId, socketId: socket.id, choice });
+    
     const room = activeRooms[roomId];
-    if (!room) return;
+    if (!room) {
+      console.log('❌ Room not found:', roomId);
+      socket.emit('error', { message: 'Xona topilmadi' });
+      return;
+    }
 
+    // Tanlovni saqlash
     room.choices[socket.id] = choice;
+    console.log('📝 Choices:', room.choices);
 
-    if (Object.keys(room.choices).length === 2) {
-      if (room.timerInterval) clearInterval(room.timerInterval);
+    // Ikkala o'yinchi ham tanlov qildimi?
+    const playerIds = room.players.map(p => p.socketId);
+    const allChose = playerIds.every(id => room.choices[id] !== undefined);
+
+    if (allChose) {
+      console.log('✅ Both players chose!');
+      // Timer ni to'xtatish
+      if (room.timerInterval) {
+        clearInterval(room.timerInterval);
+        room.timerInterval = null;
+      }
+      // Natijani hisoblash
       evaluateRound(roomId);
     }
   });
 
+  // CANCEL SEARCH - TO'G'RILANGAN
   socket.on('cancel_search', () => {
+    console.log('❌ Cancel search:', socket.id);
     searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
+    socket.emit('search_cancelled', { success: true });
   });
 
+  // DISCONNECT - TO'G'RILANGAN
   socket.on('disconnect', () => {
+    console.log(`🔌 Disconnect: ${socket.id}`);
+    
+    // Queue dan o'chirish
     searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
 
+    // Online users dan o'chirish
     let disconnectedUser = null;
     for (const [tgId, data] of onlineUsers.entries()) {
       if (data.socketId === socket.id) {
@@ -936,6 +853,7 @@ io.on('connection', (socket) => {
     }
 
     if (disconnectedUser) {
+      console.log('👋 User disconnected:', disconnectedUser.tgId);
       io.emit('user_status', {
         tgId: disconnectedUser.tgId,
         status: 'offline',
@@ -943,19 +861,33 @@ io.on('connection', (socket) => {
       });
     }
 
+    // Faol xonalardan o'chirish
     for (const roomId in activeRooms) {
       const room = activeRooms[roomId];
       if (room.players.some(p => p.socketId === socket.id)) {
-        socket.to(roomId).emit('opponent_left');
-        if (room.timerInterval) clearInterval(room.timerInterval);
+        console.log('🏠 Removing from room:', roomId);
+        // Raqibga xabar berish
+        socket.to(roomId).emit('opponent_left', { 
+          message: 'Raqib o\'yinni tark etdi' 
+        });
+        // Timer to'xtatish
+        if (room.timerInterval) {
+          clearInterval(room.timerInterval);
+        }
         delete activeRooms[roomId];
         break;
       }
     }
   });
 
+  // PING/PONG
   socket.on('ping', () => {
     socket.emit('pong');
+  });
+
+  // Xatoliklarni ushlash
+  socket.on('error', (error) => {
+    console.error('Socket error:', error);
   });
 });
 
