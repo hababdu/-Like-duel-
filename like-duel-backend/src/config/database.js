@@ -20,11 +20,8 @@ export const connectDB = async () => {
     await mongoose.connect(MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-      family: 4,
-      maxPoolSize: 10,
-      minPoolSize: 2,
+      serverSelectionTimeoutMS: 30000, // 30 sekund
+      socketTimeoutMS: 60000, // 60 sekund
     });
 
     isConnected = true;

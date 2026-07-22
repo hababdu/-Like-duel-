@@ -47,9 +47,9 @@ setupSocket(server);
 // ======================
 // START SERVER
 // ======================
-server.listen(PORT, () => {
+// server.js
+server.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Server ${PORT}-portda ishga tushdi`);
-  logger.info(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // ======================
