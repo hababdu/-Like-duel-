@@ -1,5 +1,5 @@
 // ============================================================
-// 2. DUELGAME.JS - TUZATILGAN VERSION
+// DUELGAME.JS - TO'LIQ TUZATILGAN VERSION
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './DuelGame.css';
@@ -23,6 +23,7 @@ function DuelGame({
   const [socketError, setSocketError] = useState(null);
   const [searching, setSearching] = useState(false);
   const [debugInfo, setDebugInfo] = useState('');
+  const [queueLength, setQueueLength] = useState(0);
 
   const timerIntervalRef = useRef(null);
 
@@ -64,6 +65,7 @@ function DuelGame({
       setSearching(true);
       setGameState('searching');
       if (data?.stake) setStake(data.stake);
+      if (data?.queueLength !== undefined) setQueueLength(data.queueLength);
       setDebugInfo(`Queue: ${data?.queueLength || '?'} o'yinchi`);
     };
 
@@ -77,10 +79,10 @@ function DuelGame({
       setRoundResult(null);
       setGameState('playing');
       setSearching(false);
-      setDebugInfo(`Raqib: ${data.opponent.name}`);
+      setDebugInfo(`Raqib: ${data.opponent?.name || 'Noma\'lum'}`);
       
       triggerHaptic?.('heavy');
-      onNotification?.(`🎯 Raqib topildi! ${data.opponent.name} bilan duel!`);
+      onNotification?.(`🎯 Raqib topildi! ${data.opponent?.name || 'Noma\'lum'} bilan duel!`);
     };
 
     // TIMER TICK
@@ -144,6 +146,7 @@ function DuelGame({
       setSearching(false);
       setGameState('idle');
       setDebugInfo('');
+      setQueueLength(0);
     };
 
     // Register all events
@@ -184,7 +187,12 @@ function DuelGame({
     console.log('🔌 Socket connected:', socket?.connected);
     console.log('🔌 Socket id:', socket?.id);
 
-    if (!user || user.coins < stake) {
+    if (!user) {
+      onNotification?.('⚠️ Iltimos avval tizimga kiring!');
+      return;
+    }
+
+    if ((user.coins || 0) < stake) {
       onNotification?.('⚠️ Yetarli tanga yo\'q!');
       return;
     }
@@ -212,14 +220,6 @@ function DuelGame({
     socket.emit('find_match', {
       player: playerData,
       stake: Number(stake)
-    }, (response) => {
-      console.log('📥 find_match callback:', response);
-      if (response?.error) {
-        setSocketError(response.error);
-        setSearching(false);
-        setGameState('idle');
-        onNotification?.(`⚠️ ${response.error}`);
-      }
     });
   }, [user, stake, socket, onNotification]);
 
@@ -231,6 +231,7 @@ function DuelGame({
     setSearching(false);
     setGameState('idle');
     setDebugInfo('');
+    setQueueLength(0);
   }, [socket]);
 
   const submitChoice = useCallback((choice) => {
@@ -254,12 +255,14 @@ function DuelGame({
     setTimer(30);
     setSearching(false);
     setDebugInfo('');
+    setQueueLength(0);
   }, []);
 
   // ======================
   // FORMAT FUNCTIONS
   // ======================
   const formatChoice = (str) => {
+    if (!str) return '❓ Noma\'lum';
     if (str === 'rock') return '🪨 Tosh';
     if (str === 'paper') return '📄 Qog\'oz';
     if (str === 'scissors') return '✂️ Qaychi';
@@ -271,82 +274,139 @@ function DuelGame({
   // RENDER
   // ======================
   return (
-    <div className="game-screen">
-      <button className="back-btn" onClick={() => {
-        if (gameState === 'searching') cancelSearch();
-        onBack();
-        resetGame();
-      }}>
+    <div className="game-screen" style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
+      color: 'white',
+      padding: '16px',
+      position: 'relative'
+    }}>
+      {/* Back Button */}
+      <button 
+        className="back-btn" 
+        onClick={() => {
+          if (gameState === 'searching') cancelSearch();
+          onBack();
+          resetGame();
+        }}
+        style={{
+          position: 'absolute',
+          top: '16px',
+          left: '16px',
+          padding: '8px 16px',
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '8px',
+          color: 'white',
+          cursor: 'pointer',
+          zIndex: 10,
+          fontSize: '14px'
+        }}
+      >
         ⬅️ Menuga Qaytish
       </button>
 
       {/* DEBUG INFO */}
       <div className="debug-info" style={{ 
-        background: '#1a1a2e', 
-        color: '#00ff88', 
-        padding: '8px', 
+        background: 'rgba(0,0,0,0.5)',
+        color: '#00ff88',
+        padding: '8px 12px',
         borderRadius: '8px',
-        margin: '8px 0',
+        margin: '60px 0 16px 0',
         fontSize: '12px',
         fontFamily: 'monospace',
-        textAlign: 'center'
+        textAlign: 'center',
+        border: '1px solid rgba(0,255,136,0.2)'
       }}>
-        <div>🔌 Socket: {socket?.connected ? '🟢' : '🔴'} {socket?.id || 'yo\'q'}</div>
-        <div>📊 Holat: {gameState} | {debugInfo}</div>
-        <div>👥 Queue: {searchQueueLength || '?'}</div>
+        <div>🔌 Socket: {socket?.connected ? '🟢' : '🔴'} {socket?.id ? socket.id.substring(0, 8) : 'yo\'q'}</div>
+        <div>📊 Holat: {gameState} | {debugInfo || 'Kutish'}</div>
+        <div>👥 Navbat: {queueLength || 0} o'yinchi</div>
       </div>
 
       {/* Error */}
       {socketError && (
         <div className="socket-error" style={{
-          background: '#ff4444',
-          color: 'white',
-          padding: '12px',
+          background: 'rgba(255,68,68,0.2)',
+          border: '1px solid #ff4444',
           borderRadius: '8px',
+          padding: '12px',
           margin: '8px 0',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          color: '#ff4444'
         }}>
           ⚠️ {socketError}
-          <button onClick={() => setSocketError(null)} style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'white',
-            fontSize: '20px',
-            cursor: 'pointer'
-          }}>✕</button>
+          <button 
+            onClick={() => setSocketError(null)} 
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#ff4444',
+              fontSize: '20px',
+              cursor: 'pointer'
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
 
       {/* IDLE */}
       {gameState === 'idle' && (
-        <div className="setup-container">
-          <h2>⚔️ Onlayn Duel Rejimi</h2>
-          <p className="user-current-coins">Balansingiz: 🪙 {user?.coins || 0}</p>
+        <div className="setup-container" style={{
+          maxWidth: '400px',
+          margin: '40px auto 0',
+          textAlign: 'center'
+        }}>
+          <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>⚔️ Onlayn Duel</h2>
+          <p style={{ color: '#888', marginBottom: '20px' }}>Raqib bilan jonli duel!</p>
           
-          <div className="stake-grid">
+          <div style={{
+            background: 'rgba(255,255,255,0.05)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '20px'
+          }}>
+            <p style={{ fontSize: '18px' }}>
+              🪙 Balans: <strong style={{ color: '#00ff88' }}>{user?.coins || 0}</strong>
+            </p>
+            <p style={{ fontSize: '14px', color: '#888' }}>
+              🏆 Reyting: {user?.rating || 0}
+            </p>
+          </div>
+          
+          <p style={{ color: '#888', marginBottom: '12px' }}>Stavka tanlang:</p>
+          <div className="stake-grid" style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+            marginBottom: '20px'
+          }}>
             {[10, 20, 50, 100].map(value => (
               <button 
                 key={value} 
                 className={`stake-card ${stake === value ? 'selected' : ''}`}
                 onClick={() => setStake(value)}
-                disabled={user?.coins < value}
+                disabled={(user?.coins || 0) < value}
                 style={{
-                  padding: '12px',
-                  margin: '4px',
+                  padding: '12px 16px',
                   borderRadius: '12px',
-                  border: stake === value ? '3px solid #667eea' : '2px solid #444',
-                  background: user?.coins < value ? '#333' : '#222',
-                  color: user?.coins < value ? '#666' : 'white',
-                  cursor: user?.coins < value ? 'not-allowed' : 'pointer',
-                  fontSize: '18px',
-                  minWidth: '60px'
+                  border: stake === value ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
+                  background: (user?.coins || 0) < value ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.05)',
+                  color: (user?.coins || 0) < value ? '#666' : 'white',
+                  cursor: (user?.coins || 0) < value ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  minWidth: '60px',
+                  transition: 'all 0.3s'
                 }}
               >
-                <div>🪙</div>
-                <div>{value}</div>
-                {user?.coins < value && <div style={{fontSize: '12px', color: '#ff4444'}}>❌</div>}
+                <div style={{ fontSize: '20px' }}>🪙</div>
+                <div style={{ fontWeight: 'bold' }}>{value}</div>
+                {(user?.coins || 0) < value && (
+                  <div style={{ fontSize: '10px', color: '#ff4444' }}>❌</div>
+                )}
               </button>
             ))}
           </div>
@@ -354,22 +414,30 @@ function DuelGame({
           <button 
             className="btn-action btn-start" 
             onClick={startSearch}
-            disabled={!user || user.coins < stake || !socket?.connected}
+            disabled={!user || (user?.coins || 0) < stake || !socket?.connected}
             style={{
               padding: '16px 40px',
-              fontSize: '20px',
-              borderRadius: '16px',
+              fontSize: '18px',
+              borderRadius: '12px',
               border: 'none',
-              background: (!user || user.coins < stake || !socket?.connected) ? '#555' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: (!user || (user?.coins || 0) < stake || !socket?.connected) 
+                ? '#555' 
+                : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
-              cursor: (!user || user.coins < stake || !socket?.connected) ? 'not-allowed' : 'pointer',
-              marginTop: '20px',
+              cursor: (!user || (user?.coins || 0) < stake || !socket?.connected) 
+                ? 'not-allowed' 
+                : 'pointer',
               fontWeight: 'bold',
-              transition: 'transform 0.2s'
+              width: '100%',
+              transition: 'all 0.3s'
             }}
           >
             {!socket?.connected ? '🔌 Ulanish yo\'q' : '🚀 Jonli Raqib Qidirish'}
           </button>
+          
+          <p style={{ fontSize: '12px', color: '#666', marginTop: '12px' }}>
+            💡 O'rtacha 5-30 soniya davom etadi
+          </p>
         </div>
       )}
 
@@ -377,19 +445,21 @@ function DuelGame({
       {gameState === 'searching' && (
         <div className="searching-container" style={{
           textAlign: 'center',
-          padding: '40px 20px'
+          padding: '60px 20px',
+          maxWidth: '400px',
+          margin: '0 auto'
         }}>
           <div className="radar-animation" style={{
             position: 'relative',
             width: '120px',
             height: '120px',
-            margin: '0 auto 20px'
+            margin: '0 auto 30px'
           }}>
             <div style={{
               position: 'absolute',
               width: '100%',
               height: '100%',
-              border: '4px solid #667eea',
+              border: '3px solid #667eea',
               borderRadius: '50%',
               animation: 'pulse 1.5s ease-in-out infinite'
             }}></div>
@@ -397,7 +467,7 @@ function DuelGame({
               position: 'absolute',
               width: '100%',
               height: '100%',
-              border: '4px solid #764ba2',
+              border: '3px solid #764ba2',
               borderRadius: '50%',
               animation: 'pulse 1.5s ease-in-out infinite 0.5s'
             }}></div>
@@ -405,7 +475,7 @@ function DuelGame({
               position: 'absolute',
               width: '100%',
               height: '100%',
-              border: '4px solid #00ff88',
+              border: '3px solid #00ff88',
               borderRadius: '50%',
               animation: 'pulse 1.5s ease-in-out infinite 1s'
             }}></div>
@@ -414,12 +484,14 @@ function DuelGame({
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              fontSize: '30px'
+              fontSize: '40px'
             }}>🔍</div>
           </div>
-          <h3>🔍 Jonli raqib qidirilmoqda...</h3>
-          <p>Stavka: 🪙 {stake}</p>
-          <p className="search-hint">⏳ O'rtacha 5-30 soniya davom etadi</p>
+          <h3 style={{ fontSize: '20px', marginBottom: '8px' }}>Raqib qidirilmoqda...</h3>
+          <p style={{ color: '#888' }}>Stavka: 🪙 {stake}</p>
+          <p style={{ color: '#666', fontSize: '14px', marginTop: '8px' }}>
+            ⏳ Navbatda: {queueLength} o'yinchi
+          </p>
           <button 
             className="btn-action btn-cancel" 
             onClick={cancelSearch}
@@ -431,7 +503,8 @@ function DuelGame({
               background: '#ff4444',
               color: 'white',
               cursor: 'pointer',
-              marginTop: '20px'
+              marginTop: '30px',
+              fontWeight: 'bold'
             }}
           >
             ✖️ Bekor qilish
@@ -441,87 +514,107 @@ function DuelGame({
 
       {/* PLAYING */}
       {gameState === 'playing' && (
-        <div className="arena-container">
+        <div className="arena-container" style={{
+          maxWidth: '400px',
+          margin: '20px auto 0',
+          textAlign: 'center'
+        }}>
           <div className="versus-header" style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '16px',
-            background: '#1a1a2e',
+            background: 'rgba(255,255,255,0.05)',
             borderRadius: '16px',
             marginBottom: '20px'
           }}>
             <div className="fighter" style={{textAlign: 'center'}}>
-              <div className="fighter-name" style={{fontSize: '18px', fontWeight: 'bold'}}>🥊 {user?.firstName || "Siz"}</div>
-              <div className="fighter-stats" style={{fontSize: '14px', color: '#888'}}>🏆 {user?.rating || 0} XP</div>
+              <div className="fighter-name" style={{fontSize: '16px', fontWeight: 'bold'}}>
+                🥊 {user?.firstName || "Siz"}
+              </div>
+              <div className="fighter-stats" style={{fontSize: '12px', color: '#888'}}>
+                🏆 {user?.rating || 0}
+              </div>
             </div>
             <div className="arena-timer" style={{
-              fontSize: '36px',
+              fontSize: '32px',
               fontWeight: 'bold',
               color: timer <= 5 ? '#ff4444' : '#00ff88'
             }}>
-              <span className="timer-value">{timer}</span>
-              <span className="timer-label" style={{fontSize: '16px', color: '#888'}}>s</span>
+              {timer}
+              <span style={{fontSize: '14px', color: '#888', marginLeft: '4px'}}>s</span>
             </div>
             <div className="fighter" style={{textAlign: 'center'}}>
-              <div className="fighter-name" style={{fontSize: '18px', fontWeight: 'bold'}}>🥷 {opponent?.name || "Raqib"}</div>
-              <div className="fighter-stats" style={{fontSize: '14px', color: '#888'}}>🏆 {opponent?.rating || 0} XP</div>
+              <div className="fighter-name" style={{fontSize: '16px', fontWeight: 'bold'}}>
+                🥷 {opponent?.name || "Raqib"}
+              </div>
+              <div className="fighter-stats" style={{fontSize: '12px', color: '#888'}}>
+                🏆 {opponent?.rating || 0}
+              </div>
             </div>
           </div>
+
+          <p style={{ color: '#888', marginBottom: '16px', fontSize: '14px' }}>
+            Tanlovingizni qiling:
+          </p>
 
           <div className="weapons-row" style={{
             display: 'flex',
             justifyContent: 'center',
-            gap: '16px',
-            marginBottom: '20px'
+            gap: '12px',
+            marginBottom: '20px',
+            flexWrap: 'wrap'
           }}>
             <button 
               disabled={!!myChoice} 
-              className={myChoice === 'rock' ? 'active' : ''} 
               onClick={() => submitChoice('rock')}
               style={{
-                padding: '16px 24px',
-                fontSize: '20px',
+                padding: '14px 20px',
+                fontSize: '18px',
                 borderRadius: '12px',
-                border: myChoice === 'rock' ? '3px solid #667eea' : '2px solid #444',
-                background: myChoice === 'rock' ? '#667eea33' : '#222',
+                border: myChoice === 'rock' ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
+                background: myChoice === 'rock' ? 'rgba(102,126,234,0.3)' : 'rgba(255,255,255,0.05)',
                 color: 'white',
                 cursor: myChoice ? 'not-allowed' : 'pointer',
-                transition: 'all 0.3s'
+                opacity: myChoice ? 0.5 : 1,
+                transition: 'all 0.3s',
+                minWidth: '80px'
               }}
             >
               🪨 Tosh
             </button>
             <button 
               disabled={!!myChoice} 
-              className={myChoice === 'paper' ? 'active' : ''} 
               onClick={() => submitChoice('paper')}
               style={{
-                padding: '16px 24px',
-                fontSize: '20px',
+                padding: '14px 20px',
+                fontSize: '18px',
                 borderRadius: '12px',
-                border: myChoice === 'paper' ? '3px solid #667eea' : '2px solid #444',
-                background: myChoice === 'paper' ? '#667eea33' : '#222',
+                border: myChoice === 'paper' ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
+                background: myChoice === 'paper' ? 'rgba(102,126,234,0.3)' : 'rgba(255,255,255,0.05)',
                 color: 'white',
                 cursor: myChoice ? 'not-allowed' : 'pointer',
-                transition: 'all 0.3s'
+                opacity: myChoice ? 0.5 : 1,
+                transition: 'all 0.3s',
+                minWidth: '80px'
               }}
             >
               📄 Qog'oz
             </button>
             <button 
               disabled={!!myChoice} 
-              className={myChoice === 'scissors' ? 'active' : ''} 
               onClick={() => submitChoice('scissors')}
               style={{
-                padding: '16px 24px',
-                fontSize: '20px',
+                padding: '14px 20px',
+                fontSize: '18px',
                 borderRadius: '12px',
-                border: myChoice === 'scissors' ? '3px solid #667eea' : '2px solid #444',
-                background: myChoice === 'scissors' ? '#667eea33' : '#222',
+                border: myChoice === 'scissors' ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
+                background: myChoice === 'scissors' ? 'rgba(102,126,234,0.3)' : 'rgba(255,255,255,0.05)',
                 color: 'white',
                 cursor: myChoice ? 'not-allowed' : 'pointer',
-                transition: 'all 0.3s'
+                opacity: myChoice ? 0.5 : 1,
+                transition: 'all 0.3s',
+                minWidth: '80px'
               }}
             >
               ✂️ Qaychi
@@ -529,12 +622,11 @@ function DuelGame({
           </div>
 
           {myChoice && (
-            <p className="wait-msg" style={{
-              textAlign: 'center',
-              color: '#888',
-              fontSize: '16px'
+            <p style={{
+              color: '#00ff88',
+              fontSize: '14px'
             }}>
-              ⏳ Siz {formatChoice(myChoice)} tanladingiz. Raqib yurishi kutilmoqda...
+              ⏳ Siz <strong>{formatChoice(myChoice)}</strong> tanladingiz. Raqib kutilmoqda...
             </p>
           )}
         </div>
@@ -544,16 +636,18 @@ function DuelGame({
       {gameState === 'result' && roundResult && (
         <div className="result-container" style={{
           textAlign: 'center',
-          padding: '20px'
+          padding: '20px',
+          maxWidth: '400px',
+          margin: '20px auto 0'
         }}>
           <div className={`result-banner ${roundResult.result}`} style={{
-            fontSize: '28px',
+            fontSize: '24px',
             fontWeight: 'bold',
             padding: '20px',
             borderRadius: '16px',
             marginBottom: '20px',
-            background: roundResult.result === 'win' ? '#00ff8833' : 
-                       roundResult.result === 'lose' ? '#ff444433' : '#ffaa0033',
+            background: roundResult.result === 'win' ? 'rgba(0,255,136,0.2)' : 
+                       roundResult.result === 'lose' ? 'rgba(255,68,68,0.2)' : 'rgba(255,170,0,0.2)',
             border: roundResult.result === 'win' ? '2px solid #00ff88' : 
                     roundResult.result === 'lose' ? '2px solid #ff4444' : '2px solid #ffaa00'
           }}>
@@ -563,7 +657,7 @@ function DuelGame({
           </div>
           
           <div className="battle-card" style={{
-            background: '#1a1a2e',
+            background: 'rgba(255,255,255,0.05)',
             padding: '20px',
             borderRadius: '16px',
             marginBottom: '20px'
@@ -575,17 +669,17 @@ function DuelGame({
               marginBottom: '16px'
             }}>
               <div className="choice-display" style={{textAlign: 'center'}}>
-                <span className="choice-label" style={{color: '#888', fontSize: '14px'}}>Siz</span>
-                <span className="choice-value" style={{fontSize: '20px', display: 'block'}}>
+                <span style={{color: '#888', fontSize: '12px'}}>Siz</span>
+                <div style={{fontSize: '18px', marginTop: '4px'}}>
                   {formatChoice(roundResult.myChoice)}
-                </span>
+                </div>
               </div>
-              <div className="vs-divider" style={{fontSize: '24px', color: '#667eea'}}>⚡</div>
+              <div style={{fontSize: '24px', color: '#667eea'}}>⚡</div>
               <div className="choice-display" style={{textAlign: 'center'}}>
-                <span className="choice-label" style={{color: '#888', fontSize: '14px'}}>Raqib</span>
-                <span className="choice-value" style={{fontSize: '20px', display: 'block'}}>
+                <span style={{color: '#888', fontSize: '12px'}}>Raqib</span>
+                <div style={{fontSize: '18px', marginTop: '4px'}}>
                   {formatChoice(roundResult.opponentChoice)}
-                </span>
+                </div>
               </div>
             </div>
             
@@ -593,16 +687,18 @@ function DuelGame({
               display: 'flex',
               justifyContent: 'center',
               gap: '20px',
-              fontSize: '18px'
+              fontSize: '16px',
+              paddingTop: '12px',
+              borderTop: '1px solid rgba(255,255,255,0.1)'
             }}>
-              <span className={(roundResult.rewardCoins || 0) >= 0 ? "plus" : "minus"} style={{
+              <span style={{
                 color: (roundResult.rewardCoins || 0) >= 0 ? '#00ff88' : '#ff4444'
               }}>
                 {(roundResult.rewardCoins || 0) >= 0 
                   ? `+🪙 ${roundResult.rewardCoins}` 
                   : `-🪙 ${Math.abs(roundResult.rewardCoins || 0)}`}
               </span>
-              <span className="xp-summary" style={{
+              <span style={{
                 color: (roundResult.rewardXP || 0) >= 0 ? '#00ff88' : '#ff4444'
               }}>
                 {(roundResult.rewardXP || 0) >= 0 
@@ -616,14 +712,15 @@ function DuelGame({
             className="btn-action btn-restart" 
             onClick={resetGame}
             style={{
-              padding: '16px 40px',
-              fontSize: '18px',
+              padding: '14px 40px',
+              fontSize: '16px',
               borderRadius: '12px',
               border: 'none',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
               cursor: 'pointer',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              width: '100%'
             }}
           >
             🔄 Yana O'ynash
@@ -635,29 +732,47 @@ function DuelGame({
       {gameState === 'opponent_left' && (
         <div className="disconnected-container" style={{
           textAlign: 'center',
-          padding: '40px 20px'
+          padding: '60px 20px',
+          maxWidth: '400px',
+          margin: '0 auto'
         }}>
-          <h3>⚠️ Raqib o'yinni tark etdi!</h3>
-          <p>O'yin xonasi yopildi. Sizga hech qanday jarima berilmadi.</p>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+          <h3 style={{ fontSize: '20px', marginBottom: '8px' }}>Raqib o'yinni tark etdi!</h3>
+          <p style={{ color: '#888', marginBottom: '20px' }}>
+            O'yin xonasi yopildi. Sizga hech qanday jarima berilmadi.
+          </p>
           <button 
             className="btn-action" 
             onClick={resetGame}
             style={{
-              padding: '16px 40px',
-              fontSize: '18px',
+              padding: '14px 40px',
+              fontSize: '16px',
               borderRadius: '12px',
               border: 'none',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
               cursor: 'pointer',
-              marginTop: '20px',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              width: '100%'
             }}
           >
             Bosh sahifaga
           </button>
         </div>
       )}
+
+      <style>{`
+        @keyframes pulse {
+          0% {
+            transform: scale(0.8);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1.2);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
