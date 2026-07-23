@@ -1,3 +1,6 @@
+// ============================================================
+// 5. Leaderboard.js - QAYTA YOZILGAN
+// ============================================================
 import React, { useState, useEffect } from 'react';
 import './Leaderboard.css';
 
@@ -6,29 +9,27 @@ function Leaderboard({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 🌐 Serveringizning Render.com dagi manzili
-  const BACKEND_URL = "https://telegram-bot-server-2-matj.onrender.com";
+  const BACKEND_URL = process.env.NODE_ENV === 'production'
+    ? 'https://telegram-bot-server-2-matj.onrender.com'
+    : 'http://localhost:10000';
 
   useEffect(() => {
-    // Serverdan global reyting ma'lumotlarini tortib olish
     fetch(`${BACKEND_URL}/api/user/leaderboard`)
       .then((res) => {
-        if (!res.ok) {
-          throw new Error("Reyting ma'lumotlarini yuklab bo'lmadi");
-        }
+        if (!res.ok) throw new Error("Reyting ma'lumotlarini yuklab bo'lmadi");
         return res.json();
       })
       .then((data) => {
         if (data.success) {
-          setLeaders(data.leaderboard);
+          setLeaders(data.leaders || []);
         } else {
           throw new Error("Server noto'g'ri ma'lumot qaytardi");
         }
       })
       .catch((err) => {
-        console.error("Leaderboard xatoligi:", err);
+        console.error("Leaderboard error:", err);
         setError(err.message);
-        // Server ishlamay qolsa, test qilish uchun dummy ma'lumotlar (Fallback)
+        // Fallback data
         setLeaders([
           { tgId: "1", firstName: "Alijon", username: "ali_pro", rating: 450, coins: 1200 },
           { tgId: "2", firstName: "Madina", username: "madina_game", rating: 380, coins: 950 },
@@ -38,9 +39,8 @@ function Leaderboard({ onBack }) {
         ]);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [BACKEND_URL]);
 
-  // Top 3 talik o'yinchilar uchun maxsus toj yoki status belgilari
   const getRankBadge = (index) => {
     if (index === 0) return "🥇";
     if (index === 1) return "🥈";
@@ -50,16 +50,14 @@ function Leaderboard({ onBack }) {
 
   return (
     <div className="leaderboard-screen">
-      {/* Yuqori qism navigatsiyasi */}
       <div className="leaderboard-header">
         <button className="back-btn-small" onClick={onBack}>⬅️</button>
         <h2>🏆 Peshqadamlar</h2>
-        <div style={{ width: '32px' }}></div> {/* Balans uchun bo'sh joy */}
+        <div style={{ width: '32px' }}></div>
       </div>
 
       <p className="leaderboard-subtitle">Loyiha bo'yicha eng kuchli TOP 50 o'yinchi</p>
 
-      {/* Yuklanish holati */}
       {loading && (
         <div className="leaderboard-status">
           <div className="spinner-small"></div>
@@ -67,14 +65,12 @@ function Leaderboard({ onBack }) {
         </div>
       )}
 
-      {/* Xatolik holati (Lekin dummy ma'lumotlarni baribir ko'rsatadi) */}
       {error && !loading && (
         <div className="leaderboard-warning">
           ⚠️ Serverga ulanib bo'lmadi, oflayn reyting ko'rsatilmoqda.
         </div>
       )}
 
-      {/* Reyting Ro'yxati */}
       {!loading && (
         <div className="leaderboard-list">
           {leaders.map((player, index) => (

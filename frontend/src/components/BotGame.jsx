@@ -1,86 +1,37 @@
-import React, { useEffect, useRef, useReducer, useCallback } from 'react';
+// ============================================================
+// 4. BotGame.js - QAYTA YOZILGAN (Server bilan integratsiya)
+// ============================================================
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './BotGame.css';
 
-// --- DEFAULT CHOICES (Agar App.js dan kelmasa, xato bermasligi uchun) ---
-const DEFAULT_CHOICES = {
-  rock: { emoji: '✊', color: '#ff4a4a', label: 'Tosh' },
-  paper: { emoji: '✋', color: '#00ff88', label: 'Qog\'oz' },
-  scissors: { emoji: '✌️', color: '#ffd700', label: 'Qaychi' }
+const CHOICES = {
+  rock: { emoji: '🪨', color: '#ff6b6b', label: 'Tosh' },
+  paper: { emoji: '📄', color: '#4ecdc4', label: 'Qog\'oz' },
+  scissors: { emoji: '✂️', color: '#ffe66d', label: 'Qaychi' }
 };
 
-// --- INITIAL STATE & REDUCER ---
-const initialState = {
-  playerChoice: null,
-  botChoice: null,
-  result: null, // 'win' | 'lose' | 'draw' | null
-  timer: 30,
-  isBotThinking: false,
-  roundStatus: 'idle', // 'idle' | 'playing' | 'revealed'
-  streak: 0, // Ketma-ket g'alaba (Win Streak)
-};
+function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif, triggerHaptic }) {
+  const [gameState, setGameState] = useState('idle');
+  const [playerChoice, setPlayerChoice] = useState(null);
+  const [botChoice, setBotChoice] = useState(null);
+  const [result, setResult] = useState(null);
+  const [timer, setTimer] = useState(30);
+  const [isBotThinking, setIsBotThinking] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [coins, setCoins] = useState(user?.coins || 0);
 
-function gameReducer(state, action) {
-  switch (action.type) {
-    case 'START_ROUND':
-      return {
-        ...state,
-        playerChoice: null,
-        botChoice: null,
-        result: null,
-        timer: 30,
-        isBotThinking: true,
-        roundStatus: 'playing',
-      };
-    case 'BOT_READY':
-      return { ...state, isBotThinking: false };
-    case 'TICK':
-      return { ...state, timer: state.timer - 1 };
-    case 'MAKE_CHOICE':
-      return {
-        ...state,
-        playerChoice: action.payload.player,
-        botChoice: action.payload.bot,
-        result: action.payload.result,
-        roundStatus: 'revealed',
-        streak: action.payload.result === 'win' ? state.streak + 1 : action.payload.result === 'lose' ? 0 : state.streak,
-      };
-    case 'RESET_STREAK':
-      return { ...state, streak: 0 };
-    default:
-      return state;
-  }
-}
+  const timerRef = useRef(null);
+  const roundRef = useRef(null);
+  const playerHistory = useRef([]);
 
-// --- MAIN COMPONENT ---
-function BotGame({ 
-  difficulty = 'medium', // Default qiyinchilik
-  coins = 0, 
-  setCoins = () => {}, 
-  CHOICES = DEFAULT_CHOICES, // Agar proplarda CHOICES kelmasa, default ishlaydi
-  onBackToMenu = () => {}, 
-  showNotif = (msg) => alert(msg) // showNotif funksiyasi bo'lmasa alert ishlaydi
-}) {
-  const [state, dispatch] = useReducer(gameReducer, initialState);
-  const { playerChoice, botChoice, result, timer, isBotThinking, roundStatus, streak } = state;
+  // Update coins when user changes
+  useEffect(() => {
+    setCoins(user?.coins || 0);
+  }, [user]);
 
-  const timers = useRef({ round: null, interval: null, bot: null });
-  const playerHistory = useRef([]); 
-  const canvasRef = useRef(null); 
-
-  // Vibratsiya (Mobil qurilmalar va Telegram uchun)
-  const triggerHaptic = (type = 'light') => {
-    try {
-      if (window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.impactOccurred(type);
-      } else if (navigator.vibrate) {
-        navigator.vibrate(type === 'heavy' ? 80 : 35);
-      }
-    } catch (e) {
-      // Audio/vibe API xavfsiz chetlab o'tish
-    }
-  };
-
-  // --- BOT INTELLEKTI ---
+  // ======================
+  // BOT INTELLIGENCE
+  // ======================
   const predictPlayerChoice = useCallback(() => {
     const history = playerHistory.current;
     if (history.length < 2) return null;
@@ -93,141 +44,123 @@ function BotGame({
     return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
   }, []);
 
-  const getSmartBotChoice = useCallback((playerCurrent) => {
+  const getBotChoice = useCallback(() => {
     const options = Object.keys(CHOICES);
     
+    // Easy: 60% counter, 40% random
     if (difficulty === 'easy') {
-      if (Math.random() < 0.6) {
-        return playerCurrent === 'rock' ? 'scissors' : playerCurrent === 'paper' ? 'rock' : 'paper';
+      if (Math.random() < 0.6 && playerChoice) {
+        const counter = {
+          rock: 'paper',
+          paper: 'scissors',
+          scissors: 'rock'
+        };
+        return counter[playerChoice];
       }
-    } else if (difficulty === 'hard') {
-      const predicted = predictPlayerChoice() || playerCurrent;
+    }
+    
+    // Hard: 70% prediction-based, 30% random
+    if (difficulty === 'hard') {
+      const predicted = predictPlayerChoice() || (playerChoice || 'rock');
       if (Math.random() < 0.7) {
-        return predicted === 'rock' ? 'paper' : predicted === 'paper' ? 'scissors' : 'rock';
+        const counter = {
+          rock: 'paper',
+          paper: 'scissors',
+          scissors: 'rock'
+        };
+        return counter[predicted];
       }
+    }
+    
+    // Medium or default: 50% counter, 50% random
+    if (difficulty === 'medium' && Math.random() < 0.5 && playerChoice) {
+      const counter = {
+        rock: 'paper',
+        paper: 'scissors',
+        scissors: 'rock'
+      };
+      return counter[playerChoice];
     }
     
     return options[Math.floor(Math.random() * options.length)];
-  }, [CHOICES, difficulty, predictPlayerChoice]);
+  }, [difficulty, playerChoice, predictPlayerChoice]);
 
-  // --- TAYMERLARNI TOZALASH ---
-  const stopAllTimers = useCallback(() => {
-    if (timers.current.interval) clearInterval(timers.current.interval);
-    if (timers.current.round) clearTimeout(timers.current.round);
-    if (timers.current.bot) clearTimeout(timers.current.bot);
+  // ======================
+  // GAME LOGIC
+  // ======================
+  const determineWinner = useCallback((player, bot) => {
+    if (player === bot) return 'draw';
+    const winConditions = {
+      rock: 'scissors',
+      paper: 'rock',
+      scissors: 'paper'
+    };
+    return winConditions[player] === bot ? 'win' : 'lose';
   }, []);
 
-  // --- YANGI RAUND BOSHLASH ---
-  const initRound = useCallback(() => {
-    stopAllTimers();
-    dispatch({ type: 'START_ROUND' });
+  const startRound = useCallback(() => {
+    if (roundRef.current) clearTimeout(roundRef.current);
+    if (timerRef.current) clearInterval(timerRef.current);
 
-    timers.current.bot = setTimeout(() => {
-      dispatch({ type: 'BOT_READY' });
-    }, 600 + Math.random() * 500);
+    setPlayerChoice(null);
+    setBotChoice(null);
+    setResult(null);
+    setTimer(30);
+    setIsBotThinking(true);
+    setGameState('playing');
 
-    timers.current.interval = setInterval(() => {
-      dispatch({ type: 'TICK' });
-    }, 1000);
-  }, [stopAllTimers]);
+    // Bot "thinking" delay
+    const thinkDelay = 600 + Math.random() * 500;
+    roundRef.current = setTimeout(() => {
+      setIsBotThinking(false);
+    }, thinkDelay);
 
-  // --- VAQT TUGASA ---
-  useEffect(() => {
-    if (timer <= 0 && roundStatus === 'playing') {
-      stopAllTimers();
-      triggerHaptic('heavy');
-      showNotif("Vaqt tugadi! ⌛", "warning");
-      dispatch({ type: 'RESET_STREAK' });
-      timers.current.round = setTimeout(initRound, 2000);
-    }
-  }, [timer, roundStatus, initRound, stopAllTimers, showNotif]);
-
-  // --- BIRINCHI MAROTABA YUKLANGANDA ---
-  useEffect(() => {
-    initRound();
-    return () => {
-      stopAllTimers();
-      playerHistory.current = [];
-    };
-  }, [difficulty, initRound, stopAllTimers]);
-
-  // --- SILLIQ CANVAS KONFETI ANIMATSIYASI ---
-  useEffect(() => {
-    if (result !== 'win' || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    ctx.scale(dpr, dpr);
-
-    let confetti = Array.from({ length: 60 }).map(() => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight - window.innerHeight,
-      r: Math.random() * 5 + 3,
-      d: Math.random() * window.innerHeight,
-      color: `hsl(${Math.random() * 360}, 100%, 60%)`,
-      tilt: Math.random() * 10 - 5,
-      tiltAngleIncremental: Math.random() * 0.05 + 0.02,
-      tiltAngle: 0
-    }));
-
-    let animationFrameId;
-    const draw = () => {
-      if (!ctx) return;
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-      confetti.forEach((p, idx) => {
-        p.tiltAngle += p.tiltAngleIncremental;
-        p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2.5;
-        p.tilt = Math.sin(p.tiltAngle - idx / 3) * 12;
-
-        ctx.beginPath();
-        ctx.lineWidth = p.r;
-        ctx.strokeStyle = p.color;
-        ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
-        ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
-        ctx.stroke();
+    // Timer
+    timerRef.current = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          // Timeout - player loses
+          setGameState('result');
+          setResult('lose');
+          setStreak(0);
+          const lossAmount = -10;
+          const newCoins = Math.max(0, coins + lossAmount);
+          setCoins(newCoins);
+          if (setUser) {
+            setUser(prev => ({ ...prev, coins: newCoins }));
+          }
+          showNotif('⏰ Vaqt tugadi!', 'warning');
+          return 0;
+        }
+        return prev - 1;
       });
+    }, 1000);
+  }, [coins, setUser, showNotif]);
 
-      confetti = confetti.filter(p => p.y < window.innerHeight);
-      if (confetti.length > 0) {
-        animationFrameId = requestAnimationFrame(draw);
-      }
-    };
+  // ======================
+  // PLAYER MAKES CHOICE
+  // ======================
+  const handlePlay = useCallback((choice) => {
+    if (gameState !== 'playing' || playerChoice) return;
 
-    draw();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [result]);
-
-  // --- O'YINCHI TANLOVI ---
-  const onPlay = (userChoice) => {
-    if (roundStatus !== 'playing') return;
-    stopAllTimers();
-
-    playerHistory.current.push(userChoice);
-    if (playerHistory.current.length > 10) playerHistory.current.shift();
-
-    const botChoice = getSmartBotChoice(userChoice);
-    let roundResult = 'draw';
-
-    if (userChoice !== botChoice) {
-      const isWin =
-        (userChoice === 'rock' && botChoice === 'scissors') ||
-        (userChoice === 'paper' && botChoice === 'rock') ||
-        (userChoice === 'scissors' && botChoice === 'paper');
-      roundResult = isWin ? 'win' : 'lose';
+    // Record player history
+    playerHistory.current.push(choice);
+    if (playerHistory.current.length > 10) {
+      playerHistory.current.shift();
     }
 
-    // Haptic tebranish
-    triggerHaptic(roundResult === 'win' ? 'heavy' : 'light');
+    setPlayerChoice(choice);
+    triggerHaptic?.('light');
 
-    dispatch({
-      type: 'MAKE_CHOICE',
-      payload: { player: userChoice, bot: botChoice, result: roundResult }
-    });
-
-    // Mukofotni hisoblash (Combo bonus qo'shildi!)
+    // Bot makes choice
+    const botChoice = getBotChoice();
+    setBotChoice(botChoice);
+    
+    // Determine winner
+    const roundResult = determineWinner(choice, botChoice);
+    
+    // Calculate rewards
     const rewardTable = {
       win: difficulty === 'easy' ? 40 : difficulty === 'medium' ? 70 : 110,
       draw: 10,
@@ -238,27 +171,75 @@ function BotGame({
     const comboBonus = roundResult === 'win' && streak >= 2 ? (streak - 1) * 10 : 0;
     const finalChange = change + comboBonus;
 
-    setCoins(prev => Math.max(0, prev + finalChange));
+    // Update coins
+    const newCoins = Math.max(0, coins + finalChange);
+    setCoins(newCoins);
+    if (setUser) {
+      setUser(prev => ({ ...prev, coins: newCoins }));
+    }
 
-    // Notifikatsiya
-    const notifMsg = roundResult === 'win' 
-      ? `G'alaba! +${finalChange} 🪙 ${comboBonus > 0 ? `(Combo x${streak} 🔥)` : ''}` 
-      : roundResult === 'draw' 
-        ? `Durang! +${finalChange} 🪙` 
-        : `Mag'lubiyat! ${finalChange} 🪙`;
+    // Update streak
+    if (roundResult === 'win') {
+      setStreak(prev => prev + 1);
+    } else if (roundResult === 'lose') {
+      setStreak(0);
+    }
 
-    showNotif(notifMsg, roundResult === 'win' ? 'success' : roundResult === 'draw' ? 'warning' : 'error');
+    // Show result
+    setResult(roundResult);
+    setGameState('result');
 
-    timers.current.round = setTimeout(initRound, 2500);
+    // Haptic feedback
+    if (roundResult === 'win') {
+      triggerHaptic?.('heavy');
+      showNotif(`🎉 G'alaba! +${finalChange} 🪙 ${comboBonus > 0 ? `(Combo x${streak + 1} 🔥)` : ''}`, 'success');
+    } else if (roundResult === 'lose') {
+      triggerHaptic?.('medium');
+      showNotif(`😢 Mag'lubiyat! ${finalChange} 🪙`, 'error');
+    } else {
+      triggerHaptic?.('light');
+      showNotif(`🤝 Durang! +${finalChange} 🪙`, 'warning');
+    }
+
+    // Clear timers
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (roundRef.current) clearTimeout(roundRef.current);
+
+    // Next round after delay
+    roundRef.current = setTimeout(() => {
+      startRound();
+    }, 2500);
+  }, [gameState, playerChoice, getBotChoice, determineWinner, difficulty, streak, coins, setUser, showNotif, triggerHaptic, startRound]);
+
+  // ======================
+  // INITIALIZATION
+  // ======================
+  useEffect(() => {
+    startRound();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (roundRef.current) clearTimeout(roundRef.current);
+      playerHistory.current = [];
+    };
+  }, [difficulty, startRound]);
+
+  // ======================
+  // FORMAT FUNCTIONS
+  // ======================
+  const formatChoice = (key) => {
+    return CHOICES[key]?.label || key;
   };
 
-  const activeChoices = CHOICES || DEFAULT_CHOICES;
+  const getChoiceEmoji = (key) => {
+    return CHOICES[key]?.emoji || '❓';
+  };
 
+  // ======================
+  // RENDER
+  // ======================
   return (
     <div className="game-wrapper">
-      {result === 'win' && <canvas ref={canvasRef} className="confetti-canvas" />}
-
-      {/* Modern Tepadagi Panel */}
+      {/* Header */}
       <header className="game-header">
         <button className="back-arrow" onClick={onBackToMenu}>
           <span className="icon">←</span>
@@ -275,7 +256,7 @@ function BotGame({
         </div>
       </header>
 
-      {/* Progress Bar (Taymer) */}
+      {/* Progress Bar */}
       <div className="progress-container">
         <div 
           className={`progress-bar ${timer <= 5 ? 'critical' : ''}`} 
@@ -283,52 +264,52 @@ function BotGame({
         />
       </div>
 
-      {/* Markaziy Jang Maydoni (VS Arena) */}
+      {/* Arena */}
       <main className="arena">
         <div className={`arena-glow ${result}`} />
         
-        {/* SIZ Card */}
+        {/* Player Card */}
         <div className={`card player-card ${playerChoice ? 'active' : ''}`}>
           <div className="card-inner">
             <span className="card-label">SIZ</span>
             <div className="card-emoji-box">
-              {playerChoice && activeChoices[playerChoice] ? activeChoices[playerChoice].emoji : '👤'}
+              {playerChoice ? getChoiceEmoji(playerChoice) : '👤'}
             </div>
-            {playerChoice && <span className="selected-name">{playerChoice}</span>}
+            {playerChoice && <span className="selected-name">{formatChoice(playerChoice)}</span>}
           </div>
         </div>
 
-        {/* VS Markazi */}
+        {/* VS Center */}
         <div className="vs-center">
           <div className="vs-circle">
             <span>VS</span>
           </div>
-          {roundStatus === 'playing' && (
+          {gameState === 'playing' && (
             <div className="timer-number-box">
               <span className={`timer-text ${timer <= 5 ? 'pulse' : ''}`}>{timer}</span>
             </div>
           )}
         </div>
 
-        {/* BOT Card */}
+        {/* Bot Card */}
         <div className={`card bot-card ${botChoice ? 'active' : ''}`}>
           <div className="card-inner">
             <span className="card-label">BOT</span>
             <div className="card-emoji-box">
-              {botChoice && activeChoices[botChoice] ? (
-                activeChoices[botChoice].emoji
+              {botChoice ? (
+                getChoiceEmoji(botChoice)
               ) : isBotThinking ? (
                 <div className="thinking-bubble">🤖💭</div>
               ) : (
                 '🤖'
               )}
             </div>
-            {botChoice && <span className="selected-name">{botChoice}</span>}
+            {botChoice && <span className="selected-name">{formatChoice(botChoice)}</span>}
           </div>
         </div>
       </main>
 
-      {/* Natija Banneri */}
+      {/* Result Banner */}
       <div className="result-banner-container">
         {result && (
           <div className={`status-banner banner-${result}`}>
@@ -337,16 +318,16 @@ function BotGame({
         )}
       </div>
 
-      {/* Mobil Tugmalar Grid */}
+      {/* Choices */}
       <footer className="action-area">
         <div className={`choices-grid ${playerChoice ? 'has-selection' : ''}`}>
-          {Object.entries(activeChoices).map(([key, item]) => {
+          {Object.entries(CHOICES).map(([key, item]) => {
             const isSelected = playerChoice === key;
             return (
               <button
                 key={key}
-                onClick={() => onPlay(key)}
-                disabled={roundStatus !== 'playing'}
+                onClick={() => handlePlay(key)}
+                disabled={gameState !== 'playing' || !!playerChoice}
                 className={`action-btn ${isSelected ? 'chosen' : ''}`}
                 style={{ 
                   backgroundColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.05)',
@@ -356,7 +337,7 @@ function BotGame({
               >
                 {isSelected && <span className="selection-indicator">✓ SIZ</span>}
                 <span className="action-emoji">{item.emoji}</span>
-                <span className="action-label">{item.label || key.toUpperCase()}</span>
+                <span className="action-label">{item.label}</span>
               </button>
             );
           })}

@@ -5,6 +5,8 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import compression from 'compression';
+import { body, param, query, validationResult } from 'express-validator';
 
 dotenv.config();
 
@@ -22,90 +24,36 @@ const {
   WEB_APP_URL = 'https://telegram-mini-app-gsny.onrender.com'
 } = process.env;
 
-// ======================
-// CORS SOZLAMALARI - ENG MUHIM QISM!
-// ======================
-
-// 1. CORS middleware - BARCHA SOROVLARDAN OLDIN
-app.use((req, res, next) => {
-  // Har bir sorov uchun origin ni olish
-  const origin = req.headers.origin;
-  
-  // Ruxsat etilgan origin'lar
-  const allowedOrigins = [
-    'https://telegram-mini-app-gsny.onrender.com',
-    'https://like-admin-m9j1n851q-habibulloabdumutallibovs-projects.vercel.app',
-    'https://like-admin-*.vercel.app',
-    'https://like-admin.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5173',
-    'https://telegram-bot-server-2-matj.onrender.com'
-  ];
-
-  // Origin ni tekshirish
-  let isAllowed = false;
-  
-  // Development da hamma origin ga ruxsat
-  if (NODE_ENV === 'development') {
-    isAllowed = true;
-    res.header('Access-Control-Allow-Origin', '*');
-  } else if (origin) {
-    // Production da specific origin'lar
-    isAllowed = allowedOrigins.some(allowed => {
-      if (allowed.includes('*')) {
-        // Wildcard bilan tekshirish
-        const pattern = allowed.replace(/\*/g, '.*');
-        const regex = new RegExp(`^${pattern}$`);
-        return regex.test(origin);
-      }
-      return allowed === origin;
-    });
-    
-    if (isAllowed) {
-      res.header('Access-Control-Allow-Origin', origin);
-    }
+// Validate required environment variables
+const requiredEnv = ['MONGODB_URI'];
+for (const env of requiredEnv) {
+  if (!process.env[env]) {
+    console.error(`❌ Missing required environment variable: ${env}`);
+    process.exit(1);
   }
+}
 
-  // CORS header'lar
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-admin-key, X-Requested-With, x-telegram-init-data, Origin, X-Forwarded-For');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  res.header('Vary', 'Origin');
+// ======================
+// CORS SOZLAMALARI - YAGONA VA TO'G'RI
+// ======================
+const allowedOrigins = [
+  'https://telegram-mini-app-gsny.onrender.com',
+  'https://like-admin-m9j1n851q-habibulloabdumutallibovs-projects.vercel.app',
+  'https://like-admin.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173'
+];
 
-  // OPTIONS (preflight) sorovlariga javob
-  if (req.method === 'OPTIONS') {
-    console.log('🔄 Preflight request:', req.path, 'Origin:', origin);
-    return res.sendStatus(200);
-  }
-
-  console.log('📨 Request:', req.method, req.path, 'Origin:', origin, 'Allowed:', isAllowed);
-  next();
-});
-
-// 2. Alternativ: cors package bilan sozlash
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
-    // Ruxsat etilgan origin'lar
-    const allowedOrigins = [
-      'https://telegram-mini-app-gsny.onrender.com',
-      'https://like-admin-m9j1n851q-habibulloabdumutallibovs-projects.vercel.app',
-      'https://like-admin-*.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173'
-    ];
-
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Development da hamma origin ga ruxsat
-    if (NODE_ENV === 'development') {
-      return callback(null, true);
-    }
+    // Allow all origins in development
+    if (NODE_ENV === 'development') return callback(null, true);
 
-    // Production da specific origin'lar
+    // Check if origin is allowed
     const isAllowed = allowedOrigins.some(allowed => {
       if (allowed.includes('*')) {
         const pattern = allowed.replace(/\*/g, '.*');
@@ -125,11 +73,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-key', 'X-Requested-With', 'x-telegram-init-data'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   maxAge: 86400
-}));
+};
+
+// Apply CORS once
+app.use(cors(corsOptions));
 
 // ======================
 // MIDDLEWARE
 // ======================
+app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -142,65 +94,23 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // ======================
-// TO'G'RILANGAN SOCKET.IO SOZLAMALARI
+// SOCKET.IO SOZLAMALARI
 // ======================
-
-// Server.js - CORS sozlamalari
 const io = new Server(server, {
-  cors: {
-    origin: true, // Barcha originlarga ruxsat
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
-    allowedHeaders: [
-      "Content-Type", 
-      "Authorization", 
-      "Accept", 
-      "x-admin-key", 
-      "X-Requested-With", 
-      "x-telegram-init-data"
-    ]
-  },
+  cors: corsOptions,
   transports: ['websocket', 'polling'],
   pingTimeout: 60000,
   pingInterval: 25000,
-  allowEIO3: true
-});
-
-// Express CORS
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-key', 'X-Requested-With', 'x-telegram-init-data']
-}));
-
-// CORS middleware ni to'g'rilash
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // HAMMA ORIGIN GA RUXSAT - TEST UCHUN
-  res.header('Access-Control-Allow-Origin', origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-admin-key, X-Requested-With, x-telegram-init-data, Origin, X-Forwarded-For');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  res.header('Vary', 'Origin');
-  
-  if (req.method === 'OPTIONS') {
-    console.log('🔄 Preflight request:', req.path, 'Origin:', origin);
-    return res.sendStatus(200);
+  allowEIO3: true,
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: true,
   }
-  
-  next();
 });
 
-// CORS package - qo'shimcha
-app.use(cors({
-  origin: true, // Barcha originlarga ruxsat
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-key', 'X-Requested-With', 'x-telegram-init-data']
-}));
+// ======================
+// GLOBAL O'ZGARUVCHILAR
+// ======================
 let searchQueue = [];
 let activeRooms = {};
 let onlineUsers = new Map();
@@ -228,11 +138,21 @@ const connectDB = async () => {
 
 connectDB();
 
+mongoose.connection.on('error', (err) => {
+  console.error('🔴 MongoDB error:', err);
+});
+
 mongoose.connection.on('disconnected', () => {
-  console.log('🟡 MongoDB uzildi. Qayta ulanish...');
+  console.log('🟡 MongoDB disconnected. Attempting to reconnect...');
   setTimeout(connectDB, 5000);
 });
 
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();
+  console.log('💾 MongoDB connection closed');
+  process.exit(0);
+});
 
 // ======================
 // USER SCHEMA
@@ -256,6 +176,10 @@ const userSchema = new mongoose.Schema({
   isOnline: { type: Boolean, default: false },
   deviceInfo: { type: String, default: '' }
 }, { timestamps: true });
+
+// Add indexes for performance
+userSchema.index({ rating: -1, coins: -1 });
+userSchema.index({ tgId: 1 }, { unique: true });
 
 const User = mongoose.model('User', userSchema);
 
@@ -336,17 +260,45 @@ async function evaluateRound(roomId) {
     }
 
     io.to(p1.socketId).emit('round_result', {
-      myChoice: c1, opponentChoice: c2, result: result1,
-      rewardCoins: coinChange1, rewardXP: xpChange1
+      myChoice: c1, 
+      opponentChoice: c2, 
+      result: result1,
+      rewardCoins: coinChange1, 
+      rewardXP: xpChange1,
+      newCoins: user1?.coins || 0,
+      newRating: user1?.rating || 0
     });
 
     io.to(p2.socketId).emit('round_result', {
-      myChoice: c2, opponentChoice: c1, result: result2,
-      rewardCoins: coinChange2, rewardXP: xpChange2
+      myChoice: c2, 
+      opponentChoice: c1, 
+      result: result2,
+      rewardCoins: coinChange2, 
+      rewardXP: xpChange2,
+      newCoins: user2?.coins || 0,
+      newRating: user2?.rating || 0
     });
 
+    // Update online users data
+    if (user1) {
+      const onlineUser = onlineUsers.get(p1.tgId);
+      if (onlineUser) {
+        onlineUser.coins = user1.coins;
+        onlineUser.rating = user1.rating;
+        onlineUsers.set(p1.tgId, onlineUser);
+      }
+    }
+    if (user2) {
+      const onlineUser = onlineUsers.get(p2.tgId);
+      if (onlineUser) {
+        onlineUser.coins = user2.coins;
+        onlineUser.rating = user2.rating;
+        onlineUsers.set(p2.tgId, onlineUser);
+      }
+    }
+
   } catch (err) {
-    console.error("Balans yangilashda xatolik:", err);
+    console.error("❌ Balans yangilashda xatolik:", err);
   }
 
   delete activeRooms[roomId];
@@ -386,7 +338,7 @@ const adminAuth = (req, res, next) => {
 // API ROUTES
 // ======================
 
-// Health check - CORS tekshirish uchun
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
@@ -397,7 +349,20 @@ app.get('/api/health', (req, res) => {
 });
 
 // AUTH
-app.post('/api/user/auth', async (req, res) => {
+app.post('/api/user/auth', [
+  body('tgId').isString().trim().notEmpty().escape(),
+  body('firstName').optional().isString().trim().escape(),
+  body('username').optional().isString().trim().escape(),
+  body('refParent').optional().isString().trim().escape(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      success: false, 
+      errors: errors.array() 
+    });
+  }
+
   const { tgId, username, firstName, lastName, photoUrl, refParent } = req.body;
 
   try {
@@ -441,7 +406,7 @@ app.post('/api/user/auth', async (req, res) => {
 
     res.status(200).json({ success: true, user });
   } catch (error) {
-    console.error('Auth xatoligi:', error);
+    console.error('❌ Auth xatoligi:', error);
     res.status(500).json({ success: false, message: "Avtorizatsiya xatoligi" });
   }
 });
@@ -456,13 +421,23 @@ app.get('/api/user/leaderboard', async (req, res) => {
 
     res.status(200).json({ success: true, leaders });
   } catch (error) {
-    console.error('Leaderboard xatoligi:', error);
+    console.error('❌ Leaderboard xatoligi:', error);
     res.status(500).json({ success: false, message: "Leaderboard xatoligi" });
   }
 });
 
 // BUY CHAT LINK
-app.post('/api/user/buy-chat-link', async (req, res) => {
+app.post('/api/user/buy-chat-link', [
+  body('tgId').isString().trim().notEmpty().escape()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      success: false, 
+      errors: errors.array() 
+    });
+  }
+
   const { tgId } = req.body;
   try {
     const user = await User.findOne({ tgId });
@@ -474,13 +449,23 @@ app.post('/api/user/buy-chat-link', async (req, res) => {
 
     res.status(200).json({ success: true, coins: user.coins });
   } catch (error) {
-    console.error('Xarid xatoligi:', error);
+    console.error('❌ Xarid xatoligi:', error);
     res.status(500).json({ success: false, message: "Xarid amalga oshmadi" });
   }
 });
 
 // USER STATS
-app.get('/api/user/:tgId/stats', async (req, res) => {
+app.get('/api/user/:tgId/stats', [
+  param('tgId').isString().trim().notEmpty().escape()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      success: false, 
+      errors: errors.array() 
+    });
+  }
+
   try {
     const user = await User.findOne({ tgId: req.params.tgId });
     if (!user) return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
@@ -498,6 +483,7 @@ app.get('/api/user/:tgId/stats', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('❌ Statistika xatoligi:', error);
     res.status(500).json({ success: false, message: "Statistika xatoligi" });
   }
 });
@@ -540,7 +526,7 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Admin stats xatoligi:', err);
+    console.error('❌ Admin stats xatoligi:', err);
     res.status(500).json({ success: false, message: "Statistika xatoligi" });
   }
 });
@@ -581,7 +567,7 @@ app.get('/api/admin/users', adminAuth, async (req, res) => {
       totalPages: Math.ceil(total / parseInt(limit))
     });
   } catch (err) {
-    console.error('Admin users xatoligi:', err);
+    console.error('❌ Admin users xatoligi:', err);
     res.status(500).json({ success: false, message: "Foydalanuvchilarni yuklashda xatolik" });
   }
 });
@@ -593,6 +579,7 @@ app.get('/api/admin/users/:id', adminAuth, async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: "Foydalanuvchi topilmadi" });
     res.json({ success: true, user });
   } catch (err) {
+    console.error('❌ Admin user get xatoligi:', err);
     res.status(500).json({ success: false, message: "Xatolik" });
   }
 });
@@ -616,7 +603,7 @@ app.put('/api/admin/users/:id', adminAuth, async (req, res) => {
 
     res.json({ success: true, user, message: "Muvaffaqiyatli yangilandi" });
   } catch (err) {
-    console.error('Update xatoligi:', err);
+    console.error('❌ Update xatoligi:', err);
     res.status(500).json({ success: false, message: "Tahrirlashda xatolik" });
   }
 });
@@ -630,7 +617,7 @@ app.delete('/api/admin/users/:id', adminAuth, async (req, res) => {
     await User.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Foydalanuvchi o'chirildi" });
   } catch (err) {
-    console.error('Delete xatoligi:', err);
+    console.error('❌ Delete xatoligi:', err);
     res.status(500).json({ success: false, message: "O'chirishda xatolik" });
   }
 });
@@ -648,247 +635,467 @@ app.post('/api/admin/users/:id/coins', adminAuth, async (req, res) => {
     
     res.json({ success: true, user });
   } catch (err) {
-    console.error('Coin update xatoligi:', err);
+    console.error('❌ Coin update xatoligi:', err);
     res.status(500).json({ success: false, message: "Coin o'zgartirishda xatolik" });
   }
 });
 
 // ======================
-// SOCKET.IO EVENTS
+// SOCKET.IO EVENTS - TO'G'RILANGAN
 // ======================
-
-// ======================
-// SOCKET.IO - TO'G'RILANGAN VERSION
-// ======================
-// Serverda - socket eventlarni log qilish
 io.on('connection', (socket) => {
   console.log('🟢 New connection:', socket.id);
 
-  // BARCHA EVENTLARNI LOG QILISH
+  // Barcha eventlarni log qilish (debug uchun)
   socket.onAny((event, ...args) => {
     console.log(`📨 Event: ${event}`, JSON.stringify(args, null, 2));
   });
 
-  // Serverda user_connect - TO'G'RILANGAN
-socket.on('user_connect', async (data) => {
-  console.log('👤 User connect:', data);
-  
-  try {
-    const { tgId, firstName } = data;
+  // ============= USER CONNECT =============
+  socket.on('user_connect', async (data) => {
+    console.log('👤 User connect:', data);
     
-    if (!tgId) {
-      console.error('❌ No tgId provided');
-      socket.emit('error', { message: 'Foydalanuvchi ID si kerak' });
-      return;
-    }
-
-    // User ni topish yoki yaratish
-    let user = await User.findOne({ tgId: String(tgId) });
-    
-    if (!user) {
-      user = new User({
-        tgId: String(tgId),
-        firstName: firstName || "O'yinchi",
-        coins: 100,
-        rating: 100
-      });
-      await user.save();
-      console.log('✅ New user created:', user.tgId);
-    } else {
-      user.isOnline = true;
-      user.lastLogin = new Date();
-      await user.save();
-      console.log('✅ User updated:', user.tgId);
-    }
-
-    // Online users ga qo'shish
-    onlineUsers.set(String(tgId), {
-      socketId: socket.id,
-      firstName: user.firstName,
-      username: user.username,
-      rating: user.rating,
-      coins: user.coins
-    });
-
-    // Javob yuborish
-    socket.emit('user_connected', {
-      success: true,
-      user: {
-        tgId: user.tgId,
-        firstName: user.firstName,
-        username: user.username,
-        coins: user.coins,
-        rating: user.rating,
-        totalGames: user.totalGames || 0,
-        wins: user.wins || 0,
-        losses: user.losses || 0
-      }
-    });
-
-    // Barchaga xabar
-    io.emit('user_status', {
-      tgId: String(tgId),
-      status: 'online',
-      firstName: user.firstName
-    });
-
-  } catch (error) {
-    console.error('❌ User connect error:', error);
-    socket.emit('error', { 
-      message: 'Foydalanuvchi ulanishida xatolik: ' + error.message 
-    });
-  }
-});
-
-// Serverda find_match - TO'G'RILANGAN
-socket.on('find_match', ({ player, stake = 10 }) => {
-  console.log('🔍 Find match:', { player, stake });
-  
-  try {
-    // 1. Ma'lumotlarni tekshirish
-    if (!player || !player.tgId) {
-      console.error('❌ Invalid player data:', player);
-      socket.emit('error', { message: 'Noto\'g\'ri o\'yinchi ma\'lumotlari' });
-      return;
-    }
-
-    // 2. Queue dan o'chirish
-    searchQueue = searchQueue.filter(p => {
-      const exists = io.sockets.sockets.has(p.socketId);
-      if (!exists) return false;
-      return p.socketId !== socket.id;
-    });
-
-    // 3. Yangi o'yinchi
-    const newPlayer = {
-      socketId: socket.id,
-      tgId: String(player.tgId),
-      name: player.firstName || "O'yinchi",
-      username: player.username || '',
-      rating: player.rating || 100,
-      stake: Math.max(1, Number(stake) || 10),
-      joinedAt: new Date()
-    };
-
-    console.log('🆕 New player:', newPlayer);
-
-    // 4. Raqib qidirish
-    const opponentIndex = searchQueue.findIndex(p => 
-      p.stake === newPlayer.stake && 
-      p.tgId !== newPlayer.tgId &&
-      p.socketId !== socket.id &&
-      io.sockets.sockets.has(p.socketId)
-    );
-
-    if (opponentIndex !== -1) {
-      // Raqib topildi
-      const opponent = searchQueue.splice(opponentIndex, 1)[0];
-      const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-
-      console.log('✅ Match found!', { roomId, player1: newPlayer.tgId, player2: opponent.tgId });
-
-      // Xonaga qo'shish
-      socket.join(roomId);
-      const oppSocket = io.sockets.sockets.get(opponent.socketId);
-      if (oppSocket) {
-        oppSocket.join(roomId);
-      } else {
-        // Raqib yo'q
-        searchQueue.push(newPlayer);
-        socket.emit('searching', { stake: newPlayer.stake });
+    try {
+      const { tgId, firstName } = data;
+      
+      if (!tgId) {
+        console.error('❌ No tgId provided');
+        socket.emit('error', { message: 'Foydalanuvchi ID si kerak' });
         return;
       }
 
-      // Xona yaratish
-      activeRooms[roomId] = {
-        roomId,
-        players: [newPlayer, opponent],
-        choices: {},
-        stake: newPlayer.stake,
-        timerInterval: null,
-        createdAt: new Date()
-      };
-
-      // Match found xabari
-      const opponentData = {
-        tgId: opponent.tgId,
-        name: opponent.name,
-        username: opponent.username,
-        rating: opponent.rating
-      };
-
-      const playerData = {
-        tgId: newPlayer.tgId,
-        name: newPlayer.name,
-        username: newPlayer.username,
-        rating: newPlayer.rating
-      };
-
-      socket.emit('match_found', { 
-        roomId, 
-        opponent: opponentData,
-        stake: newPlayer.stake
-      });
+      // User ni topish yoki yaratish
+      let user = await User.findOne({ tgId: String(tgId) });
       
-      io.to(opponent.socketId).emit('match_found', { 
-        roomId, 
-        opponent: playerData,
-        stake: newPlayer.stake
+      if (!user) {
+        user = new User({
+          tgId: String(tgId),
+          firstName: firstName || "O'yinchi",
+          coins: 100,
+          rating: 100
+        });
+        await user.save();
+        console.log('✅ New user created:', user.tgId);
+      } else {
+        user.isOnline = true;
+        user.lastLogin = new Date();
+        await user.save();
+        console.log('✅ User updated:', user.tgId);
+      }
+
+      // Online users ga qo'shish
+      onlineUsers.set(String(tgId), {
+        socketId: socket.id,
+        firstName: user.firstName,
+        username: user.username,
+        rating: user.rating,
+        coins: user.coins
       });
 
-      // Timer boshlash
-      startRoomTimer(roomId);
+      // Javob yuborish
+      socket.emit('user_connected', {
+        success: true,
+        user: {
+          tgId: user.tgId,
+          firstName: user.firstName,
+          username: user.username,
+          coins: user.coins,
+          rating: user.rating,
+          totalGames: user.totalGames || 0,
+          wins: user.wins || 0,
+          losses: user.losses || 0
+        }
+      });
 
-    } else {
-      // Raqib topilmadi
-      console.log('⏳ No match, adding to queue');
-      searchQueue.push(newPlayer);
-      socket.emit('searching', { 
-        stake: newPlayer.stake,
-        queueLength: searchQueue.length
+      // Barchaga xabar
+      io.emit('user_status', {
+        tgId: String(tgId),
+        status: 'online',
+        firstName: user.firstName
+      });
+
+    } catch (error) {
+      console.error('❌ User connect error:', error);
+      socket.emit('error', { 
+        message: 'Foydalanuvchi ulanishida xatolik: ' + error.message 
       });
     }
-  } catch (error) {
-    console.error('❌ Find match error:', error);
-    socket.emit('error', { 
-      message: 'O\'yin boshlashda xatolik: ' + error.message 
-    });
-  }
-});
+  });
 
-  // XATOLIKLARNI USHLASH
+  // ============= FIND MATCH =============
+  socket.on('find_match', ({ player, stake = 10 }) => {
+    console.log('🔍 Find match:', { player, stake });
+    
+    try {
+      // 1. Ma'lumotlarni tekshirish
+      if (!player || !player.tgId) {
+        console.error('❌ Invalid player data:', player);
+        socket.emit('error', { message: 'Noto\'g\'ri o\'yinchi ma\'lumotlari' });
+        return;
+      }
+
+      // 2. Queue dan o'chirish
+      searchQueue = searchQueue.filter(p => {
+        const exists = io.sockets.sockets.has(p.socketId);
+        if (!exists) return false;
+        return p.socketId !== socket.id;
+      });
+
+      // 3. Yangi o'yinchi
+      const newPlayer = {
+        socketId: socket.id,
+        tgId: String(player.tgId),
+        name: player.firstName || "O'yinchi",
+        username: player.username || '',
+        rating: player.rating || 100,
+        stake: Math.max(1, Number(stake) || 10),
+        joinedAt: new Date()
+      };
+
+      console.log('🆕 New player:', newPlayer);
+
+      // 4. Raqib qidirish
+      const opponentIndex = searchQueue.findIndex(p => 
+        p.stake === newPlayer.stake && 
+        p.tgId !== newPlayer.tgId &&
+        p.socketId !== socket.id &&
+        io.sockets.sockets.has(p.socketId)
+      );
+
+      if (opponentIndex !== -1) {
+        // Raqib topildi
+        const opponent = searchQueue.splice(opponentIndex, 1)[0];
+        const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+
+        console.log('✅ Match found!', { roomId, player1: newPlayer.tgId, player2: opponent.tgId });
+
+        // Xonaga qo'shish
+        socket.join(roomId);
+        const oppSocket = io.sockets.sockets.get(opponent.socketId);
+        if (oppSocket) {
+          oppSocket.join(roomId);
+        } else {
+          // Raqib yo'q
+          searchQueue.push(newPlayer);
+          socket.emit('searching', { stake: newPlayer.stake });
+          return;
+        }
+
+        // Xona yaratish
+        activeRooms[roomId] = {
+          roomId,
+          players: [newPlayer, opponent],
+          choices: {},
+          stake: newPlayer.stake,
+          timerInterval: null,
+          createdAt: new Date()
+        };
+
+        // Match found xabari
+        const opponentData = {
+          tgId: opponent.tgId,
+          name: opponent.name,
+          username: opponent.username,
+          rating: opponent.rating
+        };
+
+        const playerData = {
+          tgId: newPlayer.tgId,
+          name: newPlayer.name,
+          username: newPlayer.username,
+          rating: newPlayer.rating
+        };
+
+        socket.emit('match_found', { 
+          roomId, 
+          opponent: opponentData,
+          stake: newPlayer.stake
+        });
+        
+        io.to(opponent.socketId).emit('match_found', { 
+          roomId, 
+          opponent: playerData,
+          stake: newPlayer.stake
+        });
+
+        // Timer boshlash
+        startRoomTimer(roomId);
+
+      } else {
+        // Raqib topilmadi
+        console.log('⏳ No match, adding to queue');
+        searchQueue.push(newPlayer);
+        socket.emit('searching', { 
+          stake: newPlayer.stake,
+          queueLength: searchQueue.length
+        });
+      }
+    } catch (error) {
+      console.error('❌ Find match error:', error);
+      socket.emit('error', { 
+        message: 'O\'yin boshlashda xatolik: ' + error.message 
+      });
+    }
+  });
+
+  // ============= CANCEL SEARCH - YANGI QO'SHILDI =============
+  socket.on('cancel_search', () => {
+    console.log('⏹️ Cancel search:', socket.id);
+    
+    try {
+      // Queue dan o'chirish
+      searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
+      socket.emit('search_cancelled', { success: true });
+      console.log('✅ Search cancelled for:', socket.id);
+    } catch (error) {
+      console.error('❌ Cancel search error:', error);
+      socket.emit('error', { message: 'Qidiruvni bekor qilishda xatolik' });
+    }
+  });
+
+  // ============= MAKE CHOICE - YANGI QO'SHILDI =============
+  socket.on('make_choice', (data) => {
+    console.log('✋ Make choice:', data);
+    
+    try {
+      const { roomId, choice } = data;
+      
+      // Validate input
+      if (!roomId || !choice) {
+        socket.emit('error', { message: 'Xona ID va tanlov kerak' });
+        return;
+      }
+
+      // Validate choice
+      if (!['rock', 'paper', 'scissors'].includes(choice)) {
+        socket.emit('error', { message: 'Noto\'g\'ri tanlov' });
+        return;
+      }
+
+      const room = activeRooms[roomId];
+      if (!room) {
+        socket.emit('error', { message: 'Xona topilmadi' });
+        return;
+      }
+
+      // Check if player is in room
+      const player = room.players.find(p => p.socketId === socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Siz bu xonada emassiz' });
+        return;
+      }
+
+      // Check if player already made choice
+      if (room.choices[socket.id]) {
+        socket.emit('error', { message: 'Siz allaqachon tanlov qildingiz' });
+        return;
+      }
+
+      // Save choice
+      room.choices[socket.id] = choice;
+      console.log(`✅ Choice saved for ${player.tgId}: ${choice}`);
+      
+      // Acknowledge
+      socket.emit('choice_confirmed', { choice });
+      
+      // Check if both players have chosen
+      if (Object.keys(room.choices).length === 2) {
+        console.log('🎯 Both players have chosen, evaluating...');
+        clearInterval(room.timerInterval);
+        evaluateRound(roomId);
+      }
+    } catch (error) {
+      console.error('❌ Make choice error:', error);
+      socket.emit('error', { message: 'Tanlovni qabul qilishda xatolik' });
+    }
+  });
+
+  // ============= LEAVE GAME - YANGI QO'SHILDI =============
+  socket.on('leave_game', ({ roomId }) => {
+    console.log('🚪 Leave game:', { socketId: socket.id, roomId });
+    
+    try {
+      if (!roomId) {
+        socket.emit('error', { message: 'Xona ID kerak' });
+        return;
+      }
+
+      const room = activeRooms[roomId];
+      if (!room) {
+        socket.emit('error', { message: 'Xona topilmadi' });
+        return;
+      }
+
+      // Check if player is in room
+      const player = room.players.find(p => p.socketId === socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Siz bu xonada emassiz' });
+        return;
+      }
+
+      // Notify opponent
+      const opponent = room.players.find(p => p.socketId !== socket.id);
+      if (opponent) {
+        io.to(opponent.socketId).emit('opponent_left', {
+          message: 'Raqib o\'yinni tark etdi'
+        });
+      }
+
+      // Clear timer and remove room
+      clearInterval(room.timerInterval);
+      delete activeRooms[roomId];
+      
+      // Leave room
+      socket.leave(roomId);
+      
+      console.log(`✅ Player ${player.tgId} left room ${roomId}`);
+      socket.emit('game_left', { success: true });
+    } catch (error) {
+      console.error('❌ Leave game error:', error);
+      socket.emit('error', { message: 'O\'yinni tark etishda xatolik' });
+    }
+  });
+
+  // ============= GET GAME STATE - YANGI QO'SHILDI =============
+  socket.on('get_game_state', ({ roomId }) => {
+    try {
+      if (!roomId) {
+        socket.emit('error', { message: 'Xona ID kerak' });
+        return;
+      }
+
+      const room = activeRooms[roomId];
+      if (!room) {
+        socket.emit('error', { message: 'Xona topilmadi' });
+        return;
+      }
+
+      // Check if player is in room
+      const player = room.players.find(p => p.socketId === socket.id);
+      if (!player) {
+        socket.emit('error', { message: 'Siz bu xonada emassiz' });
+        return;
+      }
+
+      const opponent = room.players.find(p => p.socketId !== socket.id);
+      const hasChosen = !!room.choices[socket.id];
+      const opponentChosen = opponent ? !!room.choices[opponent.socketId] : false;
+
+      socket.emit('game_state', {
+        roomId,
+        stake: room.stake,
+        hasChosen,
+        opponentChosen,
+        opponentName: opponent?.name || 'Raqib',
+        opponentRating: opponent?.rating || 0
+      });
+    } catch (error) {
+      console.error('❌ Get game state error:', error);
+      socket.emit('error', { message: 'O\'yin holatini olishda xatolik' });
+    }
+  });
+
+  // ============= DISCONNECT =============
+  socket.on('disconnect', async () => {
+    console.log('🔴 Disconnected:', socket.id);
+    
+    try {
+      // Remove from online users
+      let disconnectedTgId = null;
+      for (const [tgId, data] of onlineUsers.entries()) {
+        if (data.socketId === socket.id) {
+          disconnectedTgId = tgId;
+          onlineUsers.delete(tgId);
+          io.emit('user_status', {
+            tgId,
+            status: 'offline',
+            firstName: data.firstName
+          });
+          
+          // Update user in database
+          try {
+            await User.findOneAndUpdate(
+              { tgId: String(tgId) },
+              { isOnline: false }
+            );
+          } catch (err) {
+            console.error('❌ Error updating user offline status:', err);
+          }
+          break;
+        }
+      }
+
+      // Remove from search queue
+      searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
+
+      // Handle active games
+      for (const [roomId, room] of Object.entries(activeRooms)) {
+        if (room.players.some(p => p.socketId === socket.id)) {
+          console.log(`⚠️ Player disconnected during game in room ${roomId}`);
+          // Handle player disconnect during game
+          clearInterval(room.timerInterval);
+          
+          // Notify opponent
+          const opponent = room.players.find(p => p.socketId !== socket.id);
+          if (opponent) {
+            io.to(opponent.socketId).emit('opponent_disconnected', {
+              message: 'Raqib ulanishni uzdi'
+            });
+          }
+          
+          // Evaluate round with timeout
+          await evaluateRound(roomId);
+        }
+      }
+
+      console.log(`✅ Cleanup completed for ${socket.id}`);
+    } catch (error) {
+      console.error('❌ Disconnect handler error:', error);
+    }
+  });
+
+  // ============= ERROR HANDLER =============
   socket.on('error', (error) => {
     console.error('❌ Socket error event:', error);
+    socket.emit('error', { message: 'Ulanishda xatolik yuz berdi' });
   });
 });
 
-// GLOBAL XATOLIKLARNI USHLASH
+// ======================
+// CLEANUP INTERVAL - ORQADA QOLGAN XONALARNI TOZALASH
+// ======================
+setInterval(() => {
+  const now = Date.now();
+  let cleanedRooms = 0;
+  
+  for (const [roomId, room] of Object.entries(activeRooms)) {
+    // If room is more than 5 minutes old with no activity
+    if (now - room.createdAt.getTime() > 5 * 60 * 1000) {
+      console.log(`🧹 Cleaning up abandoned room: ${roomId}`);
+      clearInterval(room.timerInterval);
+      delete activeRooms[roomId];
+      cleanedRooms++;
+    }
+  }
+  
+  if (cleanedRooms > 0) {
+    console.log(`🧹 Cleaned up ${cleanedRooms} abandoned rooms`);
+  }
+}, 60000);
+
+// ======================
+// GLOBAL ERROR HANDLERS
+// ======================
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
+  // Don't exit, let the process continue
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection:', reason);
-});
-// Serverda - GLOBAL ERROR HANDLER
-io.use((socket, next) => {
-  try {
-    next();
-  } catch (error) {
-    console.error('❌ Socket middleware error:', error);
-    next(new Error('Internal server error'));
-  }
+  // Don't exit, let the process continue
 });
 
-// Har bir socket eventini try-catch bilan o'rab olish
-socket.on('find_match', (data) => {
-  try {
-    // ... kod
-  } catch (error) {
-    console.error('❌ Find match error:', error);
-    socket.emit('error', { message: error.message });
-  }
-});
 // ======================
 // START SERVER
 // ======================
@@ -898,12 +1105,4 @@ server.listen(PORT, () => {
   console.log(`📊 Web App URL: ${WEB_APP_URL}`);
   console.log(`✅ CORS sozlamalari faol`);
   console.log(`🔍 Health check: /api/health`);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection:', reason);
 });
