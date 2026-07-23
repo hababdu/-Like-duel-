@@ -1,5 +1,5 @@
 // ============================================================
-// 1. SOCKET.JS - TUZATILGAN VERSION
+// SOCKET.JS - TELEGRAM UCHUN MAXSUS
 // ============================================================
 import { io } from 'socket.io-client';
 
@@ -9,6 +9,7 @@ const SERVER_URL = process.env.NODE_ENV === 'production'
 
 console.log('🔌 Connecting to server:', SERVER_URL);
 
+// HAR BIR SAHIFA UCHUN UNIQ SOCKET ID
 const socket = io(SERVER_URL, {
   transports: ['websocket', 'polling'],
   withCredentials: true,
@@ -18,17 +19,18 @@ const socket = io(SERVER_URL, {
   reconnectionDelayMax: 5000,
   timeout: 30000,
   autoConnect: true,
-  forceNew: true,
+  forceNew: true, // Har bir sahifa uchun yangi ulanish
   path: '/socket.io/',
-  // Muhim: CORS uchun
-  extraHeaders: {
-    'Access-Control-Allow-Origin': '*'
+  // Telegram WebApp uchun maxsus
+  query: {
+    platform: window.Telegram?.WebApp ? 'telegram' : 'web'
   }
 });
 
-// Ulanish holati - DEBUG
+// Ulanish holati
 socket.on('connect', () => {
   console.log('✅ Socket connected! ID:', socket.id);
+  console.log('📱 Platform:', window.Telegram?.WebApp ? 'Telegram' : 'Web');
 });
 
 socket.on('connect_error', (error) => {
