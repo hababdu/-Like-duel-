@@ -866,6 +866,7 @@ io.on('connection', (socket) => {
         message: 'O\'yin boshlashda xatolik: ' + error.message 
       });
     }
+    
   });
 
   // CANCEL SEARCH

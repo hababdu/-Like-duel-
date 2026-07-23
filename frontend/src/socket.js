@@ -1,5 +1,5 @@
 // ============================================================
-// 1. SOCKET.JS - TO'G'RILANGAN
+// 1. SOCKET.JS - TUZATILGAN VERSION
 // ============================================================
 import { io } from 'socket.io-client';
 
@@ -13,16 +13,20 @@ const socket = io(SERVER_URL, {
   transports: ['websocket', 'polling'],
   withCredentials: true,
   reconnection: true,
-  reconnectionAttempts: 5,
+  reconnectionAttempts: 10,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
   timeout: 30000,
   autoConnect: true,
   forceNew: true,
-  path: '/socket.io/'
+  path: '/socket.io/',
+  // Muhim: CORS uchun
+  extraHeaders: {
+    'Access-Control-Allow-Origin': '*'
+  }
 });
 
-// Ulanish holati
+// Ulanish holati - DEBUG
 socket.on('connect', () => {
   console.log('✅ Socket connected! ID:', socket.id);
 });
@@ -40,6 +44,11 @@ socket.on('disconnect', (reason) => {
 
 socket.on('error', (error) => {
   console.error('❌ Socket error:', error);
+});
+
+// Barcha eventlarni log qilish
+socket.onAny((event, ...args) => {
+  console.log(`📨 Socket event: ${event}`, args);
 });
 
 export default socket;

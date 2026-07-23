@@ -565,3 +565,85 @@
     padding: 16px;
   }
 }
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+.debug-info {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px;
+  margin: 8px 0;
+  font-size: 12px;
+  font-family: monospace;
+  color: #00ff88;
+}
+
+.socket-error {
+  background: #ff444433;
+  border: 1px solid #ff4444;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  color: #ff4444;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stake-grid {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+
+.stake-card {
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid #444;
+  background: #222;
+  color: white;
+  cursor: pointer;
+  text-align: center;
+  min-width: 60px;
+  transition: all 0.3s;
+}
+
+.stake-card.selected {
+  border-color: #667eea;
+  background: #667eea33;
+}
+
+.stake-card:hover:not(:disabled) {
+  border-color: #667eea;
+}
+
+.stake-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.weapons-row button {
+  transition: all 0.3s;
+}
+
+.weapons-row button:hover:not(:disabled) {
+  transform: scale(1.05);
+  border-color: #667eea;
+}
+
+.weapons-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
