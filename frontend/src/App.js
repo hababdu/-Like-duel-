@@ -3,9 +3,9 @@
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import socket from './socket';
-import DuelGame from './DuelGame';
-import BotGame from './BotGame';
-import Leaderboard from './Leaderboard';
+import DuelGame from './components/DuelGame';
+import BotGame from './components/BotGame';
+import Leaderboard from './components/Leaderboard';
 import './App.css';
 
 function App() {
