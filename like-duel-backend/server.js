@@ -23,12 +23,11 @@ const {
 } = process.env;
 
 // ======================
-// CORS SOZLAMALARI - ENG MUHIM QISM!
+// CORS SOZLAMALARI
 // ======================
 
 // 1. CORS middleware - BARCHA SOROVLARDAN OLDIN
 app.use((req, res, next) => {
-  // Har bir sorov uchun origin ni olish
   const origin = req.headers.origin;
   
   // Ruxsat etilgan origin'lar
@@ -43,18 +42,14 @@ app.use((req, res, next) => {
     'https://telegram-bot-server-2-matj.onrender.com'
   ];
 
-  // Origin ni tekshirish
   let isAllowed = false;
   
-  // Development da hamma origin ga ruxsat
   if (NODE_ENV === 'development') {
     isAllowed = true;
     res.header('Access-Control-Allow-Origin', '*');
   } else if (origin) {
-    // Production da specific origin'lar
     isAllowed = allowedOrigins.some(allowed => {
       if (allowed.includes('*')) {
-        // Wildcard bilan tekshirish
         const pattern = allowed.replace(/\*/g, '.*');
         const regex = new RegExp(`^${pattern}$`);
         return regex.test(origin);
@@ -67,14 +62,12 @@ app.use((req, res, next) => {
     }
   }
 
-  // CORS header'lar
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-admin-key, X-Requested-With, x-telegram-init-data, Origin, X-Forwarded-For');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', '86400');
   res.header('Vary', 'Origin');
 
-  // OPTIONS (preflight) sorovlariga javob
   if (req.method === 'OPTIONS') {
     console.log('🔄 Preflight request:', req.path, 'Origin:', origin);
     return res.sendStatus(200);
@@ -84,10 +77,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// 2. Alternativ: cors package bilan sozlash
+// 2. cors package bilan sozlash
 app.use(cors({
   origin: function (origin, callback) {
-    // Ruxsat etilgan origin'lar
     const allowedOrigins = [
       'https://telegram-mini-app-gsny.onrender.com',
       'https://like-admin-m9j1n851q-habibulloabdumutallibovs-projects.vercel.app',
@@ -97,15 +89,12 @@ app.use(cors({
       'http://localhost:5173'
     ];
 
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Development da hamma origin ga ruxsat
     if (NODE_ENV === 'development') {
       return callback(null, true);
     }
 
-    // Production da specific origin'lar
     const isAllowed = allowedOrigins.some(allowed => {
       if (allowed.includes('*')) {
         const pattern = allowed.replace(/\*/g, '.*');
@@ -142,13 +131,11 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // ======================
-// TO'G'RILANGAN SOCKET.IO SOZLAMALARI
+// SOCKET.IO SOZLAMALARI
 // ======================
-
-// Server.js - CORS sozlamalari
 const io = new Server(server, {
   cors: {
-    origin: true, // Barcha originlarga ruxsat
+    origin: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: [
@@ -166,41 +153,9 @@ const io = new Server(server, {
   allowEIO3: true
 });
 
-// Express CORS
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-key', 'X-Requested-With', 'x-telegram-init-data']
-}));
-
-// CORS middleware ni to'g'rilash
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // HAMMA ORIGIN GA RUXSAT - TEST UCHUN
-  res.header('Access-Control-Allow-Origin', origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-admin-key, X-Requested-With, x-telegram-init-data, Origin, X-Forwarded-For');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  res.header('Vary', 'Origin');
-  
-  if (req.method === 'OPTIONS') {
-    console.log('🔄 Preflight request:', req.path, 'Origin:', origin);
-    return res.sendStatus(200);
-  }
-  
-  next();
-});
-
-// CORS package - qo'shimcha
-app.use(cors({
-  origin: true, // Barcha originlarga ruxsat
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-key', 'X-Requested-With', 'x-telegram-init-data']
-}));
+// ======================
+// GLOBAL STATE
+// ======================
 let searchQueue = [];
 let activeRooms = {};
 let onlineUsers = new Map();
@@ -232,7 +187,6 @@ mongoose.connection.on('disconnected', () => {
   console.log('🟡 MongoDB uzildi. Qayta ulanish...');
   setTimeout(connectDB, 5000);
 });
-
 
 // ======================
 // USER SCHEMA
@@ -272,9 +226,52 @@ function determineWinner(choice1, choice2) {
   return 'player2';
 }
 
+// ======================
+// START ROOM TIMER
+// ======================
+function startRoomTimer(roomId) {
+  let timeLeft = 30;
+  const room = activeRooms[roomId];
+  if (!room) {
+    console.error('❌ Room not found for timer:', roomId);
+    return;
+  }
+
+  console.log('⏰ Starting timer for room:', roomId);
+
+  if (room.timerInterval) {
+    clearInterval(room.timerInterval);
+  }
+
+  room.timerInterval = setInterval(() => {
+    timeLeft--;
+    console.log(`⏱️ Timer: ${roomId} - ${timeLeft}s`);
+    
+    io.to(roomId).emit('timer_tick', timeLeft);
+
+    if (timeLeft <= 0) {
+      console.log('⏰ Timer expired for room:', roomId);
+      clearInterval(room.timerInterval);
+      room.timerInterval = null;
+      
+      if (Object.keys(room.choices).length < 2) {
+        evaluateRound(roomId);
+      }
+    }
+  }, 1000);
+}
+
+// ======================
+// EVALUATE ROUND
+// ======================
 async function evaluateRound(roomId) {
   const room = activeRooms[roomId];
-  if (!room) return;
+  if (!room) {
+    console.log('❌ Room not found for evaluation:', roomId);
+    return;
+  }
+
+  console.log('📊 Evaluating round:', roomId);
 
   const [p1, p2] = room.players;
   const c1 = room.choices[p1.socketId] || 'timeout';
@@ -322,6 +319,7 @@ async function evaluateRound(roomId) {
       else if (result1 === 'lose') user1.losses = (user1.losses || 0) + 1;
       else user1.draws = (user1.draws || 0) + 1;
       await user1.save();
+      console.log('✅ User1 updated:', user1.tgId, 'Coins:', user1.coins);
     }
 
     if (user2) {
@@ -333,39 +331,36 @@ async function evaluateRound(roomId) {
       else if (result2 === 'lose') user2.losses = (user2.losses || 0) + 1;
       else user2.draws = (user2.draws || 0) + 1;
       await user2.save();
+      console.log('✅ User2 updated:', user2.tgId, 'Coins:', user2.coins);
     }
 
     io.to(p1.socketId).emit('round_result', {
-      myChoice: c1, opponentChoice: c2, result: result1,
-      rewardCoins: coinChange1, rewardXP: xpChange1
+      myChoice: c1, 
+      opponentChoice: c2, 
+      result: result1,
+      rewardCoins: coinChange1, 
+      rewardXP: xpChange1
     });
 
     io.to(p2.socketId).emit('round_result', {
-      myChoice: c2, opponentChoice: c1, result: result2,
-      rewardCoins: coinChange2, rewardXP: xpChange2
+      myChoice: c2, 
+      opponentChoice: c1, 
+      result: result2,
+      rewardCoins: coinChange2, 
+      rewardXP: xpChange2
     });
 
+    console.log('✅ Round results sent');
+
   } catch (err) {
-    console.error("Balans yangilashda xatolik:", err);
+    console.error("❌ Balans yangilashda xatolik:", err);
   }
 
+  if (room.timerInterval) {
+    clearInterval(room.timerInterval);
+  }
   delete activeRooms[roomId];
-}
-
-function startRoomTimer(roomId) {
-  let timeLeft = 30;
-  const room = activeRooms[roomId];
-  if (!room) return;
-
-  room.timerInterval = setInterval(() => {
-    timeLeft--;
-    io.to(roomId).emit('timer_tick', timeLeft);
-
-    if (timeLeft <= 0) {
-      clearInterval(room.timerInterval);
-      evaluateRound(roomId);
-    }
-  }, 1000);
+  console.log('🗑️ Room deleted:', roomId);
 }
 
 // ======================
@@ -386,13 +381,16 @@ const adminAuth = (req, res, next) => {
 // API ROUTES
 // ======================
 
-// Health check - CORS tekshirish uchun
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date(),
     uptime: process.uptime(),
-    cors: 'enabled'
+    cors: 'enabled',
+    activeRooms: Object.keys(activeRooms).length,
+    queueLength: searchQueue.length,
+    onlineUsers: onlineUsers.size
   });
 });
 
@@ -499,6 +497,28 @@ app.get('/api/user/:tgId/stats', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: "Statistika xatoligi" });
+  }
+});
+
+// USER REFERRALS
+app.get('/api/user/:tgId/referrals', async (req, res) => {
+  try {
+    const referrals = await User.find({ refParent: req.params.tgId })
+      .select('firstName username coins rating createdAt');
+    
+    const count = referrals.length;
+    const totalBonus = count * 100;
+
+    res.status(200).json({ 
+      success: true, 
+      data: { 
+        referrals, 
+        count, 
+        totalBonus 
+      } 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Referal xatoligi" });
   }
 });
 
@@ -654,9 +674,6 @@ app.post('/api/admin/users/:id/coins', adminAuth, async (req, res) => {
 });
 
 // ======================
-
-
-// ======================
 // SOCKET.IO EVENTS - TUZATILGAN
 // ======================
 
@@ -668,7 +685,7 @@ io.on('connection', (socket) => {
     console.log(`📨 Event: ${event}`, JSON.stringify(args, null, 2));
   });
 
-  // USER CONNECT - TUZATILGAN
+  // USER CONNECT
   socket.on('user_connect', async (data) => {
     console.log('👤 User connect:', data);
     
@@ -735,22 +752,20 @@ io.on('connection', (socket) => {
     }
   });
 
-  // FIND MATCH - TUZATILGAN!!!
+  // FIND MATCH - TUZATILGAN
   socket.on('find_match', ({ player, stake = 10 }) => {
     console.log('🔍 Find match:', { player, stake });
     
     try {
-      // 1. Ma'lumotlarni tekshirish
       if (!player || !player.tgId) {
         console.error('❌ Invalid player data:', player);
         socket.emit('error', { message: 'Noto\'g\'ri o\'yinchi ma\'lumotlari' });
         return;
       }
 
-      // 2. Queue dan o'chirish - FAQAT SHU SOCKET ID NI O'CHIRISH
+      // Queue dan o'chirish - FAQAT SHU SOCKET ID
       searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
       
-      // 3. Yangi o'yinchi
       const newPlayer = {
         socketId: socket.id,
         tgId: String(player.tgId),
@@ -764,7 +779,7 @@ io.on('connection', (socket) => {
       console.log('🆕 New player:', newPlayer);
       console.log('📊 Queue length before:', searchQueue.length);
 
-      // 4. Raqib qidirish - TO'G'RILANDI
+      // Raqib qidirish
       const opponentIndex = searchQueue.findIndex(p => 
         p.stake === newPlayer.stake && 
         p.tgId !== newPlayer.tgId &&
@@ -779,7 +794,7 @@ io.on('connection', (socket) => {
 
         console.log('✅ Match found!', { roomId, player1: newPlayer.tgId, player2: opponent.tgId });
 
-        // Xonaga qo'shish - TO'G'RILANDI
+        // Xonaga qo'shish
         socket.join(roomId);
         const oppSocket = io.sockets.sockets.get(opponent.socketId);
         if (!oppSocket) {
@@ -828,7 +843,7 @@ io.on('connection', (socket) => {
           stake: newPlayer.stake
         });
 
-        // Timer boshlash - TO'G'RILANDI
+        // Timer boshlash
         startRoomTimer(roomId);
 
         console.log('✅ Room created:', roomId);
@@ -878,6 +893,7 @@ io.on('connection', (socket) => {
       console.log('✅ Both players made choice');
       if (room.timerInterval) {
         clearInterval(room.timerInterval);
+        room.timerInterval = null;
       }
       evaluateRound(roomId);
     }
@@ -907,159 +923,24 @@ io.on('connection', (socket) => {
         if (otherPlayer && io.sockets.sockets.has(otherPlayer.socketId)) {
           io.to(otherPlayer.socketId).emit('opponent_left');
         }
-        delete activeRooms[roomId];
         if (room.timerInterval) {
           clearInterval(room.timerInterval);
         }
+        delete activeRooms[roomId];
         break;
       }
     }
   });
+
+  // ERROR HANDLER
+  socket.on('error', (error) => {
+    console.error('❌ Socket error event:', error);
+  });
 });
 
 // ======================
-// START ROOM TIMER - TUZATILGAN
+// GLOBAL ERROR HANDLERS
 // ======================
-function startRoomTimer(roomId) {
-  let timeLeft = 30;
-  const room = activeRooms[roomId];
-  if (!room) {
-    console.error('❌ Room not found for timer:', roomId);
-    return;
-  }
-
-  console.log('⏰ Starting timer for room:', roomId);
-
-  // Timer intervalni tozalash
-  if (room.timerInterval) {
-    clearInterval(room.timerInterval);
-  }
-
-  room.timerInterval = setInterval(() => {
-    timeLeft--;
-    console.log(`⏱️ Timer: ${roomId} - ${timeLeft}s`);
-    
-    // Timer xabarini xonadagi barchaga yuborish
-    io.to(roomId).emit('timer_tick', timeLeft);
-
-    if (timeLeft <= 0) {
-      console.log('⏰ Timer expired for room:', roomId);
-      clearInterval(room.timerInterval);
-      room.timerInterval = null;
-      
-      // Ikkala o'yinchi ham tanlov qilmagan bo'lsa
-      if (Object.keys(room.choices).length < 2) {
-        evaluateRound(roomId);
-      }
-    }
-  }, 1000);
-}
-
-// ======================
-// EVALUATE ROUND - TUZATILGAN
-// ======================
-async function evaluateRound(roomId) {
-  const room = activeRooms[roomId];
-  if (!room) {
-    console.log('❌ Room not found for evaluation:', roomId);
-    return;
-  }
-
-  console.log('📊 Evaluating round:', roomId);
-
-  const [p1, p2] = room.players;
-  const c1 = room.choices[p1.socketId] || 'timeout';
-  const c2 = room.choices[p2.socketId] || 'timeout';
-
-  let result1 = 'draw', result2 = 'draw';
-  let coinChange1 = 0, coinChange2 = 0;
-  let xpChange1 = 0, xpChange2 = 0;
-
-  if (c1 === 'timeout' && c2 === 'timeout') {
-    // Hech narsa o'zgarmaydi
-  } else if (c1 === 'timeout') {
-    result1 = 'lose'; result2 = 'win';
-    coinChange1 = -room.stake; coinChange2 = room.stake;
-    xpChange1 = -10; xpChange2 = 15;
-  } else if (c2 === 'timeout') {
-    result1 = 'win'; result2 = 'lose';
-    coinChange1 = room.stake; coinChange2 = -room.stake;
-    xpChange1 = 15; xpChange2 = -10;
-  } else {
-    const winner = determineWinner(c1, c2);
-    if (winner === 'player1') {
-      result1 = 'win'; result2 = 'lose';
-      coinChange1 = room.stake; coinChange2 = -room.stake;
-      xpChange1 = 15; xpChange2 = -10;
-    } else if (winner === 'player2') {
-      result1 = 'lose'; result2 = 'win';
-      coinChange1 = -room.stake; coinChange2 = room.stake;
-      xpChange1 = -10; xpChange2 = 15;
-    }
-  }
-
-  try {
-    const [user1, user2] = await Promise.all([
-      User.findOne({ tgId: p1.tgId }),
-      User.findOne({ tgId: p2.tgId })
-    ]);
-
-    if (user1) {
-      user1.coins = Math.max(0, user1.coins + coinChange1);
-      user1.rating = Math.max(0, user1.rating + xpChange1);
-      user1.totalGames = (user1.totalGames || 0) + 1;
-      user1.lastGameAt = new Date();
-      if (result1 === 'win') user1.wins = (user1.wins || 0) + 1;
-      else if (result1 === 'lose') user1.losses = (user1.losses || 0) + 1;
-      else user1.draws = (user1.draws || 0) + 1;
-      await user1.save();
-      console.log('✅ User1 updated:', user1.tgId, 'Coins:', user1.coins);
-    }
-
-    if (user2) {
-      user2.coins = Math.max(0, user2.coins + coinChange2);
-      user2.rating = Math.max(0, user2.rating + xpChange2);
-      user2.totalGames = (user2.totalGames || 0) + 1;
-      user2.lastGameAt = new Date();
-      if (result2 === 'win') user2.wins = (user2.wins || 0) + 1;
-      else if (result2 === 'lose') user2.losses = (user2.losses || 0) + 1;
-      else user2.draws = (user2.draws || 0) + 1;
-      await user2.save();
-      console.log('✅ User2 updated:', user2.tgId, 'Coins:', user2.coins);
-    }
-
-    // Natijalarni yuborish
-    io.to(p1.socketId).emit('round_result', {
-      myChoice: c1, 
-      opponentChoice: c2, 
-      result: result1,
-      rewardCoins: coinChange1, 
-      rewardXP: xpChange1
-    });
-
-    io.to(p2.socketId).emit('round_result', {
-      myChoice: c2, 
-      opponentChoice: c1, 
-      result: result2,
-      rewardCoins: coinChange2, 
-      rewardXP: xpChange2
-    });
-
-    console.log('✅ Round results sent');
-
-  } catch (err) {
-    console.error("❌ Balans yangilashda xatolik:", err);
-  }
-
-  // Xonani o'chirish
-  if (room.timerInterval) {
-    clearInterval(room.timerInterval);
-  }
-  delete activeRooms[roomId];
-  console.log('🗑️ Room deleted:', roomId);
-}
-
-// GLOBAL XATOLIKLARNI USHLASH
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
 });
@@ -1067,25 +948,7 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection:', reason);
 });
-// Serverda - GLOBAL ERROR HANDLER
-io.use((socket, next) => {
-  try {
-    next();
-  } catch (error) {
-    console.error('❌ Socket middleware error:', error);
-    next(new Error('Internal server error'));
-  }
-});
 
-// Har bir socket eventini try-catch bilan o'rab olish
-socket.on('find_match', (data) => {
-  try {
-    // ... kod
-  } catch (error) {
-    console.error('❌ Find match error:', error);
-    socket.emit('error', { message: error.message });
-  }
-});
 // ======================
 // START SERVER
 // ======================
@@ -1095,12 +958,4 @@ server.listen(PORT, () => {
   console.log(`📊 Web App URL: ${WEB_APP_URL}`);
   console.log(`✅ CORS sozlamalari faol`);
   console.log(`🔍 Health check: /api/health`);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection:', reason);
 });
