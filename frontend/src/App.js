@@ -1,5 +1,5 @@
 // ============================================================
-// APP.JS - TELEGRAM MA'LUMOTLARINI OLISH
+// APP.JS - TELEGRAM ID NI TO'G'RI OLISH
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
 import socket from './socket';
@@ -14,14 +14,35 @@ function App() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [notification, setNotification] = useState(null);
   const [telegramUser, setTelegramUser] = useState(null);
-  const [telegramInitData, setTelegramInitData] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
 
   const BACKEND_URL = process.env.NODE_ENV === 'production'
     ? 'https://telegram-bot-server-2-matj.onrender.com'
     : 'http://localhost:10000';
 
   // ======================
-  // TELEGRAM MA'LUMOTLARINI OLISH
+  // NOTIFICATION
+  // ======================
+  const showNotification = useCallback((message, type = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 5000);
+  }, []);
+
+  // ======================
+  // HAPTIC FEEDBACK
+  // ======================
+  const triggerHaptic = useCallback((type = 'light') => {
+    try {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred(type);
+      } else if (navigator.vibrate) {
+        navigator.vibrate(type === 'heavy' ? 80 : 35);
+      }
+    } catch (e) {}
+  }, []);
+
+  // ======================
+  // TELEGRAM MA'LUMOTLARINI OLISH - TO'G'RILANGAN
   // ======================
   const getTelegramData = useCallback(() => {
     try {
@@ -34,27 +55,35 @@ function App() {
 
       console.log('✅ Telegram WebApp mavjud');
       
-      // Telegram ma'lumotlarini olish
+      // Barcha ma'lumotlarni olish
       const initData = tg.initData || '';
       const initDataUnsafe = tg.initDataUnsafe || {};
       const user = initDataUnsafe.user || null;
       
-      console.log('📱 Telegram initData:', initData);
-      console.log('📱 Telegram initDataUnsafe:', initDataUnsafe);
-      console.log('👤 Telegram user:', user);
-      
-      if (user) {
-        console.log('✅ User ID:', user.id);
-        console.log('✅ User first_name:', user.first_name);
-        console.log('✅ User username:', user.username);
-        console.log('✅ User photo_url:', user.photo_url);
+      console.log('📱 initDataUnsafe:', initDataUnsafe);
+      console.log('👤 user:', user);
+      console.log('📝 initData:', initData);
+
+      // Agar user bo'lmasa, test user yaratish
+      if (!user) {
+        console.warn('⚠️ Telegram user ma\'lumotlari yo\'q, test user yaratiladi');
+        return {
+          tg: tg,
+          user: {
+            id: Date.now(),
+            first_name: 'Test User',
+            username: 'test_user'
+          },
+          initData: initData,
+          initDataUnsafe: initDataUnsafe
+        };
       }
-      
+
       return {
-        initData,
-        initDataUnsafe,
-        user,
-        tg
+        tg: tg,
+        user: user,
+        initData: initData,
+        initDataUnsafe: initDataUnsafe
       };
     } catch (error) {
       console.error('❌ Telegram ma\'lumotlarini olishda xatolik:', error);
@@ -63,7 +92,7 @@ function App() {
   }, []);
 
   // ======================
-  // USER AUTH
+  // USER AUTH - TO'G'RILANGAN
   // ======================
   const authenticateUser = useCallback(async (tgUser, startParam) => {
     try {
@@ -72,16 +101,21 @@ function App() {
       if (tgUser && tgUser.id) {
         tgId = String(tgUser.id);
       } else {
-        // Test user
+        // Fallback ID
         tgId = 'test_' + Date.now();
       }
 
-      console.log('🔑 Authenticating user ID:', tgId);
-      console.log('📱 User data:', tgUser);
+      console.log('🔑 ===== AUTH START =====');
+      console.log('📊 tgId:', tgId);
+      console.log('📊 tgUser:', tgUser);
+      console.log('📊 startParam:', startParam);
 
       const response = await fetch(`${BACKEND_URL}/api/user/auth`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({
           tgId: tgId,
           username: tgUser?.username || '',
@@ -101,18 +135,37 @@ function App() {
           tgId: String(data.user.tgId)
         };
         setUser(userData);
-        console.log('✅ User authenticated:', userData);
+        console.log('✅ User authenticated!');
+        console.log('✅ tgId:', userData.tgId);
+        console.log('✅ firstName:', userData.firstName);
+        console.log('✅ coins:', userData.coins);
+        console.log('✅ rating:', userData.rating);
+        
+        // Socket ga ulanish
+        if (socket && socket.connected) {
+          socket.emit('user_connect', {
+            tgId: userData.tgId,
+            firstName: userData.firstName || "O'yinchi",
+            username: userData.username || ''
+          });
+        }
+        
+        setDebugInfo(`✅ Auth: ${userData.firstName} (${userData.tgId})`);
         return userData;
+      } else {
+        console.error('❌ Auth failed:', data);
+        setDebugInfo('❌ Auth failed');
+        return null;
       }
-      return null;
     } catch (error) {
       console.error('❌ Auth error:', error);
+      setDebugInfo('❌ Auth error: ' + error.message);
       return null;
     }
   }, [BACKEND_URL]);
 
   // ======================
-  // INITIALIZE
+  // INITIALIZE - TO'G'RILANGAN
   // ======================
   useEffect(() => {
     const initializeApp = async () => {
@@ -125,25 +178,25 @@ function App() {
         
         if (tgData) {
           setTelegramUser(tgData.user);
-          setTelegramInitData(tgData.initData);
-          
-          const tg = tgData.tg;
-          const tgUser = tgData.user;
-          const startParam = tgData.initDataUnsafe?.start_param;
           
           // Telegram WebApp ni tayyorlash
-          if (tg) {
-            tg.ready();
-            tg.expand();
+          if (tgData.tg) {
+            tgData.tg.ready();
+            tgData.tg.expand();
             console.log('✅ Telegram WebApp ready');
           }
           
+          // User ma'lumotlari
+          const tgUser = tgData.user;
+          const startParam = tgData.initDataUnsafe?.start_param;
+          
+          console.log('👤 tgUser:', tgUser);
+          console.log('🔗 startParam:', startParam);
+          
           if (tgUser && tgUser.id) {
-            console.log('👤 Telegram user found:', tgUser);
             await authenticateUser(tgUser, startParam);
           } else {
-            console.warn('⚠️ Telegram user ma\'lumotlari yo\'q');
-            // Test user
+            console.warn('⚠️ Telegram user topilmadi, test user ishlatiladi');
             const testUser = {
               id: Date.now(),
               first_name: 'Test User',
@@ -152,7 +205,7 @@ function App() {
             await authenticateUser(testUser, null);
           }
         } else {
-          console.warn('⚠️ Telegram WebApp topilmadi, test user ishlatiladi');
+          console.warn('⚠️ Telegram WebApp topilmadi');
           // Brauzer test user
           const testUser = {
             id: Date.now(),
@@ -176,6 +229,7 @@ function App() {
           losses: 0,
           isRefRewarded: false
         });
+        setDebugInfo('❌ Fallback user');
       } finally {
         setLoading(false);
         console.log('✅ ===== INITIALIZATION COMPLETE =====');
@@ -189,7 +243,7 @@ function App() {
       console.log('✅ Socket connected! ID:', socket.id);
       setSocketConnected(true);
       
-      if (user) {
+      if (user && user.tgId) {
         socket.emit('user_connect', {
           tgId: String(user.tgId),
           firstName: user.firstName || "O'yinchi",
@@ -203,6 +257,11 @@ function App() {
       setSocketConnected(false);
     };
 
+    const onConnectError = (error) => {
+      console.error('❌ Socket connect error:', error);
+      setSocketConnected(false);
+    };
+
     const onUserConnected = (data) => {
       console.log('✅ User connected response:', data);
       if (data.success && data.user) {
@@ -212,212 +271,178 @@ function App() {
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
     socket.on('user_connected', onUserConnected);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
       socket.off('user_connected', onUserConnected);
     };
-  }, [authenticateUser, getTelegramData, user]);
+  }, [authenticateUser, getTelegramData]);
 
   // ======================
-  // RENDER - TELEGRAM MA'LUMOTLARINI KO'RSATISH
+  // RENDER - USER ID NI KO'RSATISH
   // ======================
   if (loading) {
     return (
       <div className="loading-screen">
         <div className="spinner"></div>
-        <p>Like-Duel yuklanmoqda...</p>
+        <p className="loading-text">Like-Duel yuklanmoqda...</p>
       </div>
     );
   }
 
   return (
-    <div className="game-app">
-      {/* TELEGRAM MA'LUMOTLARI - DEBUG PANEL */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        background: 'rgba(0,0,0,0.95)',
-        color: '#00ff88',
-        padding: '12px',
-        fontSize: '12px',
-        fontFamily: 'monospace',
-        zIndex: 9999,
-        borderBottom: '2px solid #00ff88',
-        maxHeight: '200px',
-        overflow: 'auto'
-      }}>
-        <div style={{ fontWeight: 'bold', color: '#fff', marginBottom: '8px' }}>
-          📱 TELEGRAM MA'LUMOTLARI
-        </div>
-        
-        {/* Telegram User */}
-        <div style={{ color: '#ffaa00' }}>
-          <strong>Telegram User:</strong>
-        </div>
-        {telegramUser ? (
-          <div style={{ paddingLeft: '16px', color: '#00ff88' }}>
-            <div>✅ ID: <strong>{telegramUser.id}</strong></div>
-            <div>👤 First Name: <strong>{telegramUser.first_name}</strong></div>
-            <div>👤 Last Name: {telegramUser.last_name || '❌ Yo\'q'}</div>
-            <div>📛 Username: @{telegramUser.username || '❌ Yo\'q'}</div>
-            <div>🖼️ Photo: {telegramUser.photo_url ? '✅ Bor' : '❌ Yo\'q'}</div>
-            <div>🔗 Language: {telegramUser.language_code || '❌ Yo\'q'}</div>
-          </div>
-        ) : (
-          <div style={{ paddingLeft: '16px', color: '#ff4444' }}>
-            ❌ Telegram user ma'lumotlari topilmadi!
-          </div>
-        )}
-        
-        {/* App User */}
-        <div style={{ color: '#ffaa00', marginTop: '8px' }}>
-          <strong>App User:</strong>
-        </div>
-        {user ? (
-          <div style={{ paddingLeft: '16px', color: '#00ff88' }}>
-            <div>✅ ID: <strong>{user.tgId}</strong></div>
-            <div>👤 Name: <strong>{user.firstName}</strong></div>
-            <div>🪙 Coins: <strong>{user.coins}</strong></div>
-            <div>🏆 Rating: <strong>{user.rating}</strong></div>
-          </div>
-        ) : (
-          <div style={{ paddingLeft: '16px', color: '#ff4444' }}>
-            ❌ App user ma'lumotlari topilmadi!
-          </div>
-        )}
-        
-        {/* Connection Status */}
-        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #333' }}>
-          <div>🔌 Socket: {socketConnected ? '🟢 Connected' : '🔴 Disconnected'}</div>
-          <div>📱 Platform: {window.Telegram?.WebApp ? 'Telegram WebApp' : 'Web Browser'}</div>
-        </div>
-      </div>
-
+    <div className="app-container">
       {/* Notification */}
       {notification && (
         <div className={`notification notification-${notification.type}`}>
           <span>{notification.message}</span>
-          <button onClick={() => setNotification(null)}>✕</button>
+          <button className="notification-close" onClick={() => setNotification(null)}>✕</button>
         </div>
       )}
 
+      {/* Debug Panel */}
+      <div className="debug-panel">
+        <div className="debug-title">📱 TELEGRAM MA'LUMOTLARI</div>
+        {telegramUser ? (
+          <div className="debug-content">
+            <div>✅ ID: <strong>{telegramUser.id}</strong></div>
+            <div>👤 Ism: <strong>{telegramUser.first_name}</strong></div>
+            <div>📛 Username: @{telegramUser.username || 'Yo\'q'}</div>
+          </div>
+        ) : (
+          <div className="debug-error">❌ Telegram ma'lumotlari topilmadi</div>
+        )}
+        <div className="debug-status">
+          <span className={socketConnected ? 'online' : 'offline'}>
+            🔌 Socket: {socketConnected ? '🟢 Online' : '🔴 Offline'}
+          </span>
+          <span style={{ marginLeft: '12px', color: '#666' }}>
+            ID: {user?.tgId || '❌ YO\'Q'}
+          </span>
+        </div>
+        <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>
+          {debugInfo}
+        </div>
+      </div>
+
       {/* Main Content */}
-      <div style={{ marginTop: '220px' }}>
+      <div className="main-content">
         {currentScreen === 'menu' && (
-          <div className="main-menu">
-            <h1>💥 LIKE-DUEL</h1>
-            
-            {/* User Profile */}
-            <div className="profile-badge" style={{
-              background: 'rgba(255,255,255,0.05)',
-              borderRadius: '16px',
-              padding: '20px',
-              margin: '16px 0'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="menu-container">
+            {/* Logo */}
+            <div className="logo">
+              <h1 className="logo-text">💥 LIKE-DUEL</h1>
+              <p className="logo-sub">⚡ Tosh, Qog'oz, Qaychi</p>
+            </div>
+
+            {/* Profile Card */}
+            <div className="profile-card">
+              <div className="profile-header">
                 {telegramUser?.photo_url ? (
-                  <img 
-                    src={telegramUser.photo_url} 
-                    alt="Profile" 
-                    style={{ width: '50px', height: '50px', borderRadius: '50%' }}
-                  />
+                  <img src={telegramUser.photo_url} alt="Profile" className="profile-image" />
                 ) : (
-                  <div style={{
-                    width: '50px',
-                    height: '50px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '24px'
-                  }}>
+                  <div className="profile-image-placeholder">
                     {user?.firstName?.charAt(0) || '?'}
                   </div>
                 )}
-                <div style={{ textAlign: 'left' }}>
-                  <h3 style={{ margin: 0 }}>👋 {user?.firstName || 'User'}</h3>
+                <div className="profile-info">
+                  <h2 className="profile-name">👋 {user?.firstName || 'User'}</h2>
                   {telegramUser?.username && (
-                    <div style={{ color: '#888', fontSize: '14px' }}>@{telegramUser.username}</div>
+                    <p className="profile-username">@{telegramUser.username}</p>
                   )}
-                  <div style={{ color: '#888', fontSize: '12px' }}>
-                    ID: {user?.tgId || 'No ID'}
-                  </div>
+                  <p className="profile-id">
+                    ID: {user?.tgId || '❌ YO\'Q'}
+                    {!user?.tgId && (
+                      <span style={{ color: '#ff4444', marginLeft: '8px' }}>
+                        (Ma'lumot olinmadi!)
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
-              
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-around',
-                marginTop: '16px',
-                paddingTop: '16px',
-                borderTop: '1px solid rgba(255,255,255,0.1)'
-              }}>
-                <div>
-                  <div style={{ fontSize: '12px', color: '#888' }}>🪙 Tanga</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{user?.coins || 0}</div>
+
+              <div className="profile-stats">
+                <div className="stat-item">
+                  <span className="stat-icon">🪙</span>
+                  <span className="stat-value">{user?.coins || 0}</span>
+                  <span className="stat-label">Tanga</span>
                 </div>
-                <div>
-                  <div style={{ fontSize: '12px', color: '#888' }}>🏆 XP</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{user?.rating || 0}</div>
+                <div className="stat-divider"></div>
+                <div className="stat-item">
+                  <span className="stat-icon">🏆</span>
+                  <span className="stat-value">{user?.rating || 0}</span>
+                  <span className="stat-label">XP</span>
                 </div>
-                <div>
-                  <div style={{ fontSize: '12px', color: '#888' }}>🎮 O'yin</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{user?.totalGames || 0}</div>
+                <div className="stat-divider"></div>
+                <div className="stat-item">
+                  <span className="stat-icon">🎮</span>
+                  <span className="stat-value">{user?.totalGames || 0}</span>
+                  <span className="stat-label">O'yin</span>
                 </div>
+              </div>
+
+              <div className="profile-games">
+                <span>🏅 {user?.wins || 0} g'alaba</span>
+                <span>📊 {user?.totalGames ? Math.round((user.wins / user.totalGames) * 100) : 0}%</span>
               </div>
             </div>
 
             {/* Menu Buttons */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="menu-buttons">
               <button 
-                onClick={() => setCurrentScreen('game')}
-                style={{
-                  padding: '16px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  fontSize: '18px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
+                className="btn-play-online"
+                onClick={() => {
+                  if (!user?.tgId) {
+                    showNotification('⚠️ Iltimos avval tizimga kiring!', 'warning');
+                    return;
+                  }
+                  setCurrentScreen('game');
                 }}
               >
-                ⚔️ Onlayn Duel
+                <span className="btn-icon">⚔️</span>
+                Onlayn Duel
+                <span className="btn-badge pulse">Jonli</span>
               </button>
-              
+
               <button 
+                className="btn-play-bot"
                 onClick={() => setCurrentScreen('bot')}
-                style={{
-                  padding: '16px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                  color: 'white',
-                  fontSize: '18px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
+              >
+                <span className="btn-icon">🤖</span>
+                Bot bilan o'ynash
+                <span className="btn-badge">AI</span>
+              </button>
+
+              <button 
+                className="btn-refresh"
+                onClick={() => {
+                  if (user?.tgId) {
+                    socket.emit('user_connect', {
+                      tgId: String(user.tgId),
+                      firstName: user.firstName || "O'yinchi"
+                    });
+                    showNotification('✅ Ma\'lumotlar yangilandi', 'success');
+                  } else {
+                    showNotification('⚠️ Iltimos sahifani yangilang', 'warning');
+                    window.location.reload();
+                  }
                 }}
               >
-                🤖 Bot bilan o'ynash
+                🔄 Yangilash
               </button>
             </div>
 
-            <div style={{
-              marginTop: '16px',
-              padding: '8px',
-              borderRadius: '8px',
-              background: socketConnected ? 'rgba(0,255,136,0.1)' : 'rgba(255,68,68,0.1)',
-              textAlign: 'center',
-              fontSize: '14px',
-              color: socketConnected ? '#00ff88' : '#ff4444'
-            }}>
-              {socketConnected ? '🟢 Serverga ulangan' : '🔴 Serverga ulanish yo\'q'}
+            {/* Connection Status */}
+            <div className="connection-status">
+              {socketConnected ? (
+                <span className="status-online">🟢 Server bilan ulangan</span>
+              ) : (
+                <span className="status-offline">🔴 Server bilan ulanish yo'q</span>
+              )}
             </div>
           </div>
         )}
@@ -447,6 +472,17 @@ function App() {
           />
         )}
       </div>
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.05); }
+        }
+      `}</style>
     </div>
   );
 }
