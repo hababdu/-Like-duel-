@@ -1,10 +1,7 @@
 /* ============================================================
-   APP.CSS - LIKE-DUEL TO'LIQ STILLAR
+   APP.CSS - TO'LIQ STILLAR
    ============================================================ */
 
-/* ============================================================
-   GLOBAL RESET
-   ============================================================ */
    * {
     margin: 0;
     padding: 0;
@@ -12,51 +9,24 @@
   }
   
   body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-      'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: #0f0c29;
     color: #ffffff;
-    overflow-x: hidden;
+    min-height: 100vh;
   }
   
   /* ============================================================
-     SCROLLBAR
+     APP
      ============================================================ */
-  ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  
-  ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-  }
-  
-  /* ============================================================
-     APP CONTAINER
-     ============================================================ */
-  .app-container {
+  .app {
     min-height: 100vh;
     background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-    color: #ffffff;
-    position: relative;
-    overflow: hidden;
+    padding: 16px;
+    padding-bottom: 80px;
   }
   
   /* ============================================================
-     LOADING SCREEN
+     LOADING
      ============================================================ */
   .loading-screen {
     min-height: 100vh;
@@ -64,253 +34,169 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-    color: #ffffff;
+    background: linear-gradient(135deg, #0f0c29, #302b63);
   }
   
-  .loading-screen .spinner {
+  .spinner {
     width: 60px;
     height: 60px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
+    border: 4px solid rgba(255,255,255,0.1);
     border-top: 4px solid #667eea;
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
   
-  .loading-screen .loading-text {
-    margin-top: 20px;
-    font-size: 18px;
-    color: #888;
-    animation: pulse 1.5s ease-in-out infinite;
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
   
   /* ============================================================
-     DEBUG PANEL
+     HEADER
      ============================================================ */
-  .debug-panel {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: rgba(0, 0, 0, 0.95);
-    padding: 10px 14px;
-    z-index: 9999;
-    border-bottom: 2px solid #667eea;
-    font-size: 11px;
-    font-family: 'Courier New', monospace;
-    max-height: 150px;
-    overflow-y: auto;
-  }
-  
-  .debug-panel .debug-title {
-    color: #ffaa00;
-    font-weight: bold;
-    margin-bottom: 4px;
-    font-size: 12px;
-    letter-spacing: 0.5px;
-  }
-  
-  .debug-panel .debug-content {
-    color: #00ff88;
-    padding-left: 8px;
-    line-height: 1.5;
-  }
-  
-  .debug-panel .debug-error {
-    color: #ff4444;
-    padding-left: 8px;
-  }
-  
-  .debug-panel .debug-status {
-    margin-top: 4px;
-    padding-top: 4px;
-    border-top: 1px solid #333;
-    color: #888;
+  .header {
     display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(10px);
+  }
+  
+  .header-left h1 {
+    font-size: 20px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .header-right {
+    display: flex;
+    align-items: center;
     gap: 12px;
   }
   
-  .debug-panel .debug-status .online {
+  .header-status {
+    font-size: 14px;
+  }
+  
+  .header-coins {
+    background: rgba(0,255,136,0.15);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
     color: #00ff88;
   }
   
-  .debug-panel .debug-status .offline {
-    color: #ff4444;
+  .header-rating {
+    background: rgba(102,126,234,0.15);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #667eea;
   }
   
-  /* ============================================================
-     MAIN CONTENT
-     ============================================================ */
-  .main-content {
-    margin-top: 160px;
-    padding: 16px;
-    padding-bottom: 80px;
-    animation: fadeIn 0.5s ease-out;
+  .header-profile {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #667eea;
+    background: none;
+    cursor: pointer;
+    overflow: hidden;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+  }
+  
+  .header-profile:hover {
+    border-color: #764ba2;
+    transform: scale(1.05);
+  }
+  
+  .header-profile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .header-profile span {
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
   }
   
   /* ============================================================
      MENU
      ============================================================ */
-  .menu-container {
+  .menu {
     max-width: 400px;
     margin: 0 auto;
   }
   
-  /* ============================================================
-     LOGO
-     ============================================================ */
-  .logo {
-    text-align: center;
-    margin-bottom: 24px;
-  }
-  
-  .logo .logo-text {
-    font-size: 36px;
-    font-weight: 900;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin: 0;
-    text-shadow: 0 0 40px rgba(102, 126, 234, 0.3);
-  }
-  
-  .logo .logo-sub {
-    color: #888;
-    font-size: 14px;
-    margin-top: 4px;
-    letter-spacing: 2px;
-  }
-  
-  /* ============================================================
-     PROFILE CARD
-     ============================================================ */
-  .profile-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    padding: 20px;
-    margin-bottom: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-  }
-  
-  .profile-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  }
-  
-  .profile-card .profile-header {
+  .menu-profile {
     display: flex;
     align-items: center;
     gap: 16px;
+    background: rgba(255,255,255,0.05);
+    padding: 16px;
+    border-radius: 16px;
     margin-bottom: 16px;
   }
   
-  .profile-card .profile-image {
+  .menu-profile-avatar {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    object-fit: cover;
     border: 3px solid #667eea;
-    box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
-  }
-  
-  .profile-card .profile-image-placeholder {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
-    font-weight: bold;
-    color: #fff;
-    border: 3px solid #667eea;
-    box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+    flex-shrink: 0;
   }
   
-  .profile-card .profile-info {
+  .menu-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .menu-profile-avatar span {
+    font-size: 28px;
+    font-weight: 600;
+  }
+  
+  .menu-profile-info {
     flex: 1;
   }
   
-  .profile-card .profile-name {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    color: #fff;
+  .menu-profile-info h2 {
+    font-size: 18px;
+    margin-bottom: 2px;
   }
   
-  .profile-card .profile-username {
-    margin: 2px 0;
+  .menu-profile-info p {
     color: #888;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .menu-profile-stats {
+    display: flex;
+    gap: 12px;
     font-size: 14px;
   }
   
-  .profile-card .profile-id {
-    margin: 0;
-    color: #666;
-    font-size: 11px;
-    font-family: 'Courier New', monospace;
-  }
-  
-  /* ============================================================
-     PROFILE STATS
-     ============================================================ */
-  .profile-stats {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    padding: 12px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-  
-  .profile-stats .stat-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-  }
-  
-  .profile-stats .stat-icon {
-    font-size: 20px;
-  }
-  
-  .profile-stats .stat-value {
-    font-size: 22px;
-    font-weight: 700;
-    color: #fff;
-  }
-  
-  .profile-stats .stat-label {
-    font-size: 11px;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  .profile-stats .stat-divider {
-    width: 1px;
-    height: 30px;
-    background: rgba(255, 255, 255, 0.08);
-  }
-  
-  .profile-games {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    padding-top: 12px;
-    font-size: 14px;
-    color: #888;
-  }
-  
-  .profile-games span {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 4px 12px;
+  .menu-profile-stats span {
+    background: rgba(255,255,255,0.05);
+    padding: 2px 10px;
     border-radius: 12px;
   }
   
@@ -321,7 +207,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-bottom: 16px;
   }
   
   .menu-buttons button {
@@ -329,108 +214,69 @@
     border-radius: 16px;
     border: none;
     font-size: 18px;
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 12px;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
+    transition: all 0.3s;
+  }
+  
+  .menu-buttons button:hover {
+    transform: translateY(-2px);
   }
   
   .menu-buttons button:active {
     transform: scale(0.97);
   }
   
-  .btn-play-online {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  .btn-play {
+    background: linear-gradient(135deg, #667eea, #764ba2);
     color: #fff;
-    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 20px rgba(102,126,234,0.4);
   }
   
-  .btn-play-online:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 30px rgba(102, 126, 234, 0.6);
+  .btn-play:hover {
+    box-shadow: 0 6px 30px rgba(102,126,234,0.6);
   }
   
-  .btn-play-bot {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  .btn-bot {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
     color: #fff;
-    box-shadow: 0 4px 20px rgba(245, 87, 108, 0.4);
+    box-shadow: 0 4px 20px rgba(245,87,108,0.4);
   }
   
-  .btn-play-bot:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 30px rgba(245, 87, 108, 0.6);
+  .btn-bot:hover {
+    box-shadow: 0 6px 30px rgba(245,87,108,0.6);
   }
   
-  .btn-refresh {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+  .btn-leaderboard {
+    background: linear-gradient(135deg, #43e97b, #38f9d7);
+    color: #0f0c29;
+    box-shadow: 0 4px 20px rgba(67,233,123,0.4);
   }
   
-  .btn-refresh:hover {
-    background: rgba(255, 255, 255, 0.1);
+  .btn-leaderboard:hover {
+    box-shadow: 0 6px 30px rgba(67,233,123,0.6);
   }
   
-  .menu-buttons .btn-icon {
-    font-size: 20px;
+  .btn-referrals {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    color: #0f0c29;
+    box-shadow: 0 4px 20px rgba(79,172,254,0.4);
   }
   
-  .menu-buttons .btn-badge {
+  .btn-referrals:hover {
+    box-shadow: 0 6px 30px rgba(79,172,254,0.6);
+  }
+  
+  .badge {
     font-size: 10px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255,255,255,0.2);
     padding: 2px 10px;
     border-radius: 12px;
-    margin-left: auto;
     font-weight: 600;
-  }
-  
-  .menu-buttons .btn-badge.pulse {
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  
-  /* ============================================================
-     CONNECTION STATUS
-     ============================================================ */
-  .connection-status {
-    text-align: center;
-    padding: 10px;
-    border-radius: 12px;
-    font-size: 14px;
-    background: rgba(255, 255, 255, 0.03);
-  }
-  
-  .connection-status .status-online {
-    color: #00ff88;
-  }
-  
-  .connection-status .status-online::before {
-    content: '';
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background: #00ff88;
-    border-radius: 50%;
-    margin-right: 8px;
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  
-  .connection-status .status-offline {
-    color: #ff4444;
-  }
-  
-  .connection-status .status-offline::before {
-    content: '';
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background: #ff4444;
-    border-radius: 50%;
-    margin-right: 8px;
   }
   
   /* ============================================================
@@ -438,788 +284,310 @@
      ============================================================ */
   .notification {
     position: fixed;
-    top: 170px;
+    top: 80px;
     left: 50%;
     transform: translateX(-50%);
-    padding: 14px 24px;
-    border-radius: 14px;
-    z-index: 10000;
+    padding: 12px 20px;
+    border-radius: 12px;
+    z-index: 1000;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     max-width: 90%;
-    font-size: 14px;
     font-weight: 500;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
-    animation: slideDown 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    animation: slideDown 0.3s ease-out;
   }
   
-  .notification-info {
-    background: rgba(102, 126, 234, 0.92);
+  .notification.info {
+    background: rgba(102,126,234,0.9);
     color: #fff;
-    border: 1px solid rgba(102, 126, 234, 0.3);
   }
   
-  .notification-success {
-    background: rgba(0, 255, 136, 0.92);
+  .notification.success {
+    background: rgba(0,255,136,0.9);
     color: #0f0c29;
-    border: 1px solid rgba(0, 255, 136, 0.3);
   }
   
-  .notification-error {
-    background: rgba(255, 68, 68, 0.92);
+  .notification.error {
+    background: rgba(255,68,68,0.9);
     color: #fff;
-    border: 1px solid rgba(255, 68, 68, 0.3);
   }
   
-  .notification-warning {
-    background: rgba(255, 170, 0, 0.92);
-    color: #0f0c29;
-    border: 1px solid rgba(255, 170, 0, 0.3);
-  }
-  
-  .notification .notification-close {
+  .notification button {
     background: none;
     border: none;
     color: inherit;
     font-size: 20px;
     cursor: pointer;
-    opacity: 0.7;
-    padding: 0 4px;
-    transition: opacity 0.2s;
-  }
-  
-  .notification .notification-close:hover {
-    opacity: 1;
-  }
-  
-  /* ============================================================
-     DUEL GAME STYLES
-     ============================================================ */
-  .duel-game-container {
-    max-width: 420px;
-    margin: 0 auto;
-    padding: 16px 0;
-    min-height: 80vh;
-  }
-  
-  /* Back Button */
-  .duel-back-btn {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #fff;
-    padding: 10px 18px;
-    border-radius: 12px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    margin-bottom: 12px;
-  }
-  
-  .duel-back-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-  }
-  
-  /* Debug Panel */
-  .duel-debug-panel {
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 12px;
-    padding: 10px 14px;
-    margin-bottom: 12px;
-    font-size: 11px;
-    font-family: 'Courier New', monospace;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-  }
-  
-  .duel-debug-row {
-    display: flex;
-    gap: 12px;
-    color: #888;
-    flex-wrap: wrap;
-  }
-  
-  .duel-debug-row strong {
-    color: #00ff88;
-  }
-  
-  .duel-debug-logs {
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    max-height: 60px;
-    overflow-y: auto;
-  }
-  
-  .duel-debug-log {
-    color: #666;
-    font-size: 10px;
-    line-height: 1.4;
-  }
-  
-  /* Error */
-  .duel-error {
-    background: rgba(255, 68, 68, 0.15);
-    border: 1px solid #ff4444;
-    border-radius: 12px;
-    padding: 12px 16px;
-    color: #ff4444;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-  }
-  
-  .duel-error button {
-    background: none;
-    border: none;
-    color: #ff4444;
-    font-size: 20px;
-    cursor: pointer;
-  }
-  
-  /* ===== IDLE ===== */
-  .duel-idle {
-    text-align: center;
-  }
-  
-  .duel-idle-header h2 {
-    font-size: 24px;
-    margin-bottom: 4px;
-  }
-  
-  .duel-idle-header p {
-    color: #888;
-    font-size: 14px;
-  }
-  
-  .duel-balance {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    padding: 14px;
-    margin: 16px 0;
-  }
-  
-  .duel-balance-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-  }
-  
-  .duel-balance-item span:first-child {
-    color: #888;
-    font-size: 12px;
-  }
-  
-  .duel-balance-value {
-    font-size: 20px;
-    font-weight: 700;
-    color: #00ff88;
-  }
-  
-  .duel-stake-section {
-    margin: 16px 0;
-  }
-  
-  .duel-stake-label {
-    color: #888;
-    font-size: 14px;
-    margin-bottom: 10px;
-  }
-  
-  .duel-stake-grid {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  
-  .duel-stake-btn {
-    padding: 12px 16px;
-    border-radius: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    min-width: 60px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-  }
-  
-  .duel-stake-btn.active {
-    border-color: #667eea;
-    background: rgba(102, 126, 234, 0.2);
-  }
-  
-  .duel-stake-btn:hover:not(:disabled) {
-    border-color: #667eea;
-  }
-  
-  .duel-stake-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  
-  .duel-stake-icon {
-    font-size: 18px;
-  }
-  
-  .duel-stake-value {
-    font-size: 16px;
-    font-weight: 600;
-  }
-  
-  .duel-stake-insufficient {
-    font-size: 12px;
-    color: #ff4444;
-  }
-  
-  .duel-search-btn {
-    width: 100%;
-    padding: 16px;
-    border-radius: 14px;
-    border: none;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #fff;
-    font-size: 18px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 8px;
-  }
-  
-  .duel-search-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 30px rgba(102, 126, 234, 0.4);
-  }
-  
-  .duel-search-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
-  .duel-search-hint {
-    color: #666;
-    font-size: 12px;
-    margin-top: 12px;
-  }
-  
-  /* ===== SEARCHING ===== */
-  .duel-searching {
-    text-align: center;
-    padding: 30px 0;
-  }
-  
-  .duel-radar {
-    position: relative;
-    width: 120px;
-    height: 120px;
-    margin: 0 auto 24px;
-  }
-  
-  .duel-ring {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    border: 3px solid #667eea;
-    border-radius: 50%;
-    animation: radarPulse 1.5s ease-in-out infinite;
-  }
-  
-  .duel-ring.delay-1 {
-    animation-delay: 0.5s;
-    border-color: #764ba2;
-  }
-  
-  .duel-ring.delay-2 {
-    animation-delay: 1s;
-    border-color: #00ff88;
-  }
-  
-  .duel-radar-icon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 36px;
-  }
-  
-  .duel-searching h3 {
-    font-size: 20px;
-    margin-bottom: 8px;
-  }
-  
-  .duel-searching-stake {
-    color: #888;
-    font-size: 14px;
-  }
-  
-  .duel-searching-queue {
-    color: #888;
-    font-size: 14px;
-    margin-bottom: 20px;
-  }
-  
-  .duel-cancel-btn {
-    padding: 12px 30px;
-    border-radius: 12px;
-    border: none;
-    background: #ff4444;
-    color: #fff;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-  }
-  
-  .duel-cancel-btn:hover {
-    background: #ff6666;
-  }
-  
-  /* ===== PLAYING ===== */
-  .duel-playing {
-    text-align: center;
-  }
-  
-  .duel-versus {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
-    padding: 16px 20px;
-    margin-bottom: 20px;
-  }
-  
-  .duel-player {
-    text-align: center;
-  }
-  
-  .duel-player-name {
-    font-size: 16px;
-    font-weight: 600;
-  }
-  
-  .duel-player-rating {
-    font-size: 12px;
-    color: #888;
-  }
-  
-  .duel-timer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .duel-timer-value {
-    font-size: 32px;
-    font-weight: 700;
-    color: #00ff88;
-  }
-  
-  .duel-timer-value.warning {
-    color: #ff4444;
-    animation: blink 0.5s ease-in-out infinite;
-  }
-  
-  .duel-timer-label {
-    font-size: 12px;
-    color: #888;
-  }
-  
-  .duel-choice-label {
-    color: #888;
-    font-size: 14px;
-    margin-bottom: 16px;
-  }
-  
-  .duel-choices {
-    display: flex;
-    gap: 14px;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
-  }
-  
-  .duel-choice-btn {
-    padding: 16px 20px;
-    border-radius: 14px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    min-width: 80px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-  }
-  
-  .duel-choice-btn:hover:not(:disabled) {
-    border-color: #667eea;
-    transform: translateY(-2px);
-  }
-  
-  .duel-choice-btn.active {
-    border-color: #667eea;
-    background: rgba(102, 126, 234, 0.2);
-  }
-  
-  .duel-choice-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
-  .duel-choice-emoji {
-    font-size: 28px;
-  }
-  
-  .duel-choice-name {
-    font-size: 12px;
-    color: #888;
-  }
-  
-  .duel-waiting {
-    color: #00ff88;
-    font-size: 14px;
-  }
-  
-  /* ===== RESULT ===== */
-  .duel-result {
-    text-align: center;
-  }
-  
-  .duel-result-banner {
-    font-size: 24px;
-    font-weight: 700;
-    padding: 20px;
-    border-radius: 16px;
-    margin-bottom: 20px;
-  }
-  
-  .duel-result-banner.win {
-    background: rgba(0, 255, 136, 0.15);
-    border: 2px solid #00ff88;
-    color: #00ff88;
-  }
-  
-  .duel-result-banner.lose {
-    background: rgba(255, 68, 68, 0.15);
-    border: 2px solid #ff4444;
-    color: #ff4444;
-  }
-  
-  .duel-result-banner.draw {
-    background: rgba(255, 170, 0, 0.15);
-    border: 2px solid #ffaa00;
-    color: #ffaa00;
-  }
-  
-  .duel-result-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-  
-  .duel-result-choices {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    margin-bottom: 16px;
-  }
-  
-  .duel-result-choice {
-    text-align: center;
-  }
-  
-  .duel-result-label {
-    display: block;
-    font-size: 12px;
-    color: #888;
-  }
-  
-  .duel-result-value {
-    font-size: 20px;
-    font-weight: 600;
-    display: block;
-    margin-top: 4px;
-  }
-  
-  .duel-result-vs {
-    font-size: 24px;
-    color: #667eea;
-  }
-  
-  .duel-result-rewards {
-    display: flex;
-    justify-content: center;
-    gap: 24px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    font-size: 16px;
-    font-weight: 600;
-  }
-  
-  .duel-result-rewards .positive {
-    color: #00ff88;
-  }
-  
-  .duel-result-rewards .negative {
-    color: #ff4444;
-  }
-  
-  .duel-restart-btn {
-    width: 100%;
-    padding: 16px;
-    border-radius: 14px;
-    border: none;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #fff;
-    font-size: 18px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s ease;
-  }
-  
-  .duel-restart-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 30px rgba(102, 126, 234, 0.4);
-  }
-  
-  /* ===== OPPONENT LEFT ===== */
-  .duel-opponent-left {
-    text-align: center;
-    padding: 30px 0;
-  }
-  
-  .duel-opponent-left-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-  }
-  
-  .duel-opponent-left h3 {
-    font-size: 20px;
-    margin-bottom: 8px;
-  }
-  
-  .duel-opponent-left p {
-    color: #888;
-    margin-bottom: 20px;
-  }
-  
-  /* ============================================================
-     ANIMATIONS
-     ============================================================ */
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
-  }
-  
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.5;
-      transform: scale(1.05);
-    }
-  }
-  
-  @keyframes radarPulse {
-    0% {
-      transform: scale(0.8);
-      opacity: 1;
-    }
-    100% {
-      transform: scale(1.3);
-      opacity: 0;
-    }
   }
   
   @keyframes slideDown {
     from {
       opacity: 0;
-      transform: translateX(-50%) translateY(-30px) scale(0.9);
+      transform: translateX(-50%) translateY(-20px);
     }
     to {
       opacity: 1;
-      transform: translateX(-50%) translateY(0) scale(1);
+      transform: translateX(-50%) translateY(0);
     }
   }
   
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  /* ============================================================
+     PROFILE PAGE
+     ============================================================ */
+  .profile-page {
+    max-width: 400px;
+    margin: 0 auto;
   }
   
-  @keyframes blink {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.3;
-    }
+  .back-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-bottom: 16px;
+    transition: all 0.3s;
+  }
+  
+  .back-btn:hover {
+    background: rgba(255,255,255,0.1);
+  }
+  
+  .profile-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 20px;
+    padding: 24px;
+    backdrop-filter: blur(10px);
+  }
+  
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid #667eea;
+    overflow: hidden;
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  
+  .profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .profile-avatar span {
+    font-size: 36px;
+    font-weight: 600;
+  }
+  
+  .premium-badge {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    background: #ffaa00;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    border: 2px solid #0f0c29;
+  }
+  
+  .profile-name {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .profile-name h2 {
+    font-size: 22px;
+    margin-bottom: 2px;
+  }
+  
+  .profile-name p {
+    color: #888;
+    font-size: 14px;
+  }
+  
+  .profile-name .profile-id {
+    color: #666;
+    font-size: 12px;
+    font-family: monospace;
+  }
+  
+  .profile-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .stat-box {
+    background: rgba(255,255,255,0.05);
+    padding: 12px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  
+  .stat-label {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 4px;
+  }
+  
+  .stat-value {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  
+  .profile-xp {
+    margin-bottom: 20px;
+  }
+  
+  .xp-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  
+  .xp-bar {
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  .xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  
+  .profile-game-stats h3,
+  .profile-ref h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #888;
+  }
+  
+  .game-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .game-stat {
+    background: rgba(255,255,255,0.05);
+    padding: 12px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  
+  .stat-number {
+    display: block;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  
+  .stat-name {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+  
+  .ref-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .ref-stat {
+    background: rgba(255,255,255,0.05);
+    padding: 12px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  
+  .btn-refresh {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: none;
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: all 0.3s;
+  }
+  
+  .btn-refresh:hover {
+    background: rgba(255,255,255,0.1);
+  }
+  
+  .btn-refresh:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   
   /* ============================================================
      RESPONSIVE
      ============================================================ */
   @media (max-width: 480px) {
-    .debug-panel {
-      font-size: 10px;
+    .header {
       padding: 8px 12px;
-      max-height: 130px;
     }
-  
-    .main-content {
-      margin-top: 140px;
-      padding: 12px;
-      padding-bottom: 60px;
+    
+    .header-left h1 {
+      font-size: 16px;
     }
-  
-    .logo .logo-text {
-      font-size: 28px;
+    
+    .header-coins,
+    .header-rating {
+      font-size: 12px;
+      padding: 2px 8px;
     }
-  
-    .profile-card {
-      padding: 16px;
+    
+    .header-profile {
+      width: 32px;
+      height: 32px;
     }
-  
-    .profile-card .profile-name {
-      font-size: 18px;
-    }
-  
-    .profile-stats .stat-value {
-      font-size: 18px;
-    }
-  
+    
     .menu-buttons button {
       font-size: 16px;
       padding: 14px 16px;
     }
-  
-    .notification {
-      top: 150px;
-      font-size: 13px;
-      padding: 12px 16px;
+    
+    .profile-stats-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
     }
-  
-    .duel-game-container {
-      padding: 8px 0;
+    
+    .game-stats-grid {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
     }
-  
-    .duel-versus {
-      padding: 12px 14px;
-    }
-  
-    .duel-timer-value {
-      font-size: 26px;
-    }
-  
-    .duel-choice-btn {
-      padding: 12px 16px;
-      min-width: 60px;
-    }
-  
-    .duel-choice-emoji {
-      font-size: 22px;
-    }
-  
-    .duel-result-banner {
-      font-size: 20px;
-      padding: 16px;
-    }
-  
-    .duel-result-value {
-      font-size: 16px;
-    }
-  }
-  
-  @media (max-width: 380px) {
-    .debug-panel {
-      font-size: 9px;
-      padding: 6px 10px;
-      max-height: 110px;
-    }
-  
-    .main-content {
-      margin-top: 120px;
+    
+    .stat-box,
+    .game-stat {
       padding: 8px;
     }
-  
-    .logo .logo-text {
-      font-size: 24px;
-    }
-  
-    .profile-card .profile-image,
-    .profile-card .profile-image-placeholder {
-      width: 48px;
-      height: 48px;
-      font-size: 22px;
-    }
-  
-    .profile-card .profile-name {
+    
+    .stat-value,
+    .stat-number {
       font-size: 16px;
     }
-  
-    .profile-stats .stat-value {
-      font-size: 16px;
-    }
-  
-    .menu-buttons button {
-      font-size: 14px;
-      padding: 12px 14px;
-    }
-  
-    .duel-stake-btn {
-      padding: 8px 12px;
-      min-width: 50px;
-    }
-  
-    .duel-stake-value {
-      font-size: 14px;
-    }
-  }
-  
-  /* ============================================================
-     DARK MODE SUPPORT
-     ============================================================ */
-  @media (prefers-color-scheme: dark) {
-    body {
-      background: #0f0c29;
-    }
-  }
-  
-  /* ============================================================
-     TOUCH FEEDBACK
-     ============================================================ */
-  button {
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-  
-  button:active {
-    transform: scale(0.97) !important;
   }

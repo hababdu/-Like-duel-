@@ -1,11 +1,18 @@
 // ============================================================
-// APP.JS - AUTH NI TO'G'RILASH
+// App.js - ASOSIY KOMPONENT
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
 import socket from './socket';
+import './App.css';
+
+// ============================================================
+// KOMPONENTLAR
+// ============================================================
+import Profile from './components/Profile';
 import DuelGame from './components/DuelGame';
 import BotGame from './components/BotGame';
-import './App.css';
+import Leaderboard from './components/Leaderboard';
+import Referrals from './components/Referrals';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -13,24 +20,22 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState('menu');
   const [socketConnected, setSocketConnected] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [telegramUser, setTelegramUser] = useState(null);
-  const [debugInfo, setDebugInfo] = useState('');
 
-  const BACKEND_URL = process.env.NODE_ENV === 'production'
+  const API_URL = process.env.NODE_ENV === 'production'
     ? 'https://telegram-bot-server-2-matj.onrender.com'
     : 'http://localhost:10000';
 
-  // ======================
+  // ============================================================
   // NOTIFICATION
-  // ======================
+  // ============================================================
   const showNotification = useCallback((message, type = 'info') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 5000);
+    setTimeout(() => setNotification(null), 3000);
   }, []);
 
-  // ======================
+  // ============================================================
   // HAPTIC FEEDBACK
-  // ======================
+  // ============================================================
   const triggerHaptic = useCallback((type = 'light') => {
     try {
       if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -41,265 +46,95 @@ function App() {
     } catch (e) {}
   }, []);
 
-  // ======================
-  // TELEGRAM MA'LUMOTLARINI OLISH
-  // ======================
-  const getTelegramData = useCallback(() => {
+  // ============================================================
+  // USER AUTH - TELEGRAM MA'LUMOTLARINI OLISH
+  // ============================================================
+  const authenticateUser = useCallback(async () => {
     try {
       const tg = window.Telegram?.WebApp;
       
-      if (!tg) {
-        console.log('❌ Telegram WebApp mavjud emas');
-        return null;
-      }
-
-      console.log('✅ Telegram WebApp mavjud');
-      
-      const initDataUnsafe = tg.initDataUnsafe || {};
-      const user = initDataUnsafe.user || null;
-      
-      console.log('📱 initDataUnsafe:', initDataUnsafe);
-      console.log('👤 user:', user);
-
-      if (!user) {
-        console.warn('⚠️ Telegram user ma\'lumotlari yo\'q');
-        return {
-          tg: tg,
-          user: {
-            id: Date.now(),
-            first_name: 'Test User',
-            username: 'test_user'
-          },
-          initData: tg.initData || '',
-          initDataUnsafe: initDataUnsafe
-        };
-      }
-
-      return {
-        tg: tg,
-        user: user,
-        initData: tg.initData || '',
-        initDataUnsafe: initDataUnsafe
-      };
-    } catch (error) {
-      console.error('❌ Telegram error:', error);
-      return null;
-    }
-  }, []);
-
-  // ======================
-  // USER AUTH - TO'G'RILANGAN
-  // ======================
-  const authenticateUser = useCallback(async (tgUser, startParam) => {
-    try {
-      let tgId = null;
-      
-      if (tgUser && tgUser.id) {
-        tgId = String(tgUser.id);
-      } else {
-        tgId = 'test_' + Date.now();
-      }
-
-      console.log('🔑 ===== AUTH START =====');
-      console.log('📊 tgId:', tgId);
-      console.log('📊 tgUser:', tgUser);
-      console.log('📊 startParam:', startParam);
-
-      // Auth so'rovini yuborish
-      const response = await fetch(`${BACKEND_URL}/api/user/auth`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          tgId: tgId,
-          username: tgUser?.username || '',
-          firstName: tgUser?.first_name || "O'yinchi",
-          lastName: tgUser?.last_name || '',
-          photoUrl: tgUser?.photo_url || '',
-          refParent: startParam ? String(startParam) : null
-        })
-      });
-
-      console.log('📥 Response status:', response.status);
-      
-      // Response ni o'qish
-      let data;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error('❌ JSON parse error:', parseError);
-        // Agar JSON parse qilishda xatolik bo'lsa, text ni o'qish
-        const text = await response.text();
-        console.log('📥 Response text:', text);
-        throw new Error('Server javobi noto\'g\'ri formatda');
-      }
-      
-      console.log('📥 Auth response:', data);
-
-      if (data.success && data.user) {
-        const userData = {
-          ...data.user,
-          tgId: String(data.user.tgId)
-        };
+      if (tg) {
+        tg.ready();
+        tg.expand();
         
-        console.log('✅ User authenticated!');
-        console.log('✅ tgId:', userData.tgId);
-        console.log('✅ firstName:', userData.firstName);
-        console.log('✅ coins:', userData.coins);
+        const tgUser = tg.initDataUnsafe?.user;
+        const startParam = tg.initDataUnsafe?.start_param;
         
-        setUser(userData);
-        setDebugInfo(`✅ Auth: ${userData.firstName} (${userData.tgId})`);
-        
-        // Socket ga ulanish
-        if (socket && socket.connected) {
-          socket.emit('user_connect', {
-            tgId: userData.tgId,
-            firstName: userData.firstName || "O'yinchi",
-            username: userData.username || ''
+        if (tgUser) {
+          console.log('📱 Telegram user:', tgUser);
+          
+          const response = await fetch(`${API_URL}/api/user/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tgId: String(tgUser.id),
+              username: tgUser.username || '',
+              firstName: tgUser.first_name || "O'yinchi",
+              lastName: tgUser.last_name || '',
+              photoUrl: tgUser.photo_url || '',
+              languageCode: tgUser.language_code || 'uz',
+              isPremium: tgUser.is_premium || false,
+              refParent: startParam || null
+            })
           });
+
+          const data = await response.json();
+          
+          if (data.success) {
+            setUser(data.user);
+            console.log('✅ User authenticated:', data.user);
+            
+            // Socket ga ulanish
+            if (socket.connected) {
+              socket.emit('user_connect', {
+                tgId: String(data.user.tgId)
+              });
+            }
+            
+            return data.user;
+          }
         }
-        
-        return userData;
-      } else {
-        console.error('❌ Auth failed:', data);
-        setDebugInfo(`❌ Auth failed: ${data.message || 'Noma\'lum xatolik'}`);
-        
-        // Xatolik haqida notification
-        showNotification(`⚠️ Avtorizatsiya xatoligi: ${data.message || 'Server javob bermadi'}`, 'error');
-        
-        // Fallback - test user
-        const fallbackUser = {
-          tgId: tgId,
-          firstName: tgUser?.first_name || "O'yinchi",
-          username: tgUser?.username || '',
-          coins: 100,
-          rating: 100,
-          totalGames: 0,
-          wins: 0,
-          losses: 0,
-          isRefRewarded: false
-        };
-        setUser(fallbackUser);
-        setDebugInfo(`⚠️ Fallback user: ${fallbackUser.firstName}`);
-        return fallbackUser;
       }
-    } catch (error) {
-      console.error('❌ Auth error:', error);
-      setDebugInfo(`❌ Auth error: ${error.message}`);
       
-      // Fallback - test user
-      const fallbackUser = {
-        tgId: tgUser?.id ? String(tgUser.id) : 'fallback_' + Date.now(),
-        firstName: tgUser?.first_name || "O'yinchi",
-        username: tgUser?.username || '',
+      // Test user (brauzer uchun)
+      const testUser = {
+        tgId: 'test_' + Date.now(),
+        firstName: 'Test User',
+        username: 'test_user',
         coins: 100,
         rating: 100,
-        totalGames: 0,
-        wins: 0,
-        losses: 0,
-        isRefRewarded: false
+        level: 1,
+        photoUrl: ''
       };
-      setUser(fallbackUser);
-      showNotification('⚠️ Server bilan bog\'lanishda xatolik. Offline rejimda.', 'warning');
-      return fallbackUser;
-    }
-  }, [BACKEND_URL, showNotification]);
-
-  // ======================
-  // INITIALIZE
-  // ======================
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        console.log('🚀 ===== INITIALIZING APP =====');
-        
-        const tgData = getTelegramData();
-        console.log('📱 Telegram data:', tgData);
-        
-        if (tgData) {
-          setTelegramUser(tgData.user);
-          
-          if (tgData.tg) {
-            tgData.tg.ready();
-            tgData.tg.expand();
-            console.log('✅ Telegram WebApp ready');
-          }
-          
-          const tgUser = tgData.user;
-          const startParam = tgData.initDataUnsafe?.start_param;
-          
-          if (tgUser && tgUser.id) {
-            await authenticateUser(tgUser, startParam);
-          } else {
-            console.warn('⚠️ Telegram user topilmadi');
-            const testUser = {
-              id: Date.now(),
-              first_name: 'Test User',
-              username: 'test_user'
-            };
-            await authenticateUser(testUser, null);
-          }
-        } else {
-          console.warn('⚠️ Telegram WebApp topilmadi');
-          const testUser = {
-            id: Date.now(),
-            first_name: 'Web User',
-            username: 'web_user'
-          };
-          await authenticateUser(testUser, null);
-        }
-      } catch (error) {
-        console.error('❌ Initialize error:', error);
-        const fallbackId = 'fallback_' + Date.now();
-        const fallbackUser = {
-          tgId: fallbackId,
-          firstName: 'User',
-          username: 'user',
-          coins: 300,
-          rating: 150,
-          totalGames: 0,
-          wins: 0,
-          losses: 0,
-          isRefRewarded: false
-        };
-        setUser(fallbackUser);
-        setDebugInfo('❌ Fallback user');
-      } finally {
-        setLoading(false);
-        console.log('✅ ===== INITIALIZATION COMPLETE =====');
-      }
-    };
-
-    initializeApp();
-
-    // Socket event listeners
-    const onConnect = () => {
-      console.log('✅ Socket connected! ID:', socket.id);
-      setSocketConnected(true);
+      setUser(testUser);
+      return testUser;
       
-      if (user && user.tgId) {
-        socket.emit('user_connect', {
-          tgId: String(user.tgId),
-          firstName: user.firstName || "O'yinchi",
-          username: user.username || ''
-        });
+    } catch (error) {
+      console.error('❌ Auth error:', error);
+      return null;
+    }
+  }, [API_URL]);
+
+  // ============================================================
+  // INITIALIZE
+  // ============================================================
+  useEffect(() => {
+    const init = async () => {
+      await authenticateUser();
+      setLoading(false);
+    };
+    init();
+
+    // Socket events
+    const onConnect = () => {
+      setSocketConnected(true);
+      if (user) {
+        socket.emit('user_connect', { tgId: String(user.tgId) });
       }
     };
 
-    const onDisconnect = () => {
-      console.log('❌ Socket disconnected');
-      setSocketConnected(false);
-    };
-
-    const onConnectError = (error) => {
-      console.error('❌ Socket connect error:', error);
-      setSocketConnected(false);
-    };
-
+    const onDisconnect = () => setSocketConnected(false);
     const onUserConnected = (data) => {
-      console.log('✅ User connected response:', data);
       if (data.success && data.user) {
         setUser(prev => ({ ...prev, ...data.user }));
       }
@@ -307,176 +142,144 @@ function App() {
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
-    socket.on('connect_error', onConnectError);
     socket.on('user_connected', onUserConnected);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
-      socket.off('connect_error', onConnectError);
       socket.off('user_connected', onUserConnected);
     };
-  }, []); // Empty dependency array
+  }, []);
 
-  // ======================
+  // ============================================================
+  // UPDATE USER
+  // ============================================================
+  const updateUser = useCallback((newData) => {
+    setUser(prev => ({ ...prev, ...newData }));
+  }, []);
+
+  // ============================================================
   // RENDER
-  // ======================
+  // ============================================================
   if (loading) {
     return (
       <div className="loading-screen">
         <div className="spinner"></div>
-        <p className="loading-text">Like-Duel yuklanmoqda...</p>
+        <p>Like-Duel yuklanmoqda...</p>
       </div>
     );
   }
 
   return (
-    <div className="app-container">
+    <div className="app">
       {/* Notification */}
       {notification && (
-        <div className={`notification notification-${notification.type}`}>
+        <div className={`notification ${notification.type}`}>
           <span>{notification.message}</span>
-          <button className="notification-close" onClick={() => setNotification(null)}>✕</button>
+          <button onClick={() => setNotification(null)}>✕</button>
         </div>
       )}
 
-      {/* Debug Panel */}
-      <div className="debug-panel">
-        <div className="debug-title">📱 TELEGRAM MA'LUMOTLARI</div>
-        {telegramUser ? (
-          <div className="debug-content">
-            <div>✅ ID: <strong>{telegramUser.id}</strong></div>
-            <div>👤 Ism: <strong>{telegramUser.first_name}</strong></div>
-            <div>📛 Username: @{telegramUser.username || 'Yo\'q'}</div>
-          </div>
-        ) : (
-          <div className="debug-error">❌ Telegram ma'lumotlari topilmadi</div>
-        )}
-        <div className="debug-status">
-          <span className={socketConnected ? 'online' : 'offline'}>
-            🔌 Socket: {socketConnected ? '🟢 Online' : '🔴 Offline'}
-          </span>
-          <span style={{ marginLeft: '12px', color: '#666' }}>
-            App ID: {user?.tgId || '❌ YO\'Q'}
-          </span>
+      {/* Header */}
+      <div className="header">
+        <div className="header-left">
+          <h1>💥 LIKE-DUEL</h1>
         </div>
-        <div style={{ color: '#ffaa00', fontSize: '10px', marginTop: '4px' }}>
-          {debugInfo}
+        <div className="header-right">
+          <div className="header-status">
+            {socketConnected ? '🟢' : '🔴'}
+          </div>
+          <div className="header-coins">
+            🪙 {user?.coins || 0}
+          </div>
+          <div className="header-rating">
+            🏆 {user?.rating || 0}
+          </div>
+          <button 
+            className="header-profile"
+            onClick={() => setCurrentScreen('profile')}
+          >
+            {user?.photoUrl ? (
+              <img src={user.photoUrl} alt="Profile" />
+            ) : (
+              <span>{user?.firstName?.charAt(0) || '?'}</span>
+            )}
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="main-content">
         {currentScreen === 'menu' && (
-          <div className="menu-container">
-            {/* Logo */}
-            <div className="logo">
-              <h1 className="logo-text">💥 LIKE-DUEL</h1>
-              <p className="logo-sub">⚡ Tosh, Qog'oz, Qaychi</p>
-            </div>
-
-            {/* Profile Card */}
-            <div className="profile-card">
-              <div className="profile-header">
-                {telegramUser?.photo_url ? (
-                  <img src={telegramUser.photo_url} alt="Profile" className="profile-image" />
+          <div className="menu">
+            <div className="menu-profile">
+              <div className="menu-profile-avatar">
+                {user?.photoUrl ? (
+                  <img src={user.photoUrl} alt="Profile" />
                 ) : (
-                  <div className="profile-image-placeholder">
-                    {user?.firstName?.charAt(0) || '?'}
-                  </div>
+                  <span>{user?.firstName?.charAt(0) || '?'}</span>
                 )}
-                <div className="profile-info">
-                  <h2 className="profile-name">👋 {user?.firstName || 'User'}</h2>
-                  {telegramUser?.username && (
-                    <p className="profile-username">@{telegramUser.username}</p>
-                  )}
-                  <p className="profile-id">
-                    ID: {user?.tgId || '❌ YO\'Q'}
-                    {!user?.tgId && (
-                      <span style={{ color: '#ff4444', marginLeft: '8px' }}>
-                        (Ma'lumot olinmadi!)
-                      </span>
-                    )}
-                  </p>
-                </div>
               </div>
-
-              <div className="profile-stats">
-                <div className="stat-item">
-                  <span className="stat-icon">🪙</span>
-                  <span className="stat-value">{user?.coins || 0}</span>
-                  <span className="stat-label">Tanga</span>
+              <div className="menu-profile-info">
+                <h2>{user?.firstName}</h2>
+                <p>@{user?.username || 'username'}</p>
+                <div className="menu-profile-stats">
+                  <span>🪙 {user?.coins}</span>
+                  <span>🏆 {user?.rating}</span>
+                  <span>📊 Level {user?.level || 1}</span>
                 </div>
-                <div className="stat-divider"></div>
-                <div className="stat-item">
-                  <span className="stat-icon">🏆</span>
-                  <span className="stat-value">{user?.rating || 0}</span>
-                  <span className="stat-label">XP</span>
-                </div>
-                <div className="stat-divider"></div>
-                <div className="stat-item">
-                  <span className="stat-icon">🎮</span>
-                  <span className="stat-value">{user?.totalGames || 0}</span>
-                  <span className="stat-label">O'yin</span>
-                </div>
-              </div>
-
-              <div className="profile-games">
-                <span>🏅 {user?.wins || 0} g'alaba</span>
-                <span>📊 {user?.totalGames ? Math.round((user.wins / user.totalGames) * 100) : 0}%</span>
               </div>
             </div>
 
-            {/* Menu Buttons */}
             <div className="menu-buttons">
               <button 
-                className="btn-play-online"
-                onClick={() => {
-                  if (!user || !user.tgId) {
-                    showNotification('⚠️ Iltimos avval tizimga kiring!', 'warning');
-                    return;
-                  }
-                  setCurrentScreen('game');
-                }}
+                className="btn-play"
+                onClick={() => setCurrentScreen('game')}
               >
-                <span className="btn-icon">⚔️</span>
-                Onlayn Duel
-                <span className="btn-badge pulse">Jonli</span>
+                ⚔️ Onlayn Duel
+                <span className="badge">Jonli</span>
               </button>
 
               <button 
-                className="btn-play-bot"
+                className="btn-bot"
                 onClick={() => setCurrentScreen('bot')}
               >
-                <span className="btn-icon">🤖</span>
-                Bot bilan o'ynash
-                <span className="btn-badge">AI</span>
+                🤖 Bot bilan
+                <span className="badge">AI</span>
               </button>
 
               <button 
-                className="btn-refresh"
-                onClick={() => window.location.reload()}
+                className="btn-leaderboard"
+                onClick={() => setCurrentScreen('leaderboard')}
               >
-                🔄 Yangilash
+                🏆 Peshqadamlar
+              </button>
+
+              <button 
+                className="btn-referrals"
+                onClick={() => setCurrentScreen('referrals')}
+              >
+                👥 Do'stlarni taklif qilish
+                <span className="badge">+100 🪙</span>
               </button>
             </div>
-
-            {/* Connection Status */}
-            <div className="connection-status">
-              {socketConnected ? (
-                <span className="status-online">🟢 Server bilan ulangan</span>
-              ) : (
-                <span className="status-offline">🔴 Server bilan ulanish yo'q</span>
-              )}
-            </div>
           </div>
+        )}
+
+        {currentScreen === 'profile' && (
+          <Profile 
+            user={user} 
+            onBack={() => setCurrentScreen('menu')}
+            updateUser={updateUser}
+            API_URL={API_URL}
+          />
         )}
 
         {currentScreen === 'game' && (
           <DuelGame
             user={user}
             setUser={setUser}
-            backendUrl={BACKEND_URL}
+            API_URL={API_URL}
             onBack={() => setCurrentScreen('menu')}
             onNotification={showNotification}
             triggerHaptic={triggerHaptic}
@@ -488,26 +291,28 @@ function App() {
           <BotGame
             user={user}
             setUser={setUser}
-            difficulty="medium"
-            coins={user?.coins || 0}
-            setCoins={(newCoins) => setUser(prev => ({ ...prev, coins: newCoins }))}
-            onBackToMenu={() => setCurrentScreen('menu')}
-            showNotif={showNotification}
+            onBack={() => setCurrentScreen('menu')}
+            onNotification={showNotification}
             triggerHaptic={triggerHaptic}
           />
         )}
-      </div>
 
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.05); }
-        }
-      `}</style>
+        {currentScreen === 'leaderboard' && (
+          <Leaderboard
+            API_URL={API_URL}
+            onBack={() => setCurrentScreen('menu')}
+          />
+        )}
+
+        {currentScreen === 'referrals' && (
+          <Referrals
+            user={user}
+            API_URL={API_URL}
+            onBack={() => setCurrentScreen('menu')}
+            onNotification={showNotification}
+          />
+        )}
+      </div>
     </div>
   );
 }
