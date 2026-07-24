@@ -1,8 +1,7 @@
 // ============================================================
-// DUELGAME.JS - TO'LIQ TUZATILGAN VERSION
+// DUELGAME.JS - SODDA VA ISHONCHLI VERSION
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import './DuelGame.css';
 
 function DuelGame({ 
   user, 
@@ -13,7 +12,7 @@ function DuelGame({
   triggerHaptic,
   socket 
 }) {
-  const [gameState, setGameState] = useState('idle');
+  const [gameState, setGameState] = useState('idle'); // idle, searching, playing, result
   const [opponent, setOpponent] = useState(null);
   const [roomId, setRoomId] = useState(null);
   const [timer, setTimer] = useState(30);
@@ -21,85 +20,65 @@ function DuelGame({
   const [roundResult, setRoundResult] = useState(null);
   const [stake, setStake] = useState(10);
   const [socketError, setSocketError] = useState(null);
-  const [searching, setSearching] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
-  const [queueLength, setQueueLength] = useState(0);
+  const [debugLog, setDebugLog] = useState([]);
 
-  const timerIntervalRef = useRef(null);
+  // Debug log qo'shish
+  const addDebug = (msg) => {
+    console.log('🔍', msg);
+    setDebugLog(prev => [...prev.slice(-20), { time: new Date().toLocaleTimeString(), msg }]);
+  };
 
   // ======================
   // SOCKET EVENT HANDLERS
   // ======================
   useEffect(() => {
     if (!socket) {
-      console.error('❌ Socket is null!');
-      setSocketError('Socket mavjud emas');
+      addDebug('❌ Socket is null!');
       return;
     }
 
-    console.log('🔥 DuelGame mounted, socket ID:', socket.id);
-    console.log('🔥 Socket connected:', socket.connected);
+    addDebug(`✅ DuelGame mounted, socket ID: ${socket.id}`);
+    addDebug(`✅ Socket connected: ${socket.connected}`);
 
-    // CONNECT
-    const onConnect = () => {
-      console.log('✅ Socket connected in DuelGame:', socket.id);
-      setSocketError(null);
-      onNotification?.('✅ Serverga ulandi!');
-    };
-
-    // DISCONNECT
-    const onDisconnect = (reason) => {
-      console.log('❌ Socket disconnected in DuelGame:', reason);
-      setSocketError('Serverdan uzildi: ' + reason);
-    };
-
-    // CONNECT ERROR
-    const onConnectError = (error) => {
-      console.error('❌ Socket connect error in DuelGame:', error);
-      setSocketError('Serverga ulanishda xatolik: ' + error.message);
-    };
-
-    // SEARCHING
-    const onSearching = (data) => {
-      console.log('🔍 Searching event:', data);
-      setSearching(true);
-      setGameState('searching');
-      if (data?.stake) setStake(data.stake);
-      if (data?.queueLength !== undefined) setQueueLength(data.queueLength);
-      setDebugInfo(`Queue: ${data?.queueLength || '?'} o'yinchi`);
-    };
-
-    // MATCH FOUND
+    // ====== MATCH FOUND ======
     const onMatchFound = (data) => {
-      console.log('🎯 MATCH FOUND!!!', data);
+      addDebug(`🎯 MATCH FOUND!!! ${JSON.stringify(data)}`);
+      
+      // State ni to'g'ridan-to'g'ri o'zgartirish
       setRoomId(data.roomId);
       setOpponent(data.opponent);
-      if (data.stake) setStake(data.stake);
+      setStake(data.stake || stake);
       setMyChoice(null);
       setRoundResult(null);
       setGameState('playing');
-      setSearching(false);
-      setDebugInfo(`Raqib: ${data.opponent?.name || 'Noma\'lum'}`);
+      
+      addDebug(`✅ Game state changed to: playing`);
+      addDebug(`👤 Opponent: ${data.opponent?.name || 'Noma\'lum'}`);
       
       triggerHaptic?.('heavy');
       onNotification?.(`🎯 Raqib topildi! ${data.opponent?.name || 'Noma\'lum'} bilan duel!`);
     };
 
-    // TIMER TICK
+    // ====== SEARCHING ======
+    const onSearching = (data) => {
+      addDebug(`🔍 Searching: ${JSON.stringify(data)}`);
+      setGameState('searching');
+      setStake(data?.stake || stake);
+    };
+
+    // ====== TIMER TICK ======
     const onTimerTick = (timeLeft) => {
-      console.log('⏱️ Timer tick:', timeLeft);
       setTimer(timeLeft);
-      if (timeLeft <= 5 && timeLeft > 0) {
+      if (timeLeft <= 5) {
         triggerHaptic?.('light');
       }
     };
 
-    // ROUND RESULT
+    // ====== ROUND RESULT ======
     const onRoundResult = (result) => {
-      console.log('📊 Round result:', result);
+      addDebug(`📊 Round result: ${JSON.stringify(result)}`);
       setRoundResult(result);
       setGameState('result');
-      setDebugInfo(`Natija: ${result.result}`);
       
       if (result.result === 'win') {
         triggerHaptic?.('heavy');
@@ -112,6 +91,7 @@ function DuelGame({
         onNotification?.('🤝 Durang');
       }
       
+      // User ma'lumotlarini yangilash
       if (setUser && user) {
         setUser(prev => ({
           ...prev,
@@ -124,32 +104,47 @@ function DuelGame({
       }
     };
 
-    // OPPONENT LEFT
+    // ====== OPPONENT LEFT ======
     const onOpponentLeft = () => {
-      console.log('🚪 Opponent left');
+      addDebug('🚪 Opponent left');
       setGameState('opponent_left');
-      setDebugInfo('Raqib chiqib ketdi');
       triggerHaptic?.('medium');
       onNotification?.('⚠️ Raqib o\'yinni tark etdi!');
     };
 
-    // ERROR
+    // ====== ERROR ======
     const onError = (data) => {
-      console.error('❌ Server error event:', data);
-      setSocketError(data.message || 'Xatolik yuz berdi');
-      onNotification?.(`⚠️ ${data.message || 'Xatolik yuz berdi'}`);
-    };
-
-    // SEARCH CANCELLED
-    const onSearchCancelled = () => {
-      console.log('🔴 Search cancelled');
-      setSearching(false);
+      addDebug(`❌ Error: ${JSON.stringify(data)}`);
+      setSocketError(data?.message || 'Xatolik yuz berdi');
+      onNotification?.(`⚠️ ${data?.message || 'Xatolik yuz berdi'}`);
       setGameState('idle');
-      setDebugInfo('');
-      setQueueLength(0);
     };
 
-    // Register all events
+    // ====== SEARCH CANCELLED ======
+    const onSearchCancelled = () => {
+      addDebug('🔴 Search cancelled');
+      setGameState('idle');
+    };
+
+    // ====== CONNECT ======
+    const onConnect = () => {
+      addDebug(`✅ Socket connected: ${socket.id}`);
+      setSocketError(null);
+    };
+
+    // ====== DISCONNECT ======
+    const onDisconnect = () => {
+      addDebug('❌ Socket disconnected');
+      setSocketError('Serverdan uzildi');
+    };
+
+    // ====== CONNECT ERROR ======
+    const onConnectError = (error) => {
+      addDebug(`❌ Connect error: ${error.message}`);
+      setSocketError('Serverga ulanishda xatolik');
+    };
+
+    // Eventlarni ro'yxatdan o'tkazish
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
@@ -161,9 +156,21 @@ function DuelGame({
     socket.on('error', onError);
     socket.on('search_cancelled', onSearchCancelled);
 
+    // Test uchun - 5 sekundda bir marta ping
+    const pingInterval = setInterval(() => {
+      if (socket.connected) {
+        socket.emit('ping', { time: Date.now() });
+      }
+    }, 5000);
+
+    socket.on('pong', (data) => {
+      addDebug(`🏓 Pong: ${data?.time ? Date.now() - data.time : '?'}ms`);
+    });
+
     // Cleanup
     return () => {
-      console.log('🧹 Cleaning up DuelGame socket listeners');
+      addDebug('🧹 Cleaning up DuelGame');
+      clearInterval(pingInterval);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('connect_error', onConnectError);
@@ -174,18 +181,18 @@ function DuelGame({
       socket.off('opponent_left', onOpponentLeft);
       socket.off('error', onError);
       socket.off('search_cancelled', onSearchCancelled);
+      socket.off('pong');
     };
-  }, [socket, triggerHaptic, onNotification, setUser, user]);
+  }, [socket, triggerHaptic, onNotification, setUser, user, stake]);
 
   // ======================
-  // GAME FUNCTIONS
+  // START SEARCH
   // ======================
   const startSearch = useCallback(() => {
-    console.log('🚀 Starting search...');
-    console.log('📊 User:', user);
-    console.log('📊 Stake:', stake);
-    console.log('🔌 Socket connected:', socket?.connected);
-    console.log('🔌 Socket id:', socket?.id);
+    addDebug('🚀 Starting search...');
+    addDebug(`📊 User: ${user?.tgId} - ${user?.firstName}`);
+    addDebug(`📊 Stake: ${stake}`);
+    addDebug(`🔌 Socket connected: ${socket?.connected}`);
 
     if (!user) {
       onNotification?.('⚠️ Iltimos avval tizimga kiring!');
@@ -211,33 +218,42 @@ function DuelGame({
       coins: user.coins || 0
     };
 
-    console.log('📤 Emitting find_match with:', { player: playerData, stake: Number(stake) });
+    addDebug(`📤 Emitting find_match: ${JSON.stringify({ player: playerData, stake: Number(stake) })}`);
     
-    setSearching(true);
     setGameState('searching');
-    setDebugInfo('Raqib qidirilmoqda...');
     
     socket.emit('find_match', {
       player: playerData,
       stake: Number(stake)
     });
-  }, [user, stake, socket, onNotification]);
+    
+    // Agar 5 sekunddan keyin hech narsa bo'lmasa, qayta urinish
+    setTimeout(() => {
+      if (gameState === 'searching') {
+        addDebug('⏳ Still searching...');
+      }
+    }, 5000);
+    
+  }, [user, stake, socket, onNotification, gameState]);
 
+  // ======================
+  // CANCEL SEARCH
+  // ======================
   const cancelSearch = useCallback(() => {
-    console.log('❌ Cancelling search...');
+    addDebug('❌ Cancelling search');
     if (socket) {
       socket.emit('cancel_search');
     }
-    setSearching(false);
     setGameState('idle');
-    setDebugInfo('');
-    setQueueLength(0);
   }, [socket]);
 
+  // ======================
+  // SUBMIT CHOICE
+  // ======================
   const submitChoice = useCallback((choice) => {
-    console.log('✋ Submitting choice:', choice, 'roomId:', roomId);
+    addDebug(`✋ Submitting choice: ${choice}, roomId: ${roomId}`);
     if (!socket || !roomId) {
-      console.error('❌ No socket or roomId');
+      addDebug('❌ No socket or roomId');
       return;
     }
     
@@ -245,17 +261,17 @@ function DuelGame({
     socket.emit('make_choice', { roomId, choice });
   }, [socket, roomId]);
 
+  // ======================
+  // RESET GAME
+  // ======================
   const resetGame = useCallback(() => {
-    console.log('🔄 Resetting game');
+    addDebug('🔄 Resetting game');
     setGameState('idle');
     setRoundResult(null);
     setMyChoice(null);
     setOpponent(null);
     setRoomId(null);
     setTimer(30);
-    setSearching(false);
-    setDebugInfo('');
-    setQueueLength(0);
   }, []);
 
   // ======================
@@ -274,16 +290,15 @@ function DuelGame({
   // RENDER
   // ======================
   return (
-    <div className="game-screen" style={{
+    <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)',
       color: 'white',
       padding: '16px',
       position: 'relative'
     }}>
-      {/* Back Button */}
+      {/* BACK BUTTON */}
       <button 
-        className="back-btn" 
         onClick={() => {
           if (gameState === 'searching') cancelSearch();
           onBack();
@@ -299,349 +314,227 @@ function DuelGame({
           borderRadius: '8px',
           color: 'white',
           cursor: 'pointer',
-          zIndex: 10,
-          fontSize: '14px'
+          zIndex: 10
         }}
       >
-        ⬅️ Menuga Qaytish
+        ⬅️ Orqaga
       </button>
 
-      {/* DEBUG INFO */}
-      <div className="debug-info" style={{ 
-        background: 'rgba(0,0,0,0.5)',
-        color: '#00ff88',
-        padding: '8px 12px',
+      {/* DEBUG PANEL */}
+      <div style={{
+        marginTop: '60px',
+        background: 'rgba(0,0,0,0.8)',
         borderRadius: '8px',
-        margin: '60px 0 16px 0',
-        fontSize: '12px',
+        padding: '8px',
+        maxHeight: '150px',
+        overflow: 'auto',
+        fontSize: '11px',
         fontFamily: 'monospace',
-        textAlign: 'center',
-        border: '1px solid rgba(0,255,136,0.2)'
+        color: '#00ff88',
+        border: '1px solid rgba(0,255,136,0.2)',
+        marginBottom: '16px'
       }}>
-        <div>🔌 Socket: {socket?.connected ? '🟢' : '🔴'} {socket?.id ? socket.id.substring(0, 8) : 'yo\'q'}</div>
-        <div>📊 Holat: {gameState} | {debugInfo || 'Kutish'}</div>
-        <div>👥 Navbat: {queueLength || 0} o'yinchi</div>
+        <div>🔌 Socket: {socket?.connected ? '🟢' : '🔴'} {socket?.id?.substring(0, 8) || 'yo\'q'}</div>
+        <div>📊 State: <strong>{gameState}</strong> | Timer: {timer}s</div>
+        <div>👤 User: {user?.tgId} - {user?.firstName}</div>
+        <div>👥 Opponent: {opponent?.name || 'yo\'q'}</div>
+        {debugLog.slice(-5).map((log, i) => (
+          <div key={i} style={{ color: '#aaa', fontSize: '10px' }}>
+            [{log.time}] {log.msg}
+          </div>
+        ))}
       </div>
 
-      {/* Error */}
+      {/* ERROR */}
       {socketError && (
-        <div className="socket-error" style={{
+        <div style={{
           background: 'rgba(255,68,68,0.2)',
           border: '1px solid #ff4444',
           borderRadius: '8px',
           padding: '12px',
-          margin: '8px 0',
+          marginBottom: '16px',
+          color: '#ff4444',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          color: '#ff4444'
+          justifyContent: 'space-between'
         }}>
           ⚠️ {socketError}
-          <button 
-            onClick={() => setSocketError(null)} 
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#ff4444',
-              fontSize: '20px',
-              cursor: 'pointer'
-            }}
-          >
-            ✕
-          </button>
+          <button onClick={() => setSocketError(null)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer' }}>✕</button>
         </div>
       )}
 
-      {/* IDLE */}
+      {/* ===== IDLE ===== */}
       {gameState === 'idle' && (
-        <div className="setup-container" style={{
-          maxWidth: '400px',
-          margin: '40px auto 0',
-          textAlign: 'center'
-        }}>
-          <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>⚔️ Onlayn Duel</h2>
-          <p style={{ color: '#888', marginBottom: '20px' }}>Raqib bilan jonli duel!</p>
-          
+        <div style={{ maxWidth: '400px', margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '24px' }}>⚔️ Onlayn Duel</h2>
           <div style={{
             background: 'rgba(255,255,255,0.05)',
             borderRadius: '12px',
             padding: '16px',
-            marginBottom: '20px'
+            margin: '16px 0'
           }}>
-            <p style={{ fontSize: '18px' }}>
-              🪙 Balans: <strong style={{ color: '#00ff88' }}>{user?.coins || 0}</strong>
-            </p>
-            <p style={{ fontSize: '14px', color: '#888' }}>
-              🏆 Reyting: {user?.rating || 0}
-            </p>
+            <p>🪙 Balans: <strong style={{ color: '#00ff88' }}>{user?.coins || 0}</strong></p>
+            <p>🏆 Reyting: {user?.rating || 0}</p>
           </div>
           
-          <p style={{ color: '#888', marginBottom: '12px' }}>Stavka tanlang:</p>
-          <div className="stake-grid" style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '8px',
-            flexWrap: 'wrap',
-            marginBottom: '20px'
-          }}>
-            {[10, 20, 50, 100].map(value => (
-              <button 
-                key={value} 
-                className={`stake-card ${stake === value ? 'selected' : ''}`}
-                onClick={() => setStake(value)}
-                disabled={(user?.coins || 0) < value}
+          <p>Stavka tanlang:</p>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {[10, 20, 50, 100].map(v => (
+              <button
+                key={v}
+                onClick={() => setStake(v)}
                 style={{
-                  padding: '12px 16px',
+                  padding: '12px',
                   borderRadius: '12px',
-                  border: stake === value ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
-                  background: (user?.coins || 0) < value ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.05)',
-                  color: (user?.coins || 0) < value ? '#666' : 'white',
-                  cursor: (user?.coins || 0) < value ? 'not-allowed' : 'pointer',
-                  fontSize: '16px',
-                  minWidth: '60px',
-                  transition: 'all 0.3s'
+                  border: stake === v ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
+                  background: (user?.coins || 0) < v ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.05)',
+                  color: (user?.coins || 0) < v ? '#666' : 'white',
+                  cursor: (user?.coins || 0) < v ? 'not-allowed' : 'pointer',
+                  minWidth: '60px'
                 }}
+                disabled={(user?.coins || 0) < v}
               >
-                <div style={{ fontSize: '20px' }}>🪙</div>
-                <div style={{ fontWeight: 'bold' }}>{value}</div>
-                {(user?.coins || 0) < value && (
-                  <div style={{ fontSize: '10px', color: '#ff4444' }}>❌</div>
-                )}
+                🪙 {v}
               </button>
             ))}
           </div>
 
-          <button 
-            className="btn-action btn-start" 
+          <button
             onClick={startSearch}
             disabled={!user || (user?.coins || 0) < stake || !socket?.connected}
             style={{
-              padding: '16px 40px',
-              fontSize: '18px',
+              width: '100%',
+              padding: '16px',
+              marginTop: '20px',
               borderRadius: '12px',
               border: 'none',
               background: (!user || (user?.coins || 0) < stake || !socket?.connected) 
                 ? '#555' 
                 : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
+              fontSize: '18px',
+              fontWeight: 'bold',
               cursor: (!user || (user?.coins || 0) < stake || !socket?.connected) 
                 ? 'not-allowed' 
-                : 'pointer',
-              fontWeight: 'bold',
-              width: '100%',
-              transition: 'all 0.3s'
+                : 'pointer'
             }}
           >
-            {!socket?.connected ? '🔌 Ulanish yo\'q' : '🚀 Jonli Raqib Qidirish'}
+            {!socket?.connected ? '🔌 Ulanish yo\'q' : '🚀 Raqib Qidirish'}
           </button>
-          
-          <p style={{ fontSize: '12px', color: '#666', marginTop: '12px' }}>
-            💡 O'rtacha 5-30 soniya davom etadi
-          </p>
         </div>
       )}
 
-      {/* SEARCHING */}
+      {/* ===== SEARCHING ===== */}
       {gameState === 'searching' && (
-        <div className="searching-container" style={{
-          textAlign: 'center',
-          padding: '60px 20px',
-          maxWidth: '400px',
-          margin: '0 auto'
-        }}>
-          <div className="radar-animation" style={{
-            position: 'relative',
-            width: '120px',
-            height: '120px',
-            margin: '0 auto 30px'
+        <div style={{ textAlign: 'center', padding: '40px 0' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+          <h3>Raqib qidirilmoqda...</h3>
+          <p style={{ color: '#888' }}>Stavka: 🪙 {stake}</p>
+          <div style={{
+            width: '100%',
+            height: '4px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '2px',
+            margin: '20px 0',
+            overflow: 'hidden'
           }}>
             <div style={{
-              position: 'absolute',
               width: '100%',
               height: '100%',
-              border: '3px solid #667eea',
-              borderRadius: '50%',
-              animation: 'pulse 1.5s ease-in-out infinite'
-            }}></div>
-            <div style={{
-              position: 'absolute',
-              width: '100%',
-              height: '100%',
-              border: '3px solid #764ba2',
-              borderRadius: '50%',
-              animation: 'pulse 1.5s ease-in-out infinite 0.5s'
-            }}></div>
-            <div style={{
-              position: 'absolute',
-              width: '100%',
-              height: '100%',
-              border: '3px solid #00ff88',
-              borderRadius: '50%',
-              animation: 'pulse 1.5s ease-in-out infinite 1s'
-            }}></div>
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              fontSize: '40px'
-            }}>🔍</div>
+              background: 'linear-gradient(90deg, #667eea, #764ba2)',
+              animation: 'loading 2s ease-in-out infinite'
+            }} />
           </div>
-          <h3 style={{ fontSize: '20px', marginBottom: '8px' }}>Raqib qidirilmoqda...</h3>
-          <p style={{ color: '#888' }}>Stavka: 🪙 {stake}</p>
-          <p style={{ color: '#666', fontSize: '14px', marginTop: '8px' }}>
-            ⏳ Navbatda: {queueLength} o'yinchi
-          </p>
-          <button 
-            className="btn-action btn-cancel" 
+          <button
             onClick={cancelSearch}
             style={{
               padding: '12px 30px',
-              fontSize: '16px',
               borderRadius: '12px',
               border: 'none',
               background: '#ff4444',
               color: 'white',
-              cursor: 'pointer',
-              marginTop: '30px',
-              fontWeight: 'bold'
+              fontSize: '16px',
+              cursor: 'pointer'
             }}
           >
             ✖️ Bekor qilish
           </button>
+          <style>{`
+            @keyframes loading {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+          `}</style>
         </div>
       )}
 
-      {/* PLAYING */}
+      {/* ===== PLAYING ===== */}
       {gameState === 'playing' && (
-        <div className="arena-container" style={{
-          maxWidth: '400px',
-          margin: '20px auto 0',
-          textAlign: 'center'
-        }}>
-          <div className="versus-header" style={{
+        <div style={{ maxWidth: '400px', margin: '0 auto', textAlign: 'center' }}>
+          <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '16px',
             background: 'rgba(255,255,255,0.05)',
-            borderRadius: '16px',
+            borderRadius: '12px',
             marginBottom: '20px'
           }}>
-            <div className="fighter" style={{textAlign: 'center'}}>
-              <div className="fighter-name" style={{fontSize: '16px', fontWeight: 'bold'}}>
-                🥊 {user?.firstName || "Siz"}
-              </div>
-              <div className="fighter-stats" style={{fontSize: '12px', color: '#888'}}>
-                🏆 {user?.rating || 0}
-              </div>
+            <div>
+              <div>🥊 {user?.firstName || 'Siz'}</div>
+              <div style={{ fontSize: '12px', color: '#888' }}>🏆 {user?.rating || 0}</div>
             </div>
-            <div className="arena-timer" style={{
-              fontSize: '32px',
-              fontWeight: 'bold',
-              color: timer <= 5 ? '#ff4444' : '#00ff88'
-            }}>
-              {timer}
-              <span style={{fontSize: '14px', color: '#888', marginLeft: '4px'}}>s</span>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: timer <= 5 ? '#ff4444' : '#00ff88' }}>
+              {timer}s
             </div>
-            <div className="fighter" style={{textAlign: 'center'}}>
-              <div className="fighter-name" style={{fontSize: '16px', fontWeight: 'bold'}}>
-                🥷 {opponent?.name || "Raqib"}
-              </div>
-              <div className="fighter-stats" style={{fontSize: '12px', color: '#888'}}>
-                🏆 {opponent?.rating || 0}
-              </div>
+            <div>
+              <div>🥷 {opponent?.name || 'Raqib'}</div>
+              <div style={{ fontSize: '12px', color: '#888' }}>🏆 {opponent?.rating || 0}</div>
             </div>
           </div>
 
-          <p style={{ color: '#888', marginBottom: '16px', fontSize: '14px' }}>
-            Tanlovingizni qiling:
-          </p>
-
-          <div className="weapons-row" style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '12px',
-            marginBottom: '20px',
-            flexWrap: 'wrap'
-          }}>
-            <button 
-              disabled={!!myChoice} 
-              onClick={() => submitChoice('rock')}
-              style={{
-                padding: '14px 20px',
-                fontSize: '18px',
-                borderRadius: '12px',
-                border: myChoice === 'rock' ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
-                background: myChoice === 'rock' ? 'rgba(102,126,234,0.3)' : 'rgba(255,255,255,0.05)',
-                color: 'white',
-                cursor: myChoice ? 'not-allowed' : 'pointer',
-                opacity: myChoice ? 0.5 : 1,
-                transition: 'all 0.3s',
-                minWidth: '80px'
-              }}
-            >
-              🪨 Tosh
-            </button>
-            <button 
-              disabled={!!myChoice} 
-              onClick={() => submitChoice('paper')}
-              style={{
-                padding: '14px 20px',
-                fontSize: '18px',
-                borderRadius: '12px',
-                border: myChoice === 'paper' ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
-                background: myChoice === 'paper' ? 'rgba(102,126,234,0.3)' : 'rgba(255,255,255,0.05)',
-                color: 'white',
-                cursor: myChoice ? 'not-allowed' : 'pointer',
-                opacity: myChoice ? 0.5 : 1,
-                transition: 'all 0.3s',
-                minWidth: '80px'
-              }}
-            >
-              📄 Qog'oz
-            </button>
-            <button 
-              disabled={!!myChoice} 
-              onClick={() => submitChoice('scissors')}
-              style={{
-                padding: '14px 20px',
-                fontSize: '18px',
-                borderRadius: '12px',
-                border: myChoice === 'scissors' ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
-                background: myChoice === 'scissors' ? 'rgba(102,126,234,0.3)' : 'rgba(255,255,255,0.05)',
-                color: 'white',
-                cursor: myChoice ? 'not-allowed' : 'pointer',
-                opacity: myChoice ? 0.5 : 1,
-                transition: 'all 0.3s',
-                minWidth: '80px'
-              }}
-            >
-              ✂️ Qaychi
-            </button>
+          <p style={{ color: '#888', marginBottom: '16px' }}>Tanlovingizni qiling:</p>
+          
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {['rock', 'paper', 'scissors'].map(choice => {
+              const emoji = choice === 'rock' ? '🪨' : choice === 'paper' ? '📄' : '✂️';
+              const name = choice === 'rock' ? 'Tosh' : choice === 'paper' ? 'Qog\'oz' : 'Qaychi';
+              return (
+                <button
+                  key={choice}
+                  onClick={() => submitChoice(choice)}
+                  disabled={!!myChoice}
+                  style={{
+                    padding: '16px 24px',
+                    borderRadius: '12px',
+                    border: myChoice === choice ? '2px solid #667eea' : '2px solid rgba(255,255,255,0.1)',
+                    background: myChoice === choice ? 'rgba(102,126,234,0.3)' : 'rgba(255,255,255,0.05)',
+                    color: 'white',
+                    fontSize: '18px',
+                    cursor: myChoice ? 'not-allowed' : 'pointer',
+                    opacity: myChoice ? 0.5 : 1,
+                    minWidth: '80px'
+                  }}
+                >
+                  <div>{emoji}</div>
+                  <div style={{ fontSize: '14px' }}>{name}</div>
+                </button>
+              );
+            })}
           </div>
 
           {myChoice && (
-            <p style={{
-              color: '#00ff88',
-              fontSize: '14px'
-            }}>
+            <p style={{ color: '#00ff88', marginTop: '16px' }}>
               ⏳ Siz <strong>{formatChoice(myChoice)}</strong> tanladingiz. Raqib kutilmoqda...
             </p>
           )}
         </div>
       )}
 
-      {/* RESULT */}
+      {/* ===== RESULT ===== */}
       {gameState === 'result' && roundResult && (
-        <div className="result-container" style={{
-          textAlign: 'center',
-          padding: '20px',
-          maxWidth: '400px',
-          margin: '20px auto 0'
-        }}>
-          <div className={`result-banner ${roundResult.result}`} style={{
-            fontSize: '24px',
+        <div style={{ maxWidth: '400px', margin: '0 auto', textAlign: 'center' }}>
+          <div style={{
+            fontSize: '28px',
             fontWeight: 'bold',
             padding: '20px',
             borderRadius: '16px',
@@ -651,56 +544,42 @@ function DuelGame({
             border: roundResult.result === 'win' ? '2px solid #00ff88' : 
                     roundResult.result === 'lose' ? '2px solid #ff4444' : '2px solid #ffaa00'
           }}>
-            {roundResult.result === 'win' && "🎉 SIZ YUTDINGIZ!"}
-            {roundResult.result === 'lose' && "😢 MAG'LUB BO'LDINGIZ"}
-            {roundResult.result === 'draw' && "🤝 DURANG"}
+            {roundResult.result === 'win' && '🎉 SIZ YUTDINGIZ!'}
+            {roundResult.result === 'lose' && '😢 MAG\'LUB BO\'LDINGIZ'}
+            {roundResult.result === 'draw' && '🤝 DURANG'}
           </div>
           
-          <div className="battle-card" style={{
+          <div style={{
             background: 'rgba(255,255,255,0.05)',
             padding: '20px',
             borderRadius: '16px',
             marginBottom: '20px'
           }}>
-            <div className="battle-choices" style={{
-              display: 'flex',
-              justifyContent: 'space-around',
-              alignItems: 'center',
-              marginBottom: '16px'
-            }}>
-              <div className="choice-display" style={{textAlign: 'center'}}>
-                <span style={{color: '#888', fontSize: '12px'}}>Siz</span>
-                <div style={{fontSize: '18px', marginTop: '4px'}}>
-                  {formatChoice(roundResult.myChoice)}
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '16px' }}>
+              <div>
+                <div style={{ color: '#888', fontSize: '12px' }}>Siz</div>
+                <div style={{ fontSize: '20px' }}>{formatChoice(roundResult.myChoice)}</div>
               </div>
-              <div style={{fontSize: '24px', color: '#667eea'}}>⚡</div>
-              <div className="choice-display" style={{textAlign: 'center'}}>
-                <span style={{color: '#888', fontSize: '12px'}}>Raqib</span>
-                <div style={{fontSize: '18px', marginTop: '4px'}}>
-                  {formatChoice(roundResult.opponentChoice)}
-                </div>
+              <div style={{ fontSize: '24px', color: '#667eea' }}>⚡</div>
+              <div>
+                <div style={{ color: '#888', fontSize: '12px' }}>Raqib</div>
+                <div style={{ fontSize: '20px' }}>{formatChoice(roundResult.opponentChoice)}</div>
               </div>
             </div>
             
-            <div className="financial-summary" style={{
+            <div style={{
               display: 'flex',
               justifyContent: 'center',
               gap: '20px',
-              fontSize: '16px',
               paddingTop: '12px',
               borderTop: '1px solid rgba(255,255,255,0.1)'
             }}>
-              <span style={{
-                color: (roundResult.rewardCoins || 0) >= 0 ? '#00ff88' : '#ff4444'
-              }}>
+              <span style={{ color: (roundResult.rewardCoins || 0) >= 0 ? '#00ff88' : '#ff4444' }}>
                 {(roundResult.rewardCoins || 0) >= 0 
                   ? `+🪙 ${roundResult.rewardCoins}` 
                   : `-🪙 ${Math.abs(roundResult.rewardCoins || 0)}`}
               </span>
-              <span style={{
-                color: (roundResult.rewardXP || 0) >= 0 ? '#00ff88' : '#ff4444'
-              }}>
+              <span style={{ color: (roundResult.rewardXP || 0) >= 0 ? '#00ff88' : '#ff4444' }}>
                 {(roundResult.rewardXP || 0) >= 0 
                   ? `+🏆 ${roundResult.rewardXP} XP` 
                   : `-🏆 ${Math.abs(roundResult.rewardXP || 0)} XP`}
@@ -708,19 +587,18 @@ function DuelGame({
             </div>
           </div>
           
-          <button 
-            className="btn-action btn-restart" 
+          <button
             onClick={resetGame}
             style={{
-              padding: '14px 40px',
-              fontSize: '16px',
+              width: '100%',
+              padding: '16px',
               borderRadius: '12px',
               border: 'none',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
-              cursor: 'pointer',
+              fontSize: '18px',
               fontWeight: 'bold',
-              width: '100%'
+              cursor: 'pointer'
             }}
           >
             🔄 Yana O'ynash
@@ -728,51 +606,29 @@ function DuelGame({
         </div>
       )}
 
-      {/* OPPONENT LEFT */}
+      {/* ===== OPPONENT LEFT ===== */}
       {gameState === 'opponent_left' && (
-        <div className="disconnected-container" style={{
-          textAlign: 'center',
-          padding: '60px 20px',
-          maxWidth: '400px',
-          margin: '0 auto'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
-          <h3 style={{ fontSize: '20px', marginBottom: '8px' }}>Raqib o'yinni tark etdi!</h3>
-          <p style={{ color: '#888', marginBottom: '20px' }}>
-            O'yin xonasi yopildi. Sizga hech qanday jarima berilmadi.
-          </p>
-          <button 
-            className="btn-action" 
+        <div style={{ textAlign: 'center', padding: '40px 0' }}>
+          <div style={{ fontSize: '48px' }}>⚠️</div>
+          <h3>Raqib o'yinni tark etdi!</h3>
+          <p style={{ color: '#888' }}>O'yin xonasi yopildi.</p>
+          <button
             onClick={resetGame}
             style={{
-              padding: '14px 40px',
-              fontSize: '16px',
+              padding: '16px 40px',
               borderRadius: '12px',
               border: 'none',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
+              fontSize: '18px',
               cursor: 'pointer',
-              fontWeight: 'bold',
-              width: '100%'
+              marginTop: '20px'
             }}
           >
             Bosh sahifaga
           </button>
         </div>
       )}
-
-      <style>{`
-        @keyframes pulse {
-          0% {
-            transform: scale(0.8);
-            opacity: 1;
-          }
-          100% {
-            transform: scale(1.2);
-            opacity: 0;
-          }
-        }
-      `}</style>
     </div>
   );
 }

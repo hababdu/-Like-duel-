@@ -10,21 +10,16 @@ const SERVER_URL = process.env.NODE_ENV === 'production'
 console.log('🔌 Connecting to server:', SERVER_URL);
 
 // HAR BIR SAHIFA UCHUN UNIQ SOCKET ID
+
+// socket.js - har bir sahifa uchun yangi ulanish
 const socket = io(SERVER_URL, {
   transports: ['websocket', 'polling'],
   withCredentials: true,
   reconnection: true,
   reconnectionAttempts: 10,
   reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
-  timeout: 30000,
-  autoConnect: true,
-  forceNew: true, // Har bir sahifa uchun yangi ulanish
-  path: '/socket.io/',
-  // Telegram WebApp uchun maxsus
-  query: {
-    platform: window.Telegram?.WebApp ? 'telegram' : 'web'
-  }
+  forceNew: true, // MUHIM!
+  path: '/socket.io/'
 });
 
 // Ulanish holati
