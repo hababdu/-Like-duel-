@@ -1,18 +1,14 @@
 // ============================================================
-// App.js - ASOSIY KOMPONENT
+// App.js - TELEGRAM MA'LUMOTLARINI TO'G'RI OLISH
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
 import socket from './socket';
-import './App.css';
-
-// ============================================================
-// KOMPONENTLAR
-// ============================================================
 import Profile from './components/Profile';
 import DuelGame from './components/DuelGame';
 import BotGame from './components/BotGame';
 import Leaderboard from './components/Leaderboard';
 import Referrals from './components/Referrals';
+import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -20,6 +16,8 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState('menu');
   const [socketConnected, setSocketConnected] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [telegramUser, setTelegramUser] = useState(null);
+  const [isTelegramWebApp, setIsTelegramWebApp] = useState(false);
 
   const API_URL = process.env.NODE_ENV === 'production'
     ? 'https://telegram-bot-server-2-matj.onrender.com'
@@ -47,94 +45,263 @@ function App() {
   }, []);
 
   // ============================================================
-  // USER AUTH - TELEGRAM MA'LUMOTLARINI OLISH
+  // TELEGRAM MA'LUMOTLARINI OLISH - TO'G'RILANGAN
   // ============================================================
-  const authenticateUser = useCallback(async () => {
+  const getTelegramUser = useCallback(() => {
     try {
+      // Telegram WebApp mavjudligini tekshirish
       const tg = window.Telegram?.WebApp;
       
-      if (tg) {
-        tg.ready();
-        tg.expand();
-        
-        const tgUser = tg.initDataUnsafe?.user;
-        const startParam = tg.initDataUnsafe?.start_param;
-        
-        if (tgUser) {
-          console.log('📱 Telegram user:', tgUser);
-          
-          const response = await fetch(`${API_URL}/api/user/auth`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tgId: String(tgUser.id),
-              username: tgUser.username || '',
-              firstName: tgUser.first_name || "O'yinchi",
-              lastName: tgUser.last_name || '',
-              photoUrl: tgUser.photo_url || '',
-              languageCode: tgUser.language_code || 'uz',
-              isPremium: tgUser.is_premium || false,
-              refParent: startParam || null
-            })
-          });
-
-          const data = await response.json();
-          
-          if (data.success) {
-            setUser(data.user);
-            console.log('✅ User authenticated:', data.user);
-            
-            // Socket ga ulanish
-            if (socket.connected) {
-              socket.emit('user_connect', {
-                tgId: String(data.user.tgId)
-              });
-            }
-            
-            return data.user;
-          }
-        }
-      }
+      console.log('🔍 Checking Telegram WebApp:', tg);
       
-      // Test user (brauzer uchun)
-      const testUser = {
-        tgId: 'test_' + Date.now(),
-        firstName: 'Test User',
-        username: 'test_user',
+      if (!tg) {
+        console.log('❌ Telegram WebApp mavjud emas');
+        return null;
+      }
+
+      setIsTelegramWebApp(true);
+      
+      // Telegram ma'lumotlarini olish
+      const initDataUnsafe = tg.initDataUnsafe || {};
+      const user = initDataUnsafe.user || null;
+      
+      console.log('📱 initDataUnsafe:', initDataUnsafe);
+      console.log('👤 Telegram user:', user);
+      
+      if (user) {
+        console.log('✅ Telegram user found!');
+        console.log('📊 ID:', user.id);
+        console.log('📊 First name:', user.first_name);
+        console.log('📊 Username:', user.username);
+        console.log('📊 Photo URL:', user.photo_url);
+        console.log('📊 Is Premium:', user.is_premium);
+        
+        setTelegramUser(user);
+        return user;
+      } else {
+        console.warn('⚠️ Telegram user ma\'lumotlari yo\'q');
+        
+        // Agar user ma'lumotlari bo'lmasa, test user qaytarish
+        const testUser = {
+          id: Date.now(),
+          first_name: 'Test User',
+          username: 'test_user',
+          is_premium: false
+        };
+        setTelegramUser(testUser);
+        return testUser;
+      }
+    } catch (error) {
+      console.error('❌ Telegram ma\'lumotlarini olishda xatolik:', error);
+      return null;
+    }
+  }, []);
+
+  // ============================================================
+  // USER AUTH - TO'G'RILANGAN
+  // ============================================================
+  const authenticateUser = useCallback(async (tgUser) => {
+    try {
+      let tgId = null;
+      let firstName = "O'yinchi";
+      let username = '';
+      let photoUrl = '';
+      let isPremium = false;
+      
+      if (tgUser && tgUser.id) {
+        tgId = String(tgUser.id);
+        firstName = tgUser.first_name || "O'yinchi";
+        username = tgUser.username || '';
+        photoUrl = tgUser.photo_url || '';
+        isPremium = tgUser.is_premium || false;
+      } else {
+        // Fallback - test user
+        tgId = 'test_' + Date.now();
+        firstName = 'Test User';
+        username = 'test_user';
+      }
+
+      console.log('🔑 ===== AUTH START =====');
+      console.log('📊 tgId:', tgId);
+      console.log('📊 firstName:', firstName);
+      console.log('📊 username:', username);
+      console.log('📊 isPremium:', isPremium);
+
+      // Serverga auth so'rovi
+      const response = await fetch(`${API_URL}/api/user/auth`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          tgId: tgId,
+          username: username,
+          firstName: firstName,
+          lastName: '',
+          photoUrl: photoUrl,
+          languageCode: 'uz',
+          isPremium: isPremium,
+          refParent: null
+        })
+      });
+
+      console.log('📥 Response status:', response.status);
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        const text = await response.text();
+        console.log('📥 Response text:', text);
+        throw new Error('Server javobi noto\'g\'ri formatda');
+      }
+
+      console.log('📥 Auth response:', data);
+
+      if (data.success && data.user) {
+        const userData = {
+          ...data.user,
+          tgId: String(data.user.tgId)
+        };
+        
+        console.log('✅ User authenticated!');
+        console.log('✅ tgId:', userData.tgId);
+        console.log('✅ firstName:', userData.firstName);
+        console.log('✅ coins:', userData.coins);
+        console.log('✅ rating:', userData.rating);
+        
+        setUser(userData);
+        
+        // Socket ga ulanish
+        if (socket && socket.connected) {
+          socket.emit('user_connect', {
+            tgId: userData.tgId,
+            firstName: userData.firstName || "O'yinchi",
+            username: userData.username || ''
+          });
+        }
+        
+        return userData;
+      } else {
+        console.error('❌ Auth failed:', data);
+        // Fallback - local user
+        const fallbackUser = {
+          tgId: tgId,
+          firstName: firstName,
+          username: username,
+          photoUrl: photoUrl,
+          isPremium: isPremium,
+          coins: 100,
+          rating: 100,
+          level: 1,
+          totalGames: 0,
+          wins: 0,
+          losses: 0,
+          draws: 0
+        };
+        setUser(fallbackUser);
+        showNotification('⚠️ Server bilan bog\'lanmadi. Offline rejim.', 'warning');
+        return fallbackUser;
+      }
+    } catch (error) {
+      console.error('❌ Auth error:', error);
+      // Fallback user
+      const fallbackUser = {
+        tgId: tgUser?.id ? String(tgUser.id) : 'fallback_' + Date.now(),
+        firstName: tgUser?.first_name || "O'yinchi",
+        username: tgUser?.username || '',
+        photoUrl: tgUser?.photo_url || '',
+        isPremium: tgUser?.is_premium || false,
         coins: 100,
         rating: 100,
         level: 1,
-        photoUrl: ''
+        totalGames: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0
       };
-      setUser(testUser);
-      return testUser;
-      
-    } catch (error) {
-      console.error('❌ Auth error:', error);
-      return null;
+      setUser(fallbackUser);
+      showNotification('⚠️ Xatolik yuz berdi. Offline rejim.', 'error');
+      return fallbackUser;
     }
-  }, [API_URL]);
+  }, [API_URL, showNotification]);
 
   // ============================================================
-  // INITIALIZE
+  // INITIALIZE - TO'G'RILANGAN
   // ============================================================
   useEffect(() => {
-    const init = async () => {
-      await authenticateUser();
-      setLoading(false);
-    };
-    init();
-
-    // Socket events
-    const onConnect = () => {
-      setSocketConnected(true);
-      if (user) {
-        socket.emit('user_connect', { tgId: String(user.tgId) });
+    const initializeApp = async () => {
+      try {
+        console.log('🚀 ===== INITIALIZING APP =====');
+        console.log('📱 Window Telegram:', window.Telegram);
+        console.log('📱 Window Telegram WebApp:', window.Telegram?.WebApp);
+        
+        // Telegram ma'lumotlarini olish
+        const tgUser = getTelegramUser();
+        console.log('👤 tgUser:', tgUser);
+        
+        // Auth qilish
+        await authenticateUser(tgUser);
+        
+        // Telegram WebApp ni tayyorlash
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.ready();
+          window.Telegram.WebApp.expand();
+          console.log('✅ Telegram WebApp ready');
+        }
+        
+      } catch (error) {
+        console.error('❌ Initialize error:', error);
+        // Fallback user
+        const fallbackUser = {
+          tgId: 'fallback_' + Date.now(),
+          firstName: 'User',
+          username: 'user',
+          coins: 100,
+          rating: 100,
+          level: 1,
+          totalGames: 0,
+          wins: 0,
+          losses: 0,
+          draws: 0
+        };
+        setUser(fallbackUser);
+      } finally {
+        setLoading(false);
+        console.log('✅ ===== INITIALIZATION COMPLETE =====');
       }
     };
 
-    const onDisconnect = () => setSocketConnected(false);
+    initializeApp();
+
+    // Socket event listeners
+    const onConnect = () => {
+      console.log('✅ Socket connected! ID:', socket.id);
+      setSocketConnected(true);
+      
+      if (user && user.tgId) {
+        socket.emit('user_connect', {
+          tgId: String(user.tgId),
+          firstName: user.firstName || "O'yinchi",
+          username: user.username || ''
+        });
+      }
+    };
+
+    const onDisconnect = () => {
+      console.log('❌ Socket disconnected');
+      setSocketConnected(false);
+    };
+
+    const onConnectError = (error) => {
+      console.error('❌ Socket connect error:', error);
+      setSocketConnected(false);
+    };
+
     const onUserConnected = (data) => {
+      console.log('✅ User connected response:', data);
       if (data.success && data.user) {
         setUser(prev => ({ ...prev, ...data.user }));
       }
@@ -142,21 +309,16 @@ function App() {
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
     socket.on('user_connected', onUserConnected);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
       socket.off('user_connected', onUserConnected);
     };
-  }, []);
-
-  // ============================================================
-  // UPDATE USER
-  // ============================================================
-  const updateUser = useCallback((newData) => {
-    setUser(prev => ({ ...prev, ...newData }));
-  }, []);
+  }, []); // Empty dependency array
 
   // ============================================================
   // RENDER
@@ -208,6 +370,21 @@ function App() {
         </div>
       </div>
 
+      {/* Telegram Debug Info */}
+      <div className="telegram-debug">
+        <div className="debug-row">
+          <span>📱 Platform: {isTelegramWebApp ? 'Telegram WebApp' : 'Web Browser'}</span>
+          <span>👤 User: {user?.firstName || 'No Name'}</span>
+          <span>🆔 ID: {user?.tgId || 'No ID'}</span>
+        </div>
+        {telegramUser && (
+          <div className="debug-row" style={{ fontSize: '11px', color: '#888' }}>
+            <span>📛 @{telegramUser.username || 'no_username'}</span>
+            <span>⭐ {telegramUser.is_premium ? 'Premium' : 'Free'}</span>
+          </div>
+        )}
+      </div>
+
       {/* Main Content */}
       <div className="main-content">
         {currentScreen === 'menu' && (
@@ -219,13 +396,16 @@ function App() {
                 ) : (
                   <span>{user?.firstName?.charAt(0) || '?'}</span>
                 )}
+                {user?.isPremium && (
+                  <div className="premium-badge">⭐</div>
+                )}
               </div>
               <div className="menu-profile-info">
-                <h2>{user?.firstName}</h2>
+                <h2>{user?.firstName || 'User'}</h2>
                 <p>@{user?.username || 'username'}</p>
                 <div className="menu-profile-stats">
-                  <span>🪙 {user?.coins}</span>
-                  <span>🏆 {user?.rating}</span>
+                  <span>🪙 {user?.coins || 0}</span>
+                  <span>🏆 {user?.rating || 0}</span>
                   <span>📊 Level {user?.level || 1}</span>
                 </div>
               </div>
@@ -234,7 +414,13 @@ function App() {
             <div className="menu-buttons">
               <button 
                 className="btn-play"
-                onClick={() => setCurrentScreen('game')}
+                onClick={() => {
+                  if (!user?.tgId) {
+                    showNotification('⚠️ Iltimos avval tizimga kiring!', 'warning');
+                    return;
+                  }
+                  setCurrentScreen('game');
+                }}
               >
                 ⚔️ Onlayn Duel
                 <span className="badge">Jonli</span>
@@ -270,7 +456,7 @@ function App() {
           <Profile 
             user={user} 
             onBack={() => setCurrentScreen('menu')}
-            updateUser={updateUser}
+            updateUser={setUser}
             API_URL={API_URL}
           />
         )}
@@ -313,6 +499,44 @@ function App() {
           />
         )}
       </div>
+
+      <style>{`
+        .telegram-debug {
+          background: rgba(0,0,0,0.5);
+          border-radius: 8px;
+          padding: 8px 12px;
+          margin: 8px 0;
+          font-size: 12px;
+          font-family: monospace;
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+        .debug-row {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+          color: #888;
+        }
+        .debug-row span {
+          color: #00ff88;
+        }
+        .premium-badge {
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          background: #ffaa00;
+          border-radius: 50%;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          border: 2px solid #0f0c29;
+        }
+        .menu-profile-avatar {
+          position: relative;
+        }
+      `}</style>
     </div>
   );
 }
