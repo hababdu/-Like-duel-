@@ -1,5 +1,5 @@
 // ============================================================
-// APP.JS - TO'LIQ TUZATILGAN VERSION
+// APP.JS - AUTH NI TO'G'RILASH
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
 import socket from './socket';
@@ -88,7 +88,7 @@ function App() {
   }, []);
 
   // ======================
-  // USER AUTH
+  // USER AUTH - TO'G'RILANGAN
   // ======================
   const authenticateUser = useCallback(async (tgUser, startParam) => {
     try {
@@ -103,7 +103,9 @@ function App() {
       console.log('🔑 ===== AUTH START =====');
       console.log('📊 tgId:', tgId);
       console.log('📊 tgUser:', tgUser);
+      console.log('📊 startParam:', startParam);
 
+      // Auth so'rovini yuborish
       const response = await fetch(`${BACKEND_URL}/api/user/auth`, {
         method: 'POST',
         headers: { 
@@ -120,7 +122,20 @@ function App() {
         })
       });
 
-      const data = await response.json();
+      console.log('📥 Response status:', response.status);
+      
+      // Response ni o'qish
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        // Agar JSON parse qilishda xatolik bo'lsa, text ni o'qish
+        const text = await response.text();
+        console.log('📥 Response text:', text);
+        throw new Error('Server javobi noto\'g\'ri formatda');
+      }
+      
       console.log('📥 Auth response:', data);
 
       if (data.success && data.user) {
@@ -129,11 +144,10 @@ function App() {
           tgId: String(data.user.tgId)
         };
         
-        // USER MA'LUMOTLARINI TEKSHIRISH
-        console.log('✅ User data saved:', userData);
+        console.log('✅ User authenticated!');
         console.log('✅ tgId:', userData.tgId);
-        console.log('✅ tgId type:', typeof userData.tgId);
         console.log('✅ firstName:', userData.firstName);
+        console.log('✅ coins:', userData.coins);
         
         setUser(userData);
         setDebugInfo(`✅ Auth: ${userData.firstName} (${userData.tgId})`);
@@ -150,15 +164,48 @@ function App() {
         return userData;
       } else {
         console.error('❌ Auth failed:', data);
-        setDebugInfo('❌ Auth failed');
-        return null;
+        setDebugInfo(`❌ Auth failed: ${data.message || 'Noma\'lum xatolik'}`);
+        
+        // Xatolik haqida notification
+        showNotification(`⚠️ Avtorizatsiya xatoligi: ${data.message || 'Server javob bermadi'}`, 'error');
+        
+        // Fallback - test user
+        const fallbackUser = {
+          tgId: tgId,
+          firstName: tgUser?.first_name || "O'yinchi",
+          username: tgUser?.username || '',
+          coins: 100,
+          rating: 100,
+          totalGames: 0,
+          wins: 0,
+          losses: 0,
+          isRefRewarded: false
+        };
+        setUser(fallbackUser);
+        setDebugInfo(`⚠️ Fallback user: ${fallbackUser.firstName}`);
+        return fallbackUser;
       }
     } catch (error) {
       console.error('❌ Auth error:', error);
-      setDebugInfo('❌ Auth error: ' + error.message);
-      return null;
+      setDebugInfo(`❌ Auth error: ${error.message}`);
+      
+      // Fallback - test user
+      const fallbackUser = {
+        tgId: tgUser?.id ? String(tgUser.id) : 'fallback_' + Date.now(),
+        firstName: tgUser?.first_name || "O'yinchi",
+        username: tgUser?.username || '',
+        coins: 100,
+        rating: 100,
+        totalGames: 0,
+        wins: 0,
+        losses: 0,
+        isRefRewarded: false
+      };
+      setUser(fallbackUser);
+      showNotification('⚠️ Server bilan bog\'lanishda xatolik. Offline rejimda.', 'warning');
+      return fallbackUser;
     }
-  }, [BACKEND_URL]);
+  }, [BACKEND_URL, showNotification]);
 
   // ======================
   // INITIALIZE
@@ -222,7 +269,6 @@ function App() {
       } finally {
         setLoading(false);
         console.log('✅ ===== INITIALIZATION COMPLETE =====');
-        console.log('📊 Final user:', user);
       }
     };
 
@@ -233,9 +279,7 @@ function App() {
       console.log('✅ Socket connected! ID:', socket.id);
       setSocketConnected(true);
       
-      // User mavjud bo'lsa socket ga ulanish
       if (user && user.tgId) {
-        console.log('📤 Sending user_connect on reconnect');
         socket.emit('user_connect', {
           tgId: String(user.tgId),
           firstName: user.firstName || "O'yinchi",
@@ -272,21 +316,7 @@ function App() {
       socket.off('connect_error', onConnectError);
       socket.off('user_connected', onUserConnected);
     };
-  }, []); // Empty dependency array - faqat bir marta ishlaydi
-
-  // ======================
-  // USER O'ZGARGANDA SOCKET GA ULASH
-  // ======================
-  useEffect(() => {
-    if (user && user.tgId && socketConnected) {
-      console.log('📤 User changed, sending to socket');
-      socket.emit('user_connect', {
-        tgId: String(user.tgId),
-        firstName: user.firstName || "O'yinchi",
-        username: user.username || ''
-      });
-    }
-  }, [user, socketConnected]);
+  }, []); // Empty dependency array
 
   // ======================
   // RENDER
@@ -330,7 +360,7 @@ function App() {
             App ID: {user?.tgId || '❌ YO\'Q'}
           </span>
         </div>
-        <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>
+        <div style={{ color: '#ffaa00', fontSize: '10px', marginTop: '4px' }}>
           {debugInfo}
         </div>
       </div>
@@ -402,21 +432,10 @@ function App() {
               <button 
                 className="btn-play-online"
                 onClick={() => {
-                  // USER MA'LUMOTLARINI TEKSHIRISH
-                  console.log('🔍 Before starting game:', user);
-                  console.log('🔍 tgId:', user?.tgId);
-                  
-                  if (!user || !user.tgId || user.tgId === 'undefined' || user.tgId === 'null') {
-                    showNotification('⚠️ Iltimos avval tizimga kiring! Sahifani yangilang', 'warning');
-                    // Sahifani yangilash
-                    setTimeout(() => {
-                      if (window.confirm('Sahifani yangilash kerak. Yangilansinmi?')) {
-                        window.location.reload();
-                      }
-                    }, 1000);
+                  if (!user || !user.tgId) {
+                    showNotification('⚠️ Iltimos avval tizimga kiring!', 'warning');
                     return;
                   }
-                  
                   setCurrentScreen('game');
                 }}
               >
@@ -436,11 +455,9 @@ function App() {
 
               <button 
                 className="btn-refresh"
-                onClick={() => {
-                  window.location.reload();
-                }}
+                onClick={() => window.location.reload()}
               >
-                🔄 Sahifani yangilash
+                🔄 Yangilash
               </button>
             </div>
 
@@ -456,15 +473,15 @@ function App() {
         )}
 
         {currentScreen === 'game' && (
-           <DuelGame
-           user={user}
-           setUser={setUser}
-           backendUrl={BACKEND_URL}
-           onBack={() => setCurrentScreen('menu')}
-           onNotification={showNotification}
-           triggerHaptic={triggerHaptic}
-           socket={socket}
-         />
+          <DuelGame
+            user={user}
+            setUser={setUser}
+            backendUrl={BACKEND_URL}
+            onBack={() => setCurrentScreen('menu')}
+            onNotification={showNotification}
+            triggerHaptic={triggerHaptic}
+            socket={socket}
+          />
         )}
 
         {currentScreen === 'bot' && (

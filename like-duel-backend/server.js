@@ -395,13 +395,28 @@ app.get('/api/health', (req, res) => {
 });
 
 // AUTH
+// Server.js dagi auth endpoint
 app.post('/api/user/auth', async (req, res) => {
+  console.log('📥 ===== AUTH REQUEST =====');
+  console.log('📊 Body:', req.body);
+  
   const { tgId, username, firstName, lastName, photoUrl, refParent } = req.body;
 
   try {
+    // tgId ni tekshirish
+    if (!tgId) {
+      console.error('❌ No tgId provided');
+      return res.status(400).json({ 
+        success: false, 
+        message: "tgId talab qilinadi" 
+      });
+    }
+
+    console.log('🔍 Looking for user:', tgId);
     let user = await User.findOne({ tgId });
 
     if (!user) {
+      console.log('🆕 Creating new user:', tgId);
       user = new User({
         tgId,
         username: username || '',
@@ -420,14 +435,12 @@ app.post('/api/user/auth', async (req, res) => {
           await parent.save();
           user.coins += 100;
           user.isRefRewarded = true;
-          io.emit(`update_${refParent}`, { 
-            type: 'REF_BONUS', 
-            coins: parent.coins
-          });
         }
       }
       await user.save();
+      console.log('✅ New user created:', user.tgId);
     } else {
+      console.log('🔄 Updating existing user:', tgId);
       user.username = username || user.username;
       user.firstName = firstName || user.firstName;
       user.lastName = lastName || user.lastName;
@@ -435,12 +448,18 @@ app.post('/api/user/auth', async (req, res) => {
       user.lastLogin = new Date();
       user.isOnline = true;
       await user.save();
+      console.log('✅ User updated:', user.tgId);
     }
 
+    console.log('📤 Sending response:', { success: true, user: user.tgId });
     res.status(200).json({ success: true, user });
+
   } catch (error) {
-    console.error('Auth xatoligi:', error);
-    res.status(500).json({ success: false, message: "Avtorizatsiya xatoligi" });
+    console.error('❌ Auth xatoligi:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Avtorizatsiya xatoligi: " + error.message 
+    });
   }
 });
 
