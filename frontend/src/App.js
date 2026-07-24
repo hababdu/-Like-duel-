@@ -1,5 +1,5 @@
 // ============================================================
-// APP.JS - TELEGRAM ID NI TO'G'RI OLISH
+// APP.JS - TO'LIQ TUZATILGAN VERSION
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
 import socket from './socket';
@@ -42,7 +42,7 @@ function App() {
   }, []);
 
   // ======================
-  // TELEGRAM MA'LUMOTLARINI OLISH - TO'G'RILANGAN
+  // TELEGRAM MA'LUMOTLARINI OLISH
   // ======================
   const getTelegramData = useCallback(() => {
     try {
@@ -55,18 +55,14 @@ function App() {
 
       console.log('✅ Telegram WebApp mavjud');
       
-      // Barcha ma'lumotlarni olish
-      const initData = tg.initData || '';
       const initDataUnsafe = tg.initDataUnsafe || {};
       const user = initDataUnsafe.user || null;
       
       console.log('📱 initDataUnsafe:', initDataUnsafe);
       console.log('👤 user:', user);
-      console.log('📝 initData:', initData);
 
-      // Agar user bo'lmasa, test user yaratish
       if (!user) {
-        console.warn('⚠️ Telegram user ma\'lumotlari yo\'q, test user yaratiladi');
+        console.warn('⚠️ Telegram user ma\'lumotlari yo\'q');
         return {
           tg: tg,
           user: {
@@ -74,7 +70,7 @@ function App() {
             first_name: 'Test User',
             username: 'test_user'
           },
-          initData: initData,
+          initData: tg.initData || '',
           initDataUnsafe: initDataUnsafe
         };
       }
@@ -82,17 +78,17 @@ function App() {
       return {
         tg: tg,
         user: user,
-        initData: initData,
+        initData: tg.initData || '',
         initDataUnsafe: initDataUnsafe
       };
     } catch (error) {
-      console.error('❌ Telegram ma\'lumotlarini olishda xatolik:', error);
+      console.error('❌ Telegram error:', error);
       return null;
     }
   }, []);
 
   // ======================
-  // USER AUTH - TO'G'RILANGAN
+  // USER AUTH
   // ======================
   const authenticateUser = useCallback(async (tgUser, startParam) => {
     try {
@@ -101,14 +97,12 @@ function App() {
       if (tgUser && tgUser.id) {
         tgId = String(tgUser.id);
       } else {
-        // Fallback ID
         tgId = 'test_' + Date.now();
       }
 
       console.log('🔑 ===== AUTH START =====');
       console.log('📊 tgId:', tgId);
       console.log('📊 tgUser:', tgUser);
-      console.log('📊 startParam:', startParam);
 
       const response = await fetch(`${BACKEND_URL}/api/user/auth`, {
         method: 'POST',
@@ -134,12 +128,15 @@ function App() {
           ...data.user,
           tgId: String(data.user.tgId)
         };
-        setUser(userData);
-        console.log('✅ User authenticated!');
+        
+        // USER MA'LUMOTLARINI TEKSHIRISH
+        console.log('✅ User data saved:', userData);
         console.log('✅ tgId:', userData.tgId);
+        console.log('✅ tgId type:', typeof userData.tgId);
         console.log('✅ firstName:', userData.firstName);
-        console.log('✅ coins:', userData.coins);
-        console.log('✅ rating:', userData.rating);
+        
+        setUser(userData);
+        setDebugInfo(`✅ Auth: ${userData.firstName} (${userData.tgId})`);
         
         // Socket ga ulanish
         if (socket && socket.connected) {
@@ -150,7 +147,6 @@ function App() {
           });
         }
         
-        setDebugInfo(`✅ Auth: ${userData.firstName} (${userData.tgId})`);
         return userData;
       } else {
         console.error('❌ Auth failed:', data);
@@ -165,38 +161,32 @@ function App() {
   }, [BACKEND_URL]);
 
   // ======================
-  // INITIALIZE - TO'G'RILANGAN
+  // INITIALIZE
   // ======================
   useEffect(() => {
     const initializeApp = async () => {
       try {
         console.log('🚀 ===== INITIALIZING APP =====');
         
-        // 1. Telegram ma'lumotlarini olish
         const tgData = getTelegramData();
         console.log('📱 Telegram data:', tgData);
         
         if (tgData) {
           setTelegramUser(tgData.user);
           
-          // Telegram WebApp ni tayyorlash
           if (tgData.tg) {
             tgData.tg.ready();
             tgData.tg.expand();
             console.log('✅ Telegram WebApp ready');
           }
           
-          // User ma'lumotlari
           const tgUser = tgData.user;
           const startParam = tgData.initDataUnsafe?.start_param;
-          
-          console.log('👤 tgUser:', tgUser);
-          console.log('🔗 startParam:', startParam);
           
           if (tgUser && tgUser.id) {
             await authenticateUser(tgUser, startParam);
           } else {
-            console.warn('⚠️ Telegram user topilmadi, test user ishlatiladi');
+            console.warn('⚠️ Telegram user topilmadi');
             const testUser = {
               id: Date.now(),
               first_name: 'Test User',
@@ -206,7 +196,6 @@ function App() {
           }
         } else {
           console.warn('⚠️ Telegram WebApp topilmadi');
-          // Brauzer test user
           const testUser = {
             id: Date.now(),
             first_name: 'Web User',
@@ -216,9 +205,8 @@ function App() {
         }
       } catch (error) {
         console.error('❌ Initialize error:', error);
-        // Fallback user
         const fallbackId = 'fallback_' + Date.now();
-        setUser({
+        const fallbackUser = {
           tgId: fallbackId,
           firstName: 'User',
           username: 'user',
@@ -228,11 +216,13 @@ function App() {
           wins: 0,
           losses: 0,
           isRefRewarded: false
-        });
+        };
+        setUser(fallbackUser);
         setDebugInfo('❌ Fallback user');
       } finally {
         setLoading(false);
         console.log('✅ ===== INITIALIZATION COMPLETE =====');
+        console.log('📊 Final user:', user);
       }
     };
 
@@ -243,7 +233,9 @@ function App() {
       console.log('✅ Socket connected! ID:', socket.id);
       setSocketConnected(true);
       
+      // User mavjud bo'lsa socket ga ulanish
       if (user && user.tgId) {
+        console.log('📤 Sending user_connect on reconnect');
         socket.emit('user_connect', {
           tgId: String(user.tgId),
           firstName: user.firstName || "O'yinchi",
@@ -280,10 +272,24 @@ function App() {
       socket.off('connect_error', onConnectError);
       socket.off('user_connected', onUserConnected);
     };
-  }, [authenticateUser, getTelegramData]);
+  }, []); // Empty dependency array - faqat bir marta ishlaydi
 
   // ======================
-  // RENDER - USER ID NI KO'RSATISH
+  // USER O'ZGARGANDA SOCKET GA ULASH
+  // ======================
+  useEffect(() => {
+    if (user && user.tgId && socketConnected) {
+      console.log('📤 User changed, sending to socket');
+      socket.emit('user_connect', {
+        tgId: String(user.tgId),
+        firstName: user.firstName || "O'yinchi",
+        username: user.username || ''
+      });
+    }
+  }, [user, socketConnected]);
+
+  // ======================
+  // RENDER
   // ======================
   if (loading) {
     return (
@@ -321,7 +327,7 @@ function App() {
             🔌 Socket: {socketConnected ? '🟢 Online' : '🔴 Offline'}
           </span>
           <span style={{ marginLeft: '12px', color: '#666' }}>
-            ID: {user?.tgId || '❌ YO\'Q'}
+            App ID: {user?.tgId || '❌ YO\'Q'}
           </span>
         </div>
         <div style={{ color: '#666', fontSize: '10px', marginTop: '4px' }}>
@@ -396,10 +402,21 @@ function App() {
               <button 
                 className="btn-play-online"
                 onClick={() => {
-                  if (!user?.tgId) {
-                    showNotification('⚠️ Iltimos avval tizimga kiring!', 'warning');
+                  // USER MA'LUMOTLARINI TEKSHIRISH
+                  console.log('🔍 Before starting game:', user);
+                  console.log('🔍 tgId:', user?.tgId);
+                  
+                  if (!user || !user.tgId || user.tgId === 'undefined' || user.tgId === 'null') {
+                    showNotification('⚠️ Iltimos avval tizimga kiring! Sahifani yangilang', 'warning');
+                    // Sahifani yangilash
+                    setTimeout(() => {
+                      if (window.confirm('Sahifani yangilash kerak. Yangilansinmi?')) {
+                        window.location.reload();
+                      }
+                    }, 1000);
                     return;
                   }
+                  
                   setCurrentScreen('game');
                 }}
               >
@@ -420,19 +437,10 @@ function App() {
               <button 
                 className="btn-refresh"
                 onClick={() => {
-                  if (user?.tgId) {
-                    socket.emit('user_connect', {
-                      tgId: String(user.tgId),
-                      firstName: user.firstName || "O'yinchi"
-                    });
-                    showNotification('✅ Ma\'lumotlar yangilandi', 'success');
-                  } else {
-                    showNotification('⚠️ Iltimos sahifani yangilang', 'warning');
-                    window.location.reload();
-                  }
+                  window.location.reload();
                 }}
               >
-                🔄 Yangilash
+                🔄 Sahifani yangilash
               </button>
             </div>
 
@@ -448,15 +456,15 @@ function App() {
         )}
 
         {currentScreen === 'game' && (
-          <DuelGame
-            user={user}
-            setUser={setUser}
-            backendUrl={BACKEND_URL}
-            onBack={() => setCurrentScreen('menu')}
-            onNotification={showNotification}
-            triggerHaptic={triggerHaptic}
-            socket={socket}
-          />
+           <DuelGame
+           user={user}
+           setUser={setUser}
+           backendUrl={BACKEND_URL}
+           onBack={() => setCurrentScreen('menu')}
+           onNotification={showNotification}
+           triggerHaptic={triggerHaptic}
+           socket={socket}
+         />
         )}
 
         {currentScreen === 'bot' && (
