@@ -620,6 +620,143 @@ socket.on('make_choice', ({ roomId, choice }) => {
 });
 
 // ============================================================
+// SERVER.JS - CHAT UCHUN QO'SHIMCHA
+// ============================================================
+
+// ============================================================
+// CHAT MESSAGE
+// ============================================================
+socket.on('chat_message', ({ roomId, message }) => {
+  console.log('💬 Chat message:', { roomId, message, socketId: socket.id });
+  
+  const room = activeRooms[roomId];
+  if (!room) {
+    socket.emit('error', { message: 'Xona topilmadi' });
+    return;
+  }
+
+  // Xabarni yuborgan o'yinchini topish
+  const player = room.players.find(p => p.socketId === socket.id);
+  if (!player) return;
+
+  const chatData = {
+    tgId: player.tgId,
+    name: player.name || "O'yinchi",
+    photoUrl: player.photoUrl || '',
+    message: message,
+    timestamp: new Date().toISOString()
+  };
+
+  // Xonadagi barchaga yuborish
+  io.to(roomId).emit('chat_message', chatData);
+});
+
+// ============================================================
+// FIND MATCH - PLAYERGA PHOTO URL QO'SHISH
+// ============================================================
+socket.on('find_match', async ({ player, stake = 10 }) => {
+  console.log('🔍 Find match:', player.tgId);
+
+  try {
+    // User ma'lumotlarini bazadan olish
+    const user = await User.findOne({ tgId: String(player.tgId) });
+    
+    if (!user) {
+      socket.emit('error', { message: 'Foydalanuvchi topilmadi' });
+      return;
+    }
+
+    // Queue dan o'chirish
+    searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
+
+    const newPlayer = {
+      socketId: socket.id,
+      tgId: String(player.tgId),
+      name: player.firstName || "O'yinchi",
+      username: player.username || '',
+      rating: player.rating || 100,
+      stake: Math.max(1, Number(stake) || 10),
+      photoUrl: user.photoUrl || '', // PHOTO URL QO'SHILDI
+      level: user.level || 1
+    };
+
+    // Raqib qidirish
+    const opponentIndex = searchQueue.findIndex(p => 
+      p.stake === newPlayer.stake && 
+      p.tgId !== newPlayer.tgId &&
+      io.sockets.sockets.has(p.socketId)
+    );
+
+    if (opponentIndex !== -1) {
+      const opponent = searchQueue.splice(opponentIndex, 1)[0];
+      const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+
+      socket.join(roomId);
+      const oppSocket = io.sockets.sockets.get(opponent.socketId);
+      if (oppSocket) {
+        oppSocket.join(roomId);
+      }
+
+      // Xona yaratish
+      activeRooms[roomId] = {
+        roomId,
+        players: [newPlayer, opponent],
+        choices: {},
+        stake: newPlayer.stake,
+        timer: null,
+        timeLeft: 30,
+        createdAt: Date.now(),
+        chat: [] // CHAT UCHUN
+      };
+
+      // Match found
+      const opponentData = {
+        tgId: opponent.tgId,
+        name: opponent.name,
+        username: opponent.username,
+        rating: opponent.rating,
+        photoUrl: opponent.photoUrl || '', // PHOTO URL QO'SHILDI
+        level: opponent.level || 1
+      };
+
+      const playerData = {
+        tgId: newPlayer.tgId,
+        name: newPlayer.name,
+        username: newPlayer.username,
+        rating: newPlayer.rating,
+        photoUrl: newPlayer.photoUrl || '', // PHOTO URL QO'SHILDI
+        level: newPlayer.level || 1
+      };
+
+      socket.emit('match_found', {
+        roomId,
+        opponent: opponentData,
+        stake: newPlayer.stake
+      });
+
+      oppSocket.emit('match_found', {
+        roomId,
+        opponent: playerData,
+        stake: newPlayer.stake
+      });
+
+      startRoomTimer(roomId);
+
+    } else {
+      searchQueue.push(newPlayer);
+      socket.emit('searching', {
+        stake: newPlayer.stake,
+        queueLength: searchQueue.length
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Find match error:', error);
+    socket.emit('error', { message: error.message });
+  }
+});
+
+// ============================================================
 // EVALUATE ROUND - TUZATILGAN
 // ============================================================
 async function evaluateRound(roomId) {

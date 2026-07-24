@@ -1,9 +1,8 @@
 // ============================================================
-// DuelGame.js - TO'LIQ TUZATILGAN VERSION
+// DuelGame.js - TO'LIQ TUZATILGAN + REAL TIME CHAT
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './DuelGame.css'
-
 function DuelGame({ 
   user, 
   setUser, 
@@ -16,7 +15,7 @@ function DuelGame({
   // ======================
   // STATE
   // ======================
-  const [gameState, setGameState] = useState('idle'); // idle, searching, playing, result
+  const [gameState, setGameState] = useState('idle');
   const [opponent, setOpponent] = useState(null);
   const [roomId, setRoomId] = useState(null);
   const [timer, setTimer] = useState(30);
@@ -28,9 +27,17 @@ function DuelGame({
   const [isSearching, setIsSearching] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [opponentChoiceMade, setOpponentChoiceMade] = useState(false);
-  const [debugLog, setDebugLog] = useState([]);
+  
+  // ===== CHAT STATE =====
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [showChat, setShowChat] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const chatEndRef = useRef(null);
+  const chatInputRef = useRef(null);
 
-  const timerIntervalRef = useRef(null);
+  // ===== DEBUG =====
+  const [debugLog, setDebugLog] = useState([]);
 
   // ======================
   // DEBUG LOG
@@ -40,6 +47,19 @@ function DuelGame({
     setDebugLog(prev => [...prev.slice(-10), log]);
     console.log('🔍', msg);
   };
+
+  // ======================
+  // SCROLL CHAT TO BOTTOM
+  // ======================
+  const scrollChatToBottom = () => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    scrollChatToBottom();
+  }, [chatMessages]);
 
   // ======================
   // SOCKET EVENT HANDLERS
@@ -77,10 +97,13 @@ function DuelGame({
       setIsSearching(false);
       setShowResult(false);
       setOpponentChoiceMade(false);
+      setChatMessages([]);
+      setUnreadCount(0);
       
       addDebug(`✅ Game state: playing`);
       addDebug(`👤 Opponent: ${data.opponent?.name || 'Noma\'lum'}`);
       addDebug(`🏆 Opponent rating: ${data.opponent?.rating || 0}`);
+      addDebug(`🖼️ Opponent photo: ${data.opponent?.photoUrl ? '✅' : '❌'}`);
       
       triggerHaptic?.('heavy');
       onNotification?.(`🎯 Raqib topildi! ${data.opponent?.name || 'Noma\'lum'} bilan duel!`, 'success');
@@ -99,7 +122,7 @@ function DuelGame({
 
     // ====== OPPONENT CHOICE MADE ======
     const onOpponentChoiceMade = (data) => {
-      addDebug(`👀 Opponent made choice: ${JSON.stringify(data)}`);
+      addDebug(`👀 Opponent made choice`);
       setOpponentChoiceMade(true);
     };
 
@@ -111,7 +134,6 @@ function DuelGame({
       setShowResult(true);
       setIsSearching(false);
       
-      // Haptic va notification
       if (result.result === 'win') {
         triggerHaptic?.('heavy');
         onNotification?.(`🎉 Siz yutdingiz! +${result.rewardCoins} 🪙`, 'success');
@@ -123,7 +145,6 @@ function DuelGame({
         onNotification?.(`🤝 Durang`, 'info');
       }
       
-      // User ma'lumotlarini yangilash
       if (setUser && user) {
         setUser(prev => ({
           ...prev,
@@ -133,9 +154,17 @@ function DuelGame({
           wins: (prev?.wins || 0) + (result.result === 'win' ? 1 : 0),
           losses: (prev?.losses || 0) + (result.result === 'lose' ? 1 : 0),
           draws: (prev?.draws || 0) + (result.result === 'draw' ? 1 : 0),
-          level: result.newLevel || prev?.level || 1,
-          xp: (prev?.xp || 0) + Math.max(0, result.rewardXP || 0)
+          level: result.newLevel || prev?.level || 1
         }));
+      }
+    };
+
+    // ====== CHAT MESSAGE ======
+    const onChatMessage = (data) => {
+      addDebug(`💬 Chat: ${data.name}: ${data.message}`);
+      setChatMessages(prev => [...prev, data]);
+      if (!showChat) {
+        setUnreadCount(prev => prev + 1);
       }
     };
 
@@ -192,6 +221,7 @@ function DuelGame({
     socket.on('timer_tick', onTimerTick);
     socket.on('opponent_choice_made', onOpponentChoiceMade);
     socket.on('round_result', onRoundResult);
+    socket.on('chat_message', onChatMessage);
     socket.on('opponent_left', onOpponentLeft);
     socket.on('error', onError);
     socket.on('search_cancelled', onSearchCancelled);
@@ -207,11 +237,12 @@ function DuelGame({
       socket.off('timer_tick', onTimerTick);
       socket.off('opponent_choice_made', onOpponentChoiceMade);
       socket.off('round_result', onRoundResult);
+      socket.off('chat_message', onChatMessage);
       socket.off('opponent_left', onOpponentLeft);
       socket.off('error', onError);
       socket.off('search_cancelled', onSearchCancelled);
     };
-  }, [socket, triggerHaptic, onNotification, setUser, user, stake]);
+  }, [socket, triggerHaptic, onNotification, setUser, user, stake, showChat]);
 
   // ======================
   // START SEARCH
@@ -223,33 +254,28 @@ function DuelGame({
     addDebug(`🪙 User coins: ${user?.coins}`);
     addDebug(`🔌 Socket connected: ${socket?.connected}`);
 
-    // 1. User tekshirish
     if (!user) {
       onNotification?.('⚠️ Iltimos avval tizimga kiring!', 'error');
       return;
     }
 
-    // 2. tgId tekshirish
     if (!user.tgId || user.tgId === 'undefined' || user.tgId === 'null') {
       onNotification?.('⚠️ Foydalanuvchi ID si topilmadi!', 'error');
       addDebug('❌ Invalid tgId: ' + user.tgId);
       return;
     }
 
-    // 3. Tanga tekshirish
     if ((user.coins || 0) < stake) {
       onNotification?.(`⚠️ Yetarli tanga yo'q! ${stake} 🪙 kerak`, 'error');
       return;
     }
 
-    // 4. Socket tekshirish
     if (!socket?.connected) {
       setSocketError('Serverga ulanish yo\'q');
       onNotification?.('⚠️ Serverga ulanish yo\'q!', 'error');
       return;
     }
 
-    // 5. Player ma'lumotlarini tayyorlash
     const playerData = {
       tgId: String(user.tgId),
       firstName: user.firstName || "O'yinchi",
@@ -260,7 +286,7 @@ function DuelGame({
       photoUrl: user.photoUrl || ''
     };
 
-    addDebug(`📤 Emitting find_match: ${JSON.stringify({ player: playerData, stake: Number(stake) })}`);
+    addDebug(`📤 Emitting find_match`);
     
     setGameState('searching');
     setIsSearching(true);
@@ -297,17 +323,53 @@ function DuelGame({
       return;
     }
     
-    // Tanlovni saqlash
     setMyChoice(choice);
-    
-    // Serverga yuborish
     socket.emit('make_choice', { roomId, choice });
     triggerHaptic?.('light');
-    
-    // Raqib tanlovini kutish xabari
     onNotification?.('⏳ Raqib tanlovi kutilmoqda...', 'info');
     
   }, [socket, roomId, triggerHaptic, onNotification]);
+
+  // ======================
+  // SEND CHAT MESSAGE
+  // ======================
+  const sendChatMessage = useCallback(() => {
+    if (!chatInput.trim() || !roomId || !socket) return;
+    
+    const message = chatInput.trim();
+    setChatInput('');
+    
+    socket.emit('chat_message', { roomId, message });
+    
+    // Local chatga qo'shish
+    const chatData = {
+      tgId: user?.tgId,
+      name: user?.firstName || "Siz",
+      photoUrl: user?.photoUrl || '',
+      message: message,
+      timestamp: new Date().toISOString(),
+      isMine: true
+    };
+    setChatMessages(prev => [...prev, chatData]);
+    
+  }, [chatInput, roomId, socket, user]);
+
+  // ======================
+  // TOGGLE CHAT
+  // ======================
+  const toggleChat = useCallback(() => {
+    setShowChat(prev => {
+      if (!prev) {
+        setUnreadCount(0);
+        setTimeout(() => {
+          if (chatInputRef.current) {
+            chatInputRef.current.focus();
+          }
+        }, 100);
+      }
+      return !prev;
+    });
+  }, []);
 
   // ======================
   // RESET GAME
@@ -324,6 +386,9 @@ function DuelGame({
     setQueueLength(0);
     setShowResult(false);
     setOpponentChoiceMade(false);
+    setChatMessages([]);
+    setShowChat(false);
+    setUnreadCount(0);
   }, []);
 
   // ======================
@@ -352,6 +417,11 @@ function DuelGame({
     if (str === 'paper') return 'Qog\'oz';
     if (str === 'scissors') return 'Qaychi';
     return '';
+  };
+
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
   };
 
   // ======================
@@ -572,6 +642,69 @@ function DuelGame({
               </p>
             </div>
           )}
+
+          {/* ===== CHAT BUTTON ===== */}
+          <button 
+            className="duel-chat-toggle"
+            onClick={toggleChat}
+          >
+            💬 {unreadCount > 0 && <span className="chat-unread">{unreadCount}</span>}
+          </button>
+
+          {/* ===== CHAT WINDOW ===== */}
+          {showChat && (
+            <div className="duel-chat-window">
+              <div className="duel-chat-header">
+                <span>💬 Chat</span>
+                <button onClick={toggleChat}>✕</button>
+              </div>
+              <div className="duel-chat-messages">
+                {chatMessages.length === 0 ? (
+                  <div className="duel-chat-empty">
+                    <p>💭 Xabarlar yo'q</p>
+                    <p className="duel-chat-hint">Raqib bilan suhbatlashing!</p>
+                  </div>
+                ) : (
+                  chatMessages.map((msg, index) => (
+                    <div 
+                      key={index} 
+                      className={`duel-chat-message ${msg.tgId === user?.tgId ? 'mine' : 'theirs'}`}
+                    >
+                      <div className="duel-chat-avatar">
+                        {msg.photoUrl ? (
+                          <img src={msg.photoUrl} alt={msg.name} />
+                        ) : (
+                          <span>{msg.name?.charAt(0) || '?'}</span>
+                        )}
+                      </div>
+                      <div className="duel-chat-content">
+                        <div className="duel-chat-name">
+                          {msg.name}
+                          <span className="duel-chat-time">{formatTime(msg.timestamp)}</span>
+                        </div>
+                        <div className="duel-chat-text">{msg.message}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+                <div ref={chatEndRef} />
+              </div>
+              <div className="duel-chat-input">
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                  placeholder="Xabar yozing..."
+                  maxLength={100}
+                />
+                <button onClick={sendChatMessage} disabled={!chatInput.trim()}>
+                  📤
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -689,13 +822,13 @@ function DuelGame({
           0% { transform: scale(0.8); opacity: 1; }
           100% { transform: scale(1.4); opacity: 0; }
         }
-        @keyframes loading {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
         @keyframes blink {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.3; }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
