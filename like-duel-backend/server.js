@@ -564,27 +564,266 @@ io.on('connection', (socket) => {
   // ============================================================
   // MAKE CHOICE
   // ============================================================
-  socket.on('make_choice', ({ roomId, choice }) => {
-    try {
-      const room = activeRooms[roomId];
-      if (!room) {
-        socket.emit('error', { message: 'Xona topilmadi' });
-        return;
-      }
+// ============================================================
+// SERVER.JS - SOCKET EVENTS TUZATILGAN
+// ============================================================
 
-      room.choices[socket.id] = choice;
+// ============================================================
+// MAKE CHOICE - TUZATILGAN
+// ============================================================
+socket.on('make_choice', ({ roomId, choice }) => {
+  console.log('✋ Make choice:', { roomId, choice, socketId: socket.id });
+  
+  const room = activeRooms[roomId];
+  if (!room) {
+    console.error('❌ Room not found:', roomId);
+    socket.emit('error', { message: 'Xona topilmadi' });
+    return;
+  }
 
-      // Ikkala o'yinchi ham tanlov qildi
-      if (Object.keys(room.choices).length === 2) {
-        clearInterval(room.timer);
-        evaluateRound(roomId);
-      }
+  // O'yinchi tanlovini saqlash
+  room.choices[socket.id] = choice;
+  console.log('📊 Choices:', room.choices);
+  console.log('📊 Total choices:', Object.keys(room.choices).length);
+  
+  // Ikkala o'yinchi ham tanlov qilganini tekshirish
+  const player1Id = room.players[0].socketId;
+  const player2Id = room.players[1].socketId;
+  const hasPlayer1Choice = room.choices[player1Id] !== undefined;
+  const hasPlayer2Choice = room.choices[player2Id] !== undefined;
+  
+  console.log('📊 Player1 choice:', hasPlayer1Choice ? room.choices[player1Id] : '❌');
+  console.log('📊 Player2 choice:', hasPlayer2Choice ? room.choices[player2Id] : '❌');
 
-    } catch (error) {
-      console.error('❌ Make choice error:', error);
-      socket.emit('error', { message: error.message });
+  // Ikkala o'yinchi ham tanlov qildi
+  if (hasPlayer1Choice && hasPlayer2Choice) {
+    console.log('✅ Both players made choice!');
+    
+    // Timer ni to'xtatish
+    if (room.timer) {
+      clearInterval(room.timer);
+      room.timer = null;
     }
-  });
+    
+    // Natijani hisoblash
+    evaluateRound(roomId);
+  } else {
+    console.log('⏳ Waiting for other player...');
+    // Boshqa o'yinchiga xabar yuborish
+    const otherPlayerId = socket.id === player1Id ? player2Id : player1Id;
+    if (io.sockets.sockets.has(otherPlayerId)) {
+      io.to(otherPlayerId).emit('opponent_choice_made', {
+        status: 'waiting'
+      });
+    }
+  }
+});
+
+// ============================================================
+// EVALUATE ROUND - TUZATILGAN
+// ============================================================
+async function evaluateRound(roomId) {
+  const room = activeRooms[roomId];
+  if (!room) {
+    console.error('❌ Room not found for evaluation:', roomId);
+    return;
+  }
+
+  console.log('📊 ===== EVALUATING ROUND =====');
+  console.log('📊 Room ID:', roomId);
+  console.log('📊 Choices:', room.choices);
+
+  const [p1, p2] = room.players;
+  
+  // Tanlovlarni olish (agar bo'lmasa 'timeout')
+  const c1 = room.choices[p1.socketId] || 'timeout';
+  const c2 = room.choices[p2.socketId] || 'timeout';
+  
+  console.log('📊 Player1 choice:', c1);
+  console.log('📊 Player2 choice:', c2);
+
+  let result1, result2;
+  let coinChange1 = 0, coinChange2 = 0;
+  let xpChange1 = 0, xpChange2 = 0;
+
+  // Natijalarni hisoblash
+  if (c1 === 'timeout' && c2 === 'timeout') {
+    // Ikkalasi ham tanlov qilmagan
+    result1 = 'draw'; 
+    result2 = 'draw';
+    coinChange1 = 0; 
+    coinChange2 = 0;
+    xpChange1 = 0; 
+    xpChange2 = 0;
+    
+  } else if (c1 === 'timeout') {
+    // Faqat 1-o'yinchi tanlov qilmagan
+    result1 = 'lose'; 
+    result2 = 'win';
+    coinChange1 = -room.stake; 
+    coinChange2 = room.stake;
+    xpChange1 = -10; 
+    xpChange2 = 15;
+    
+  } else if (c2 === 'timeout') {
+    // Faqat 2-o'yinchi tanlov qilmagan
+    result1 = 'win'; 
+    result2 = 'lose';
+    coinChange1 = room.stake; 
+    coinChange2 = -room.stake;
+    xpChange1 = 15; 
+    xpChange2 = -10;
+    
+  } else {
+    // Ikkalasi ham tanlov qilgan
+    const winner = determineWinner(c1, c2);
+    if (winner === 'player1') {
+      result1 = 'win'; 
+      result2 = 'lose';
+      coinChange1 = room.stake; 
+      coinChange2 = -room.stake;
+      xpChange1 = 15; 
+      xpChange2 = -10;
+    } else if (winner === 'player2') {
+      result1 = 'lose'; 
+      result2 = 'win';
+      coinChange1 = -room.stake; 
+      coinChange2 = room.stake;
+      xpChange1 = -10; 
+      xpChange2 = 15;
+    } else {
+      result1 = 'draw'; 
+      result2 = 'draw';
+      coinChange1 = 0; 
+      coinChange2 = 0;
+      xpChange1 = 5; 
+      xpChange2 = 5;
+    }
+  }
+
+  console.log('📊 Results:', { result1, result2, coinChange1, coinChange2 });
+
+  try {
+    // Userlarni yangilash
+    const [user1, user2] = await Promise.all([
+      User.findOne({ tgId: p1.tgId }),
+      User.findOne({ tgId: p2.tgId })
+    ]);
+
+    if (user1) {
+      user1.coins = Math.max(0, user1.coins + coinChange1);
+      user1.rating = Math.max(0, user1.rating + xpChange1);
+      user1.totalGames += 1;
+      user1.xp += Math.max(0, xpChange1);
+      
+      if (result1 === 'win') {
+        user1.wins += 1;
+        user1.winStreak += 1;
+        user1.maxWinStreak = Math.max(user1.maxWinStreak, user1.winStreak);
+      } else if (result1 === 'lose') {
+        user1.losses += 1;
+        user1.winStreak = 0;
+      } else {
+        user1.draws += 1;
+      }
+      
+      // Level tekshirish
+      while (user1.xp >= user1.xpToNextLevel) {
+        user1.level += 1;
+        user1.xp -= user1.xpToNextLevel;
+        user1.xpToNextLevel = Math.floor(user1.xpToNextLevel * 1.5);
+      }
+      
+      await user1.save();
+      console.log('✅ User1 updated:', user1.tgId, 'Coins:', user1.coins);
+    }
+
+    if (user2) {
+      user2.coins = Math.max(0, user2.coins + coinChange2);
+      user2.rating = Math.max(0, user2.rating + xpChange2);
+      user2.totalGames += 1;
+      user2.xp += Math.max(0, xpChange2);
+      
+      if (result2 === 'win') {
+        user2.wins += 1;
+        user2.winStreak += 1;
+        user2.maxWinStreak = Math.max(user2.maxWinStreak, user2.winStreak);
+      } else if (result2 === 'lose') {
+        user2.losses += 1;
+        user2.winStreak = 0;
+      } else {
+        user2.draws += 1;
+      }
+      
+      while (user2.xp >= user2.xpToNextLevel) {
+        user2.level += 1;
+        user2.xp -= user2.xpToNextLevel;
+        user2.xpToNextLevel = Math.floor(user2.xpToNextLevel * 1.5);
+      }
+      
+      await user2.save();
+      console.log('✅ User2 updated:', user2.tgId, 'Coins:', user2.coins);
+    }
+
+    // Natijalarni yuborish
+    const resultData1 = {
+      myChoice: c1,
+      opponentChoice: c2,
+      result: result1,
+      rewardCoins: coinChange1,
+      rewardXP: xpChange1,
+      newCoins: user1?.coins || 0,
+      newRating: user1?.rating || 0,
+      newLevel: user1?.level || 1,
+      opponentName: p2.name,
+      opponentRating: p2.rating,
+      opponentLevel: user2?.level || 1
+    };
+
+    const resultData2 = {
+      myChoice: c2,
+      opponentChoice: c1,
+      result: result2,
+      rewardCoins: coinChange2,
+      rewardXP: xpChange2,
+      newCoins: user2?.coins || 0,
+      newRating: user2?.rating || 0,
+      newLevel: user2?.level || 1,
+      opponentName: p1.name,
+      opponentRating: p1.rating,
+      opponentLevel: user1?.level || 1
+    };
+
+    console.log('📤 Sending result to player1:', resultData1);
+    console.log('📤 Sending result to player2:', resultData2);
+
+    io.to(p1.socketId).emit('round_result', resultData1);
+    io.to(p2.socketId).emit('round_result', resultData2);
+
+  } catch (error) {
+    console.error('❌ Evaluate round error:', error);
+  }
+
+  // Xonani o'chirish
+  if (room.timer) {
+    clearInterval(room.timer);
+  }
+  delete activeRooms[roomId];
+  console.log('🗑️ Room deleted:', roomId);
+}
+
+// ============================================================
+// DETERMINE WINNER
+// ============================================================
+function determineWinner(choice1, choice2) {
+  if (choice1 === choice2) return 'draw';
+  if (
+    (choice1 === 'rock' && choice2 === 'scissors') ||
+    (choice1 === 'paper' && choice2 === 'rock') ||
+    (choice1 === 'scissors' && choice2 === 'paper')
+  ) return 'player1';
+  return 'player2';
+}
 
   // ============================================================
   // CANCEL SEARCH

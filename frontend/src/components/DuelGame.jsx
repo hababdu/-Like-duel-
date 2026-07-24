@@ -1,8 +1,7 @@
 // ============================================================
-// DuelGame.js - TO'LIQ DUEL O'YINI
+// DuelGame.js - TO'LIQ TUZATILGAN VERSION
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import './DuelGame.css'
 
 function DuelGame({ 
   user, 
@@ -27,6 +26,7 @@ function DuelGame({
   const [queueLength, setQueueLength] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [opponentChoiceMade, setOpponentChoiceMade] = useState(false);
   const [debugLog, setDebugLog] = useState([]);
 
   const timerIntervalRef = useRef(null);
@@ -75,6 +75,7 @@ function DuelGame({
       setGameState('playing');
       setIsSearching(false);
       setShowResult(false);
+      setOpponentChoiceMade(false);
       
       addDebug(`✅ Game state: playing`);
       addDebug(`👤 Opponent: ${data.opponent?.name || 'Noma\'lum'}`);
@@ -93,6 +94,12 @@ function DuelGame({
       if (timeLeft === 0) {
         triggerHaptic?.('heavy');
       }
+    };
+
+    // ====== OPPONENT CHOICE MADE ======
+    const onOpponentChoiceMade = (data) => {
+      addDebug(`👀 Opponent made choice: ${JSON.stringify(data)}`);
+      setOpponentChoiceMade(true);
     };
 
     // ====== ROUND RESULT ======
@@ -125,7 +132,8 @@ function DuelGame({
           wins: (prev?.wins || 0) + (result.result === 'win' ? 1 : 0),
           losses: (prev?.losses || 0) + (result.result === 'lose' ? 1 : 0),
           draws: (prev?.draws || 0) + (result.result === 'draw' ? 1 : 0),
-          level: result.newLevel || prev?.level || 1
+          level: result.newLevel || prev?.level || 1,
+          xp: (prev?.xp || 0) + Math.max(0, result.rewardXP || 0)
         }));
       }
     };
@@ -181,6 +189,7 @@ function DuelGame({
     socket.on('searching', onSearching);
     socket.on('match_found', onMatchFound);
     socket.on('timer_tick', onTimerTick);
+    socket.on('opponent_choice_made', onOpponentChoiceMade);
     socket.on('round_result', onRoundResult);
     socket.on('opponent_left', onOpponentLeft);
     socket.on('error', onError);
@@ -195,6 +204,7 @@ function DuelGame({
       socket.off('searching', onSearching);
       socket.off('match_found', onMatchFound);
       socket.off('timer_tick', onTimerTick);
+      socket.off('opponent_choice_made', onOpponentChoiceMade);
       socket.off('round_result', onRoundResult);
       socket.off('opponent_left', onOpponentLeft);
       socket.off('error', onError);
@@ -245,7 +255,8 @@ function DuelGame({
       username: user.username || '',
       rating: user.rating || 100,
       coins: user.coins || 0,
-      level: user.level || 1
+      level: user.level || 1,
+      photoUrl: user.photoUrl || ''
     };
 
     addDebug(`📤 Emitting find_match: ${JSON.stringify({ player: playerData, stake: Number(stake) })}`);
@@ -278,15 +289,23 @@ function DuelGame({
   // ======================
   const submitChoice = useCallback((choice) => {
     addDebug(`✋ Submitting choice: ${choice}, roomId: ${roomId}`);
+    
     if (!socket || !roomId) {
       addDebug('❌ No socket or roomId');
       onNotification?.('⚠️ Xatolik yuz berdi', 'error');
       return;
     }
     
+    // Tanlovni saqlash
     setMyChoice(choice);
+    
+    // Serverga yuborish
     socket.emit('make_choice', { roomId, choice });
     triggerHaptic?.('light');
+    
+    // Raqib tanlovini kutish xabari
+    onNotification?.('⏳ Raqib tanlovi kutilmoqda...', 'info');
+    
   }, [socket, roomId, triggerHaptic, onNotification]);
 
   // ======================
@@ -303,6 +322,7 @@ function DuelGame({
     setIsSearching(false);
     setQueueLength(0);
     setShowResult(false);
+    setOpponentChoiceMade(false);
   }, []);
 
   // ======================
@@ -474,6 +494,11 @@ function DuelGame({
               <div className="duel-player-name">🥊 {user?.firstName || 'Siz'}</div>
               <div className="duel-player-rating">🏆 {user?.rating || 0}</div>
               <div className="duel-player-level">📊 Lv.{user?.level || 1}</div>
+              {myChoice && (
+                <div className="duel-player-choice">
+                  ✅ {formatChoice(myChoice)}
+                </div>
+              )}
             </div>
 
             <div className="duel-timer">
@@ -495,6 +520,16 @@ function DuelGame({
               <div className="duel-player-name">🥷 {opponent?.name || 'Raqib'}</div>
               <div className="duel-player-rating">🏆 {opponent?.rating || 0}</div>
               <div className="duel-player-level">📊 Lv.{opponent?.level || 1}</div>
+              {opponentChoiceMade && (
+                <div className="duel-player-choice" style={{ color: '#ffaa00' }}>
+                  ⏳ Tanlov qildi
+                </div>
+              )}
+              {!opponentChoiceMade && myChoice && (
+                <div className="duel-player-choice" style={{ color: '#888' }}>
+                  ⏳ Kutilmoqda...
+                </div>
+              )}
             </div>
           </div>
 
