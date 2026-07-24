@@ -1,5 +1,5 @@
 // ============================================================
-// App.js - TELEGRAM MA'LUMOTLARINI TO'G'RI OLISH
+// App.js - TO'LIQ VERSION
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
 import socket from './socket';
@@ -11,6 +11,9 @@ import Referrals from './components/Referrals';
 import './App.css';
 
 function App() {
+  // ======================
+  // STATE
+  // ======================
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentScreen, setCurrentScreen] = useState('menu');
@@ -23,17 +26,17 @@ function App() {
     ? 'https://telegram-bot-server-2-matj.onrender.com'
     : 'http://localhost:10000';
 
-  // ============================================================
+  // ======================
   // NOTIFICATION
-  // ============================================================
+  // ======================
   const showNotification = useCallback((message, type = 'info') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   }, []);
 
-  // ============================================================
+  // ======================
   // HAPTIC FEEDBACK
-  // ============================================================
+  // ======================
   const triggerHaptic = useCallback((type = 'light') => {
     try {
       if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -44,12 +47,11 @@ function App() {
     } catch (e) {}
   }, []);
 
-  // ============================================================
-  // TELEGRAM MA'LUMOTLARINI OLISH - TO'G'RILANGAN
-  // ============================================================
+  // ======================
+  // TELEGRAM MA'LUMOTLARINI OLISH
+  // ======================
   const getTelegramUser = useCallback(() => {
     try {
-      // Telegram WebApp mavjudligini tekshirish
       const tg = window.Telegram?.WebApp;
       
       console.log('🔍 Checking Telegram WebApp:', tg);
@@ -61,7 +63,6 @@ function App() {
 
       setIsTelegramWebApp(true);
       
-      // Telegram ma'lumotlarini olish
       const initDataUnsafe = tg.initDataUnsafe || {};
       const user = initDataUnsafe.user || null;
       
@@ -80,8 +81,6 @@ function App() {
         return user;
       } else {
         console.warn('⚠️ Telegram user ma\'lumotlari yo\'q');
-        
-        // Agar user ma'lumotlari bo'lmasa, test user qaytarish
         const testUser = {
           id: Date.now(),
           first_name: 'Test User',
@@ -97,9 +96,9 @@ function App() {
     }
   }, []);
 
-  // ============================================================
-  // USER AUTH - TO'G'RILANGAN
-  // ============================================================
+  // ======================
+  // USER AUTH
+  // ======================
   const authenticateUser = useCallback(async (tgUser) => {
     try {
       let tgId = null;
@@ -115,7 +114,6 @@ function App() {
         photoUrl = tgUser.photo_url || '';
         isPremium = tgUser.is_premium || false;
       } else {
-        // Fallback - test user
         tgId = 'test_' + Date.now();
         firstName = 'Test User';
         username = 'test_user';
@@ -124,10 +122,7 @@ function App() {
       console.log('🔑 ===== AUTH START =====');
       console.log('📊 tgId:', tgId);
       console.log('📊 firstName:', firstName);
-      console.log('📊 username:', username);
-      console.log('📊 isPremium:', isPremium);
 
-      // Serverga auth so'rovi
       const response = await fetch(`${API_URL}/api/user/auth`, {
         method: 'POST',
         headers: { 
@@ -174,7 +169,6 @@ function App() {
         
         setUser(userData);
         
-        // Socket ga ulanish
         if (socket && socket.connected) {
           socket.emit('user_connect', {
             tgId: userData.tgId,
@@ -186,7 +180,6 @@ function App() {
         return userData;
       } else {
         console.error('❌ Auth failed:', data);
-        // Fallback - local user
         const fallbackUser = {
           tgId: tgId,
           firstName: firstName,
@@ -207,7 +200,6 @@ function App() {
       }
     } catch (error) {
       console.error('❌ Auth error:', error);
-      // Fallback user
       const fallbackUser = {
         tgId: tgUser?.id ? String(tgUser.id) : 'fallback_' + Date.now(),
         firstName: tgUser?.first_name || "O'yinchi",
@@ -228,24 +220,19 @@ function App() {
     }
   }, [API_URL, showNotification]);
 
-  // ============================================================
-  // INITIALIZE - TO'G'RILANGAN
-  // ============================================================
+  // ======================
+  // INITIALIZE
+  // ======================
   useEffect(() => {
     const initializeApp = async () => {
       try {
         console.log('🚀 ===== INITIALIZING APP =====');
-        console.log('📱 Window Telegram:', window.Telegram);
-        console.log('📱 Window Telegram WebApp:', window.Telegram?.WebApp);
         
-        // Telegram ma'lumotlarini olish
         const tgUser = getTelegramUser();
         console.log('👤 tgUser:', tgUser);
         
-        // Auth qilish
         await authenticateUser(tgUser);
         
-        // Telegram WebApp ni tayyorlash
         if (window.Telegram?.WebApp) {
           window.Telegram.WebApp.ready();
           window.Telegram.WebApp.expand();
@@ -254,7 +241,6 @@ function App() {
         
       } catch (error) {
         console.error('❌ Initialize error:', error);
-        // Fallback user
         const fallbackUser = {
           tgId: 'fallback_' + Date.now(),
           firstName: 'User',
@@ -276,9 +262,21 @@ function App() {
 
     initializeApp();
 
-    // Socket event listeners
     const onConnect = () => {
       console.log('✅ Socket connected! ID:', socket.id);
+      setSocketConnected(true);
+      
+      if (user && user.tgId) {
+        socket.emit('user_connect', {
+          tgId: String(user.tgId),
+          firstName: user.firstName || "O'yinchi",
+          username: user.username || ''
+        });
+      }
+    };
+
+    const onReconnect = (attemptNumber) => {
+      console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
       setSocketConnected(true);
       
       if (user && user.tgId) {
@@ -308,21 +306,23 @@ function App() {
     };
 
     socket.on('connect', onConnect);
+    socket.on('reconnect', onReconnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
     socket.on('user_connected', onUserConnected);
 
     return () => {
       socket.off('connect', onConnect);
+      socket.off('reconnect', onReconnect);
       socket.off('disconnect', onDisconnect);
       socket.off('connect_error', onConnectError);
       socket.off('user_connected', onUserConnected);
     };
-  }, []); // Empty dependency array
+  }, []);
 
-  // ============================================================
+  // ======================
   // RENDER
-  // ============================================================
+  // ======================
   if (loading) {
     return (
       <div className="loading-screen">

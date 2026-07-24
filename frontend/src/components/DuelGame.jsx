@@ -1,8 +1,8 @@
 // ============================================================
-// DuelGame.js - TO'LIQ TUZATILGAN + REAL TIME CHAT
+// DuelGame.js - TO'LIQ VERSION
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import './DuelGame.css'
+
 function DuelGame({ 
   user, 
   setUser, 
@@ -28,7 +28,7 @@ function DuelGame({
   const [showResult, setShowResult] = useState(false);
   const [opponentChoiceMade, setOpponentChoiceMade] = useState(false);
   
-  // ===== CHAT STATE =====
+  // Chat state
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [showChat, setShowChat] = useState(false);
@@ -36,7 +36,7 @@ function DuelGame({
   const chatEndRef = useRef(null);
   const chatInputRef = useRef(null);
 
-  // ===== DEBUG =====
+  // Debug
   const [debugLog, setDebugLog] = useState([]);
 
   // ======================
@@ -73,9 +73,7 @@ function DuelGame({
     addDebug(`✅ DuelGame mounted, socket: ${socket.id}`);
     addDebug(`✅ Socket connected: ${socket.connected}`);
     addDebug(`👤 User: ${user?.firstName} (${user?.tgId})`);
-    addDebug(`🪙 Coins: ${user?.coins}`);
 
-    // ====== SEARCHING ======
     const onSearching = (data) => {
       addDebug(`🔍 Searching: ${JSON.stringify(data)}`);
       setGameState('searching');
@@ -84,7 +82,6 @@ function DuelGame({
       if (data?.queueLength !== undefined) setQueueLength(data.queueLength);
     };
 
-    // ====== MATCH FOUND ======
     const onMatchFound = (data) => {
       addDebug(`🎯 MATCH FOUND!!! ${JSON.stringify(data)}`);
       
@@ -100,16 +97,13 @@ function DuelGame({
       setChatMessages([]);
       setUnreadCount(0);
       
-      addDebug(`✅ Game state: playing`);
-      addDebug(`👤 Opponent: ${data.opponent?.name || 'Noma\'lum'}`);
-      addDebug(`🏆 Opponent rating: ${data.opponent?.rating || 0}`);
+      addDebug(`✅ Opponent: ${data.opponent?.name}`);
       addDebug(`🖼️ Opponent photo: ${data.opponent?.photoUrl ? '✅' : '❌'}`);
       
       triggerHaptic?.('heavy');
       onNotification?.(`🎯 Raqib topildi! ${data.opponent?.name || 'Noma\'lum'} bilan duel!`, 'success');
     };
 
-    // ====== TIMER TICK ======
     const onTimerTick = (timeLeft) => {
       setTimer(timeLeft);
       if (timeLeft <= 5 && timeLeft > 0) {
@@ -120,13 +114,11 @@ function DuelGame({
       }
     };
 
-    // ====== OPPONENT CHOICE MADE ======
-    const onOpponentChoiceMade = (data) => {
+    const onOpponentChoiceMade = () => {
       addDebug(`👀 Opponent made choice`);
       setOpponentChoiceMade(true);
     };
 
-    // ====== ROUND RESULT ======
     const onRoundResult = (result) => {
       addDebug(`📊 Round result: ${JSON.stringify(result)}`);
       setRoundResult(result);
@@ -159,7 +151,6 @@ function DuelGame({
       }
     };
 
-    // ====== CHAT MESSAGE ======
     const onChatMessage = (data) => {
       addDebug(`💬 Chat: ${data.name}: ${data.message}`);
       setChatMessages(prev => [...prev, data]);
@@ -168,7 +159,6 @@ function DuelGame({
       }
     };
 
-    // ====== OPPONENT LEFT ======
     const onOpponentLeft = () => {
       addDebug('🚪 Opponent left');
       setGameState('opponent_left');
@@ -177,7 +167,6 @@ function DuelGame({
       onNotification?.('⚠️ Raqib o\'yinni tark etdi!', 'error');
     };
 
-    // ====== ERROR ======
     const onError = (data) => {
       addDebug(`❌ Error: ${JSON.stringify(data)}`);
       setSocketError(data?.message || 'Xatolik yuz berdi');
@@ -186,7 +175,6 @@ function DuelGame({
       setIsSearching(false);
     };
 
-    // ====== SEARCH CANCELLED ======
     const onSearchCancelled = () => {
       addDebug('🔴 Search cancelled');
       setGameState('idle');
@@ -194,28 +182,34 @@ function DuelGame({
       setQueueLength(0);
     };
 
-    // ====== CONNECT ======
     const onConnect = () => {
       addDebug(`✅ Socket connected: ${socket.id}`);
       setSocketError(null);
     };
 
-    // ====== DISCONNECT ======
+    const onReconnect = () => {
+      addDebug('🔄 Socket reconnected');
+      setSocketError(null);
+      onNotification?.('✅ Serverga qayta ulandi!', 'success');
+      
+      if (gameState === 'searching' && isSearching) {
+        addDebug('🔄 Retrying search after reconnect...');
+        startSearch();
+      }
+    };
+
     const onDisconnect = () => {
       addDebug('❌ Socket disconnected');
       setSocketError('Serverdan uzildi');
     };
 
-    // ====== CONNECT ERROR ======
-    const onConnectError = (error) => {
+    socket.on('connect', onConnect);
+    socket.on('reconnect', onReconnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', (error) => {
       addDebug(`❌ Connect error: ${error.message}`);
       setSocketError('Serverga ulanishda xatolik');
-    };
-
-    // Eventlarni ro'yxatdan o'tkazish
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    socket.on('connect_error', onConnectError);
+    });
     socket.on('searching', onSearching);
     socket.on('match_found', onMatchFound);
     socket.on('timer_tick', onTimerTick);
@@ -226,12 +220,12 @@ function DuelGame({
     socket.on('error', onError);
     socket.on('search_cancelled', onSearchCancelled);
 
-    // Cleanup
     return () => {
       addDebug('🧹 Cleaning up DuelGame');
       socket.off('connect', onConnect);
+      socket.off('reconnect', onReconnect);
       socket.off('disconnect', onDisconnect);
-      socket.off('connect_error', onConnectError);
+      socket.off('connect_error');
       socket.off('searching', onSearching);
       socket.off('match_found', onMatchFound);
       socket.off('timer_tick', onTimerTick);
@@ -242,7 +236,7 @@ function DuelGame({
       socket.off('error', onError);
       socket.off('search_cancelled', onSearchCancelled);
     };
-  }, [socket, triggerHaptic, onNotification, setUser, user, stake, showChat]);
+  }, [socket, triggerHaptic, onNotification, setUser, user, stake, gameState, isSearching]);
 
   // ======================
   // START SEARCH
@@ -251,7 +245,6 @@ function DuelGame({
     addDebug('🚀 Starting search...');
     addDebug(`📊 User: ${user?.tgId} - ${user?.firstName}`);
     addDebug(`📊 Stake: ${stake}`);
-    addDebug(`🪙 User coins: ${user?.coins}`);
     addDebug(`🔌 Socket connected: ${socket?.connected}`);
 
     if (!user) {
@@ -261,7 +254,6 @@ function DuelGame({
 
     if (!user.tgId || user.tgId === 'undefined' || user.tgId === 'null') {
       onNotification?.('⚠️ Foydalanuvchi ID si topilmadi!', 'error');
-      addDebug('❌ Invalid tgId: ' + user.tgId);
       return;
     }
 
@@ -270,9 +262,26 @@ function DuelGame({
       return;
     }
 
-    if (!socket?.connected) {
-      setSocketError('Serverga ulanish yo\'q');
-      onNotification?.('⚠️ Serverga ulanish yo\'q!', 'error');
+    if (!socket) {
+      setSocketError('Socket mavjud emas');
+      onNotification?.('⚠️ Socket mavjud emas!', 'error');
+      return;
+    }
+
+    if (!socket.connected) {
+      addDebug('🔄 Socket not connected, trying to connect...');
+      setSocketError('Serverga ulanish yo\'q, qayta ulanmoqda...');
+      socket.connect();
+      
+      setTimeout(() => {
+        if (socket.connected) {
+          addDebug('✅ Socket reconnected, retrying search...');
+          startSearch();
+        } else {
+          setSocketError('Serverga ulanish yo\'q');
+          onNotification?.('⚠️ Serverga ulanish yo\'q!', 'error');
+        }
+      }, 2000);
       return;
     }
 
@@ -286,7 +295,7 @@ function DuelGame({
       photoUrl: user.photoUrl || ''
     };
 
-    addDebug(`📤 Emitting find_match`);
+    addDebug(`📤 Emitting find_match with tgId: ${playerData.tgId}`);
     
     setGameState('searching');
     setIsSearching(true);
@@ -341,7 +350,6 @@ function DuelGame({
     
     socket.emit('chat_message', { roomId, message });
     
-    // Local chatga qo'shish
     const chatData = {
       tgId: user?.tgId,
       name: user?.firstName || "Siz",
@@ -464,9 +472,7 @@ function DuelGame({
         </div>
       )}
 
-      {/* ============================================================
-          IDLE STATE
-          ============================================================ */}
+      {/* ===== IDLE ===== */}
       {gameState === 'idle' && (
         <div className="duel-idle">
           <div className="duel-idle-header">
@@ -521,9 +527,7 @@ function DuelGame({
         </div>
       )}
 
-      {/* ============================================================
-          SEARCHING STATE
-          ============================================================ */}
+      {/* ===== SEARCHING ===== */}
       {gameState === 'searching' && (
         <div className="duel-searching">
           <div className="duel-radar">
@@ -542,15 +546,25 @@ function DuelGame({
               }} />
             </div>
           </div>
-          <button className="duel-cancel-btn" onClick={cancelSearch}>
-            ✖️ Bekor qilish
-          </button>
+          <div className="duel-searching-buttons">
+            <button className="duel-cancel-btn" onClick={cancelSearch}>
+              ✖️ Bekor qilish
+            </button>
+            <button 
+              className="duel-retry-btn" 
+              onClick={startSearch}
+              disabled={!socket?.connected}
+            >
+              🔄 Qayta urinish
+            </button>
+          </div>
+          {!socket?.connected && (
+            <p className="duel-searching-error">🔴 Serverga ulanish yo'q, qayta ulanish kutilmoqda...</p>
+          )}
         </div>
       )}
 
-      {/* ============================================================
-          PLAYING STATE
-          ============================================================ */}
+      {/* ===== PLAYING ===== */}
       {gameState === 'playing' && (
         <div className="duel-playing">
           <div className="duel-versus">
@@ -643,15 +657,12 @@ function DuelGame({
             </div>
           )}
 
-          {/* ===== CHAT BUTTON ===== */}
-          <button 
-            className="duel-chat-toggle"
-            onClick={toggleChat}
-          >
+          {/* Chat Toggle */}
+          <button className="duel-chat-toggle" onClick={toggleChat}>
             💬 {unreadCount > 0 && <span className="chat-unread">{unreadCount}</span>}
           </button>
 
-          {/* ===== CHAT WINDOW ===== */}
+          {/* Chat Window */}
           {showChat && (
             <div className="duel-chat-window">
               <div className="duel-chat-header">
@@ -708,9 +719,7 @@ function DuelGame({
         </div>
       )}
 
-      {/* ============================================================
-          RESULT STATE
-          ============================================================ */}
+      {/* ===== RESULT ===== */}
       {gameState === 'result' && roundResult && showResult && (
         <div className="duel-result">
           <div className={`duel-result-banner ${roundResult.result}`}>
@@ -728,9 +737,7 @@ function DuelGame({
                   <span className="duel-result-choice-name">{getChoiceName(roundResult.myChoice)}</span>
                 </div>
               </div>
-
               <div className="duel-result-vs">⚡</div>
-
               <div className="duel-result-choice">
                 <span className="duel-result-label">Raqib</span>
                 <div className="duel-result-choice-display">
@@ -787,9 +794,7 @@ function DuelGame({
         </div>
       )}
 
-      {/* ============================================================
-          OPPONENT LEFT STATE
-          ============================================================ */}
+      {/* ===== OPPONENT LEFT ===== */}
       {gameState === 'opponent_left' && (
         <div className="duel-opponent-left">
           <div className="duel-opponent-left-icon">⚠️</div>
@@ -814,10 +819,6 @@ function DuelGame({
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.1); opacity: 0.7; }
-        }
         @keyframes radarPulse {
           0% { transform: scale(0.8); opacity: 1; }
           100% { transform: scale(1.4); opacity: 0; }
@@ -829,6 +830,265 @@ function DuelGame({
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        .duel-searching-buttons {
+          display: flex;
+          gap: 10px;
+          justify-content: center;
+          margin-top: 16px;
+        }
+        .duel-retry-btn {
+          padding: 12px 24px;
+          border-radius: 12px;
+          border: none;
+          background: linear-gradient(135deg, #43e97b, #38f9d7);
+          color: #0f0c29;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+        .duel-retry-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(67,233,123,0.4);
+        }
+        .duel-retry-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .duel-searching-error {
+          color: #ff4444;
+          font-size: 13px;
+          margin-top: 12px;
+          animation: blink 1s ease-in-out infinite;
+        }
+        .duel-chat-toggle {
+          position: fixed;
+          bottom: 80px;
+          right: 20px;
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          border: none;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: #fff;
+          font-size: 24px;
+          cursor: pointer;
+          box-shadow: 0 4px 20px rgba(102,126,234,0.4);
+          transition: all 0.3s;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .duel-chat-toggle .chat-unread {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          background: #ff4444;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          min-width: 20px;
+          height: 20px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 4px;
+        }
+        .duel-chat-window {
+          position: fixed;
+          bottom: 140px;
+          right: 20px;
+          width: 320px;
+          max-height: 400px;
+          background: rgba(15,12,41,0.95);
+          border-radius: 16px;
+          border: 1px solid rgba(255,255,255,0.1);
+          backdrop-filter: blur(20px);
+          box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+          display: flex;
+          flex-direction: column;
+          animation: slideUp 0.3s ease-out;
+          z-index: 101;
+          overflow: hidden;
+        }
+        .duel-chat-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+          background: rgba(255,255,255,0.03);
+        }
+        .duel-chat-header span {
+          font-weight: 600;
+          font-size: 14px;
+          color: #888;
+        }
+        .duel-chat-header button {
+          background: none;
+          border: none;
+          color: #888;
+          font-size: 18px;
+          cursor: pointer;
+          padding: 0 4px;
+        }
+        .duel-chat-messages {
+          flex: 1;
+          padding: 12px 16px;
+          overflow-y: auto;
+          max-height: 250px;
+          min-height: 100px;
+        }
+        .duel-chat-messages::-webkit-scrollbar {
+          width: 3px;
+        }
+        .duel-chat-messages::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.05);
+          border-radius: 2px;
+        }
+        .duel-chat-messages::-webkit-scrollbar-thumb {
+          background: #667eea;
+          border-radius: 2px;
+        }
+        .duel-chat-empty {
+          text-align: center;
+          padding: 20px 0;
+          color: #666;
+        }
+        .duel-chat-empty p {
+          margin: 0;
+          font-size: 14px;
+        }
+        .duel-chat-hint {
+          font-size: 12px !important;
+          color: #444 !important;
+          margin-top: 4px !important;
+        }
+        .duel-chat-message {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 12px;
+          animation: slideUp 0.2s ease-out;
+        }
+        .duel-chat-message.mine {
+          flex-direction: row-reverse;
+        }
+        .duel-chat-message.mine .duel-chat-content {
+          align-items: flex-end;
+        }
+        .duel-chat-message.mine .duel-chat-text {
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: #fff;
+          border-radius: 12px 4px 12px 12px;
+        }
+        .duel-chat-message .duel-chat-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          overflow: hidden;
+          flex-shrink: 0;
+          border: 2px solid rgba(255,255,255,0.1);
+        }
+        .duel-chat-message .duel-chat-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .duel-chat-message .duel-chat-avatar span {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: #fff;
+          font-size: 14px;
+          font-weight: 600;
+        }
+        .duel-chat-message .duel-chat-content {
+          display: flex;
+          flex-direction: column;
+          max-width: 70%;
+        }
+        .duel-chat-message .duel-chat-name {
+          font-size: 11px;
+          color: #888;
+          margin-bottom: 2px;
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .duel-chat-message .duel-chat-time {
+          font-size: 9px;
+          color: #555;
+        }
+        .duel-chat-message .duel-chat-text {
+          padding: 8px 12px;
+          border-radius: 4px 12px 12px 12px;
+          background: rgba(255,255,255,0.05);
+          color: #fff;
+          font-size: 13px;
+          word-wrap: break-word;
+          line-height: 1.4;
+        }
+        .duel-chat-input {
+          display: flex;
+          gap: 8px;
+          padding: 10px 12px;
+          border-top: 1px solid rgba(255,255,255,0.05);
+          background: rgba(255,255,255,0.02);
+        }
+        .duel-chat-input input {
+          flex: 1;
+          padding: 8px 12px;
+          border-radius: 20px;
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.05);
+          color: #fff;
+          font-size: 13px;
+          outline: none;
+        }
+        .duel-chat-input input:focus {
+          border-color: #667eea;
+        }
+        .duel-chat-input input::placeholder {
+          color: #555;
+        }
+        .duel-chat-input button {
+          padding: 8px 14px;
+          border-radius: 20px;
+          border: none;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: #fff;
+          font-size: 16px;
+          cursor: pointer;
+        }
+        .duel-chat-input button:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        @media (max-width: 480px) {
+          .duel-chat-window {
+            right: 10px;
+            left: 10px;
+            width: auto;
+            bottom: 130px;
+            max-height: 350px;
+          }
+          .duel-chat-messages {
+            max-height: 200px;
+            min-height: 80px;
+          }
+          .duel-chat-toggle {
+            bottom: 70px;
+            right: 16px;
+            width: 48px;
+            height: 48px;
+            font-size: 20px;
+          }
         }
       `}</style>
     </div>
