@@ -753,121 +753,29 @@ io.on('connection', (socket) => {
   });
 
   // FIND MATCH - TUZATILGAN
-  socket.on('find_match', ({ player, stake = 10 }) => {
-    console.log('🔍 Find match:', { player, stake });
-    
-    try {
-      if (!player || !player.tgId) {
-        console.error('❌ Invalid player data:', player);
-        socket.emit('error', { message: 'Noto\'g\'ri o\'yinchi ma\'lumotlari' });
-        return;
-      }
+// ============================================================
+// SERVER.JS - USER ID NI TEKSHIRISH
+// ============================================================
 
-      // Queue dan o'chirish - FAQAT SHU SOCKET ID
-      searchQueue = searchQueue.filter(p => p.socketId !== socket.id);
-      
-      const newPlayer = {
-        socketId: socket.id,
-        tgId: String(player.tgId),
-        name: player.firstName || "O'yinchi",
-        username: player.username || '',
-        rating: player.rating || 100,
-        stake: Math.max(1, Number(stake) || 10),
-        joinedAt: new Date()
-      };
+socket.on('find_match', ({ player, stake = 10 }) => {
+  console.log('🔍 ===== FIND MATCH START =====');
+  console.log('📊 Player data:', player);
+  console.log('📊 Player tgId:', player?.tgId);
+  console.log('📊 Player tgId type:', typeof player?.tgId);
+  
+  // tgId ni tekshirish
+  if (!player || !player.tgId || player.tgId === 'undefined' || player.tgId === 'null') {
+    console.error('❌ Invalid tgId:', player?.tgId);
+    socket.emit('error', { message: 'Noto\'g\'ri foydalanuvchi ID si' });
+    return;
+  }
 
-      console.log('🆕 New player:', newPlayer);
-      console.log('📊 Queue length before:', searchQueue.length);
-
-      // Raqib qidirish
-      const opponentIndex = searchQueue.findIndex(p => 
-        p.stake === newPlayer.stake && 
-        p.tgId !== newPlayer.tgId &&
-        p.socketId !== socket.id &&
-        io.sockets.sockets.has(p.socketId)
-      );
-
-      if (opponentIndex !== -1) {
-        // Raqib topildi
-        const opponent = searchQueue.splice(opponentIndex, 1)[0];
-        const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-
-        console.log('✅ Match found!', { roomId, player1: newPlayer.tgId, player2: opponent.tgId });
-
-        // Xonaga qo'shish
-        socket.join(roomId);
-        const oppSocket = io.sockets.sockets.get(opponent.socketId);
-        if (!oppSocket) {
-          console.error('❌ Opponent socket not found');
-          searchQueue.push(newPlayer);
-          socket.emit('searching', { stake: newPlayer.stake });
-          return;
-        }
-        
-        oppSocket.join(roomId);
-
-        // Xona yaratish
-        activeRooms[roomId] = {
-          roomId,
-          players: [newPlayer, opponent],
-          choices: {},
-          stake: newPlayer.stake,
-          timerInterval: null,
-          createdAt: new Date()
-        };
-
-        // Match found xabari
-        const opponentData = {
-          tgId: opponent.tgId,
-          name: opponent.name,
-          username: opponent.username,
-          rating: opponent.rating
-        };
-
-        const playerData = {
-          tgId: newPlayer.tgId,
-          name: newPlayer.name,
-          username: newPlayer.username,
-          rating: newPlayer.rating
-        };
-
-        socket.emit('match_found', { 
-          roomId, 
-          opponent: opponentData,
-          stake: newPlayer.stake
-        });
-        
-        oppSocket.emit('match_found', { 
-          roomId, 
-          opponent: playerData,
-          stake: newPlayer.stake
-        });
-
-        // Timer boshlash
-        startRoomTimer(roomId);
-
-        console.log('✅ Room created:', roomId);
-        console.log('📊 Active rooms:', Object.keys(activeRooms).length);
-
-      } else {
-        // Raqib topilmadi - QUEUE GA QO'SHISH
-        console.log('⏳ No match, adding to queue');
-        searchQueue.push(newPlayer);
-        console.log('📊 Queue length after:', searchQueue.length);
-        
-        socket.emit('searching', { 
-          stake: newPlayer.stake,
-          queueLength: searchQueue.length
-        });
-      }
-    } catch (error) {
-      console.error('❌ Find match error:', error);
-      socket.emit('error', { 
-        message: 'O\'yin boshlashda xatolik: ' + error.message 
-      });
-    }
-    
-  });
+  // tgId ni string ga o'tkazish
+  const tgId = String(player.tgId);
+  console.log('✅ Valid tgId:', tgId);
+  
+  // ... qolgan kod
+});
 
   // CANCEL SEARCH
   socket.on('cancel_search', () => {

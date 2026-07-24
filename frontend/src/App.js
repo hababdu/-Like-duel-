@@ -1,7 +1,7 @@
 // ============================================================
-// APP.JS - TELEGRAM ID NI TO'G'RI OLISH
+// APP.JS - TELEGRAM USER ID NI TO'G'RI OLISH
 // ============================================================
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import socket from './socket';
 import DuelGame from './components/DuelGame';
 import BotGame from './components/BotGame';
@@ -12,11 +12,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [currentScreen, setCurrentScreen] = useState('menu');
   const [socketConnected, setSocketConnected] = useState(false);
-  const [isBotMode, setIsBotMode] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaders, setLeaders] = useState([]);
-  const [leadersLoading, setLeadersLoading] = useState(false);
 
   const BACKEND_URL = process.env.NODE_ENV === 'production'
     ? 'https://telegram-bot-server-2-matj.onrender.com'
@@ -40,30 +36,36 @@ function App() {
       } else if (navigator.vibrate) {
         navigator.vibrate(type === 'heavy' ? 80 : 35);
       }
-    } catch (e) {
-      // Silent fail
-    }
+    } catch (e) {}
   }, []);
 
   // ======================
-  // USER AUTH - TELEGRAM UCHUN
+  // USER AUTH - TO'G'RILANGAN
   // ======================
   const authenticateUser = useCallback(async (tgUser, startParam) => {
     try {
-      // Telegram ID ni string ga o'tkazish
-      const tgId = String(tgUser.id);
-      console.log('🔑 Authenticating user:', tgId);
-      console.log('📱 User data:', tgUser);
+      // Telegram ID ni to'g'ri olish
+      let tgId = null;
+      
+      if (tgUser) {
+        tgId = String(tgUser.id);
+      } else {
+        // Agar Telegram user bo'lmasa, test ID
+        tgId = 'test_' + Date.now();
+      }
+
+      console.log('🔑 Authenticating user ID:', tgId);
+      console.log('📱 Full user data:', tgUser);
 
       const response = await fetch(`${BACKEND_URL}/api/user/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tgId: tgId,
-          username: tgUser.username || '',
-          firstName: tgUser.first_name || "O'yinchi",
-          lastName: tgUser.last_name || '',
-          photoUrl: tgUser.photo_url || '',
+          username: tgUser?.username || '',
+          firstName: tgUser?.first_name || "O'yinchi",
+          lastName: tgUser?.last_name || '',
+          photoUrl: tgUser?.photo_url || '',
           refParent: startParam ? String(startParam) : null
         })
       });
@@ -72,19 +74,26 @@ function App() {
       console.log('📥 Auth response:', data);
 
       if (data.success && data.user) {
-        setUser(data.user);
-        console.log('✅ User authenticated:', data.user.tgId);
+        // User ma'lumotlarini saqlash
+        const userData = {
+          ...data.user,
+          tgId: String(data.user.tgId) // String ekanligiga ishonch hosil qilish
+        };
+        setUser(userData);
+        console.log('✅ User authenticated:', userData.tgId);
+        console.log('✅ User coins:', userData.coins);
+        console.log('✅ User rating:', userData.rating);
         
         // Socket ga ulanish
         if (socket && socket.connected) {
           socket.emit('user_connect', {
-            tgId: String(data.user.tgId),
-            firstName: data.user.firstName || "O'yinchi",
-            username: data.user.username || ''
+            tgId: userData.tgId,
+            firstName: userData.firstName || "O'yinchi",
+            username: userData.username || ''
           });
         }
         
-        return data.user;
+        return userData;
       }
       return null;
     } catch (error) {
@@ -94,7 +103,7 @@ function App() {
   }, [BACKEND_URL]);
 
   // ======================
-  // INITIALIZE - TELEGRAM
+  // INITIALIZE
   // ======================
   useEffect(() => {
     const initializeApp = async () => {
@@ -115,51 +124,33 @@ function App() {
           console.log('👤 Telegram user:', tgUser);
           console.log('🔗 Start param:', startParam);
 
-          if (tgUser) {
+          if (tgUser && tgUser.id) {
             await authenticateUser(tgUser, startParam);
           } else {
-            console.error('❌ No Telegram user data');
-            // Fallback - test user
-            setUser({
-              tgId: 'test_' + Date.now(),
-              firstName: 'Test User',
-              username: 'test_user',
-              coins: 300,
-              rating: 150,
-              totalGames: 0,
-              wins: 0,
-              losses: 0,
-              isRefRewarded: false
-            });
+            console.error('❌ No Telegram user data, using test user');
+            // Test user
+            const testId = 'test_' + Date.now();
+            const testUser = {
+              id: parseInt(testId.replace('test_', '')),
+              first_name: 'Test User',
+              username: 'test_user'
+            };
+            await authenticateUser(testUser, null);
           }
         } else {
           console.log('🌐 Web browser detected');
           // Brauzer uchun test user
           const testId = 'web_' + Date.now();
-          setUser({
-            tgId: testId,
-            firstName: 'Web User',
-            username: 'web_user',
-            coins: 300,
-            rating: 150,
-            totalGames: 0,
-            wins: 0,
-            losses: 0,
-            isRefRewarded: false
-          });
-          
-          // Socket ga ulanish
-          if (socket) {
-            socket.emit('user_connect', {
-              tgId: testId,
-              firstName: 'Web User',
-              username: 'web_user'
-            });
-          }
+          const testUser = {
+            id: parseInt(testId.replace('web_', '')),
+            first_name: 'Web User',
+            username: 'web_user'
+          };
+          await authenticateUser(testUser, null);
         }
       } catch (error) {
         console.error('❌ Initialize error:', error);
-        // Fallback user
+        // Fallback
         const fallbackId = 'fallback_' + Date.now();
         setUser({
           tgId: fallbackId,
@@ -184,7 +175,6 @@ function App() {
       console.log('✅ Socket connected! ID:', socket.id);
       setSocketConnected(true);
       
-      // Agar user mavjud bo'lsa, socket ga ulanish
       if (user) {
         socket.emit('user_connect', {
           tgId: String(user.tgId),
@@ -211,42 +201,18 @@ function App() {
       }
     };
 
-    const onUserStatus = (data) => {
-      console.log('📊 User status:', data);
-    };
-
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
     socket.on('user_connected', onUserConnected);
-    socket.on('user_status', onUserStatus);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('connect_error', onConnectError);
       socket.off('user_connected', onUserConnected);
-      socket.off('user_status', onUserStatus);
     };
-  }, [authenticateUser, user]);
-
-  // ======================
-  // LEADERBOARD
-  // ======================
-  const fetchLeaderboard = useCallback(async () => {
-    setLeadersLoading(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/user/leaderboard`);
-      const data = await response.json();
-      if (data.success) {
-        setLeaders(data.leaders || []);
-      }
-    } catch (error) {
-      console.error('Leaderboard error:', error);
-    } finally {
-      setLeadersLoading(false);
-    }
-  }, [BACKEND_URL]);
+  }, [authenticateUser]);
 
   // ======================
   // RENDER
@@ -273,7 +239,10 @@ function App() {
         <div className="main-menu">
           <h1>💥 LIKE-DUEL</h1>
           <div className="profile-badge">
-            <h3>👋 {user?.firstName}</h3>
+            <h3>👋 {user?.firstName || 'User'}</h3>
+            <div style={{ fontSize: '12px', color: '#888' }}>
+              ID: {user?.tgId || 'No ID'}
+            </div>
             <div className="balances-row">
               <span>🪙 {user?.coins || 0}</span>
               <span>🏆 {user?.rating || 0}</span>
@@ -283,25 +252,12 @@ function App() {
             </div>
           </div>
           
-          <button onClick={() => {
-            setIsBotMode(false);
-            setCurrentScreen('game');
-          }}>
+          <button onClick={() => setCurrentScreen('game')}>
             ⚔️ Onlayn Duel
           </button>
           
-          <button onClick={() => {
-            setIsBotMode(true);
-            setCurrentScreen('bot');
-          }}>
+          <button onClick={() => setCurrentScreen('bot')}>
             🤖 Bot bilan o'ynash
-          </button>
-          
-          <button onClick={() => {
-            setShowLeaderboard(true);
-            fetchLeaderboard();
-          }}>
-            🏆 Peshqadamlar
           </button>
         </div>
       )}

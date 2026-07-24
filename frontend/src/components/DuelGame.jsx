@@ -188,53 +188,56 @@ function DuelGame({
   // ======================
   // START SEARCH
   // ======================
-  const startSearch = useCallback(() => {
-    addDebug('🚀 Starting search...');
-    addDebug(`📊 User: ${user?.tgId} - ${user?.firstName}`);
-    addDebug(`📊 Stake: ${stake}`);
-    addDebug(`🔌 Socket connected: ${socket?.connected}`);
+// ============================================================
+// DUELGAME.JS - USER ID NI TEKSHIRISH
+// ============================================================
 
-    if (!user) {
-      onNotification?.('⚠️ Iltimos avval tizimga kiring!');
-      return;
-    }
+const startSearch = useCallback(() => {
+  // User va tgId ni tekshirish
+  console.log('🔍 Checking user:', user);
+  console.log('🔍 User tgId:', user?.tgId);
+  console.log('🔍 User tgId type:', typeof user?.tgId);
 
-    if ((user.coins || 0) < stake) {
-      onNotification?.('⚠️ Yetarli tanga yo\'q!');
-      return;
-    }
+  if (!user) {
+    onNotification?.('⚠️ Iltimos avval tizimga kiring!');
+    return;
+  }
 
-    if (!socket?.connected) {
-      setSocketError('Serverga ulanish yo\'q');
-      onNotification?.('⚠️ Serverga ulanish yo\'q!');
-      return;
-    }
+  // tgId mavjudligini tekshirish
+  if (!user.tgId || user.tgId === 'undefined' || user.tgId === 'null') {
+    onNotification?.('⚠️ Foydalanuvchi ID si topilmadi!');
+    console.error('❌ Invalid tgId:', user.tgId);
+    return;
+  }
 
-    const playerData = {
-      tgId: String(user.tgId),
-      firstName: user.firstName || "O'yinchi",
-      username: user.username || '',
-      rating: user.rating || 100,
-      coins: user.coins || 0
-    };
+  if ((user.coins || 0) < stake) {
+    onNotification?.('⚠️ Yetarli tanga yo\'q!');
+    return;
+  }
 
-    addDebug(`📤 Emitting find_match: ${JSON.stringify({ player: playerData, stake: Number(stake) })}`);
-    
-    setGameState('searching');
-    
-    socket.emit('find_match', {
-      player: playerData,
-      stake: Number(stake)
-    });
-    
-    // Agar 5 sekunddan keyin hech narsa bo'lmasa, qayta urinish
-    setTimeout(() => {
-      if (gameState === 'searching') {
-        addDebug('⏳ Still searching...');
-      }
-    }, 5000);
-    
-  }, [user, stake, socket, onNotification, gameState]);
+  if (!socket?.connected) {
+    setSocketError('Serverga ulanish yo\'q');
+    onNotification?.('⚠️ Serverga ulanish yo\'q!');
+    return;
+  }
+
+  const playerData = {
+    tgId: String(user.tgId), // String ga o'tkazish
+    firstName: user.firstName || "O'yinchi",
+    username: user.username || '',
+    rating: user.rating || 100,
+    coins: user.coins || 0
+  };
+
+  console.log('📤 Sending player data:', playerData);
+  
+  setGameState('searching');
+  
+  socket.emit('find_match', {
+    player: playerData,
+    stake: Number(stake)
+  });
+}, [user, stake, socket, onNotification]);
 
   // ======================
   // CANCEL SEARCH
