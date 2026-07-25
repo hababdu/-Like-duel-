@@ -1,5 +1,5 @@
 // ============================================================
-// 4. BotGame.js - QAYTA YOZILGAN (Server bilan integratsiya)
+// BotGame.js - TO'LIQ TUZATILGAN VERSION
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './BotGame.css';
@@ -10,7 +10,18 @@ const CHOICES = {
   scissors: { emoji: '✂️', color: '#ffe66d', label: 'Qaychi' }
 };
 
-function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif, triggerHaptic }) {
+function BotGame({ 
+  user, 
+  setUser, 
+  difficulty = 'medium', 
+  onBackToMenu, 
+  showNotif, 
+  triggerHaptic,
+  API_URL 
+}) {
+  // ======================
+  // STATE
+  // ======================
   const [gameState, setGameState] = useState('idle');
   const [playerChoice, setPlayerChoice] = useState(null);
   const [botChoice, setBotChoice] = useState(null);
@@ -19,15 +30,59 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
   const [isBotThinking, setIsBotThinking] = useState(false);
   const [streak, setStreak] = useState(0);
   const [coins, setCoins] = useState(user?.coins || 0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const timerRef = useRef(null);
   const roundRef = useRef(null);
   const playerHistory = useRef([]);
 
-  // Update coins when user changes
+  // ======================
+  // UPDATE COINS FROM USER
+  // ======================
   useEffect(() => {
-    setCoins(user?.coins || 0);
+    if (user?.coins !== undefined) {
+      setCoins(user.coins);
+    }
   }, [user]);
+
+  // ======================
+  // UPDATE COINS TO SERVER
+  // ======================
+  const updateCoinsOnServer = useCallback(async (newCoins) => {
+    if (!user?.tgId) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/user/update-coins`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          tgId: String(user.tgId),
+          amount: newCoins - coins
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Coins updated on server:', data.coins);
+        setCoins(data.coins);
+        if (setUser) {
+          setUser(prev => ({ ...prev, coins: data.coins }));
+        }
+        return true;
+      } else {
+        console.error('❌ Failed to update coins:', data);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Update coins error:', error);
+      return false;
+    }
+  }, [user, coins, API_URL, setUser]);
 
   // ======================
   // BOT INTELLIGENCE
@@ -98,9 +153,20 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
     return winConditions[player] === bot ? 'win' : 'lose';
   }, []);
 
+  // ======================
+  // START ROUND
+  // ======================
   const startRound = useCallback(() => {
+    // Clear old timers
     if (roundRef.current) clearTimeout(roundRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
+
+    // Check if user has enough coins
+    if (coins < 10) {
+      showNotif('⚠️ Yetarli tanga yo\'q! 10 tanga kerak', 'error');
+      setGameState('idle');
+      return;
+    }
 
     setPlayerChoice(null);
     setBotChoice(null);
@@ -108,6 +174,7 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
     setTimer(30);
     setIsBotThinking(true);
     setGameState('playing');
+    setError(null);
 
     // Bot "thinking" delay
     const thinkDelay = 600 + Math.random() * 500;
@@ -124,25 +191,36 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
           setGameState('result');
           setResult('lose');
           setStreak(0);
-          const lossAmount = -10;
-          const newCoins = Math.max(0, coins + lossAmount);
+          
+          // Loss penalty
+          const lossAmount = 10;
+          const newCoins = Math.max(0, coins - lossAmount);
+          
+          // Update coins locally and on server
           setCoins(newCoins);
           if (setUser) {
             setUser(prev => ({ ...prev, coins: newCoins }));
           }
-          showNotif('⏰ Vaqt tugadi!', 'warning');
+          updateCoinsOnServer(newCoins);
+          
+          showNotif('⏰ Vaqt tugadi! -10 🪙', 'error');
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-  }, [coins, setUser, showNotif]);
+  }, [coins, setUser, showNotif, updateCoinsOnServer]);
 
   // ======================
   // PLAYER MAKES CHOICE
   // ======================
-  const handlePlay = useCallback((choice) => {
+  const handlePlay = useCallback(async (choice) => {
     if (gameState !== 'playing' || playerChoice) return;
+    if (coins < 10) {
+      showNotif('⚠️ Yetarli tanga yo\'q! 10 tanga kerak', 'error');
+      setGameState('idle');
+      return;
+    }
 
     // Record player history
     playerHistory.current.push(choice);
@@ -171,12 +249,17 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
     const comboBonus = roundResult === 'win' && streak >= 2 ? (streak - 1) * 10 : 0;
     const finalChange = change + comboBonus;
 
-    // Update coins
+    // Calculate new coins
     const newCoins = Math.max(0, coins + finalChange);
+
+    // Update coins locally
     setCoins(newCoins);
     if (setUser) {
       setUser(prev => ({ ...prev, coins: newCoins }));
     }
+
+    // Update coins on server
+    await updateCoinsOnServer(newCoins);
 
     // Update streak
     if (roundResult === 'win') {
@@ -198,7 +281,7 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
       showNotif(`😢 Mag'lubiyat! ${finalChange} 🪙`, 'error');
     } else {
       triggerHaptic?.('light');
-      showNotif(`🤝 Durang! +${finalChange} 🪙`, 'warning');
+      showNotif(`🤝 Durang! +${finalChange} 🪙`, 'info');
     }
 
     // Clear timers
@@ -209,19 +292,66 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
     roundRef.current = setTimeout(() => {
       startRound();
     }, 2500);
-  }, [gameState, playerChoice, getBotChoice, determineWinner, difficulty, streak, coins, setUser, showNotif, triggerHaptic, startRound]);
+  }, [
+    gameState, 
+    playerChoice, 
+    coins, 
+    getBotChoice, 
+    determineWinner, 
+    difficulty, 
+    streak, 
+    setUser, 
+    showNotif, 
+    triggerHaptic, 
+    startRound,
+    updateCoinsOnServer
+  ]);
 
   // ======================
   // INITIALIZATION
   // ======================
   useEffect(() => {
+    // Check if user has enough coins
+    if (coins < 10) {
+      showNotif('⚠️ Bot o\'ynash uchun 10 tanga kerak!', 'warning');
+      setGameState('idle');
+      return;
+    }
+    
     startRound();
+    
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (roundRef.current) clearTimeout(roundRef.current);
       playerHistory.current = [];
     };
-  }, [difficulty, startRound]);
+  }, [difficulty, startRound, coins, showNotif]);
+
+  // ======================
+  // REFRESH COINS FROM SERVER
+  // ======================
+  const refreshCoins = useCallback(async () => {
+    if (!user?.tgId) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/user/${user.tgId}`);
+      const data = await response.json();
+      
+      if (data.success && data.user) {
+        const newCoins = data.user.coins || 0;
+        setCoins(newCoins);
+        if (setUser) {
+          setUser(prev => ({ ...prev, coins: newCoins }));
+        }
+        showNotif('✅ Tangalar yangilandi!', 'success');
+      }
+    } catch (error) {
+      console.error('❌ Refresh coins error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, API_URL, setUser, showNotif]);
 
   // ======================
   // FORMAT FUNCTIONS
@@ -245,16 +375,36 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
           <span className="icon">←</span>
         </button>
         <div className="header-center">
-          <span className={`badge diff-${difficulty}`}>{difficulty}</span>
+          <span className={`badge diff-${difficulty}`}>
+            {difficulty === 'easy' ? '🟢 Oson' : 
+             difficulty === 'medium' ? '🟡 O\'rta' : '🔴 Qiyin'}
+          </span>
           {streak >= 2 && (
             <span className="combo-indicator">🔥 x{streak}</span>
           )}
         </div>
-        <div className="score-badge">
+        <div className="score-badge" onClick={refreshCoins} style={{ cursor: 'pointer' }}>
           <span className="coin-emoji">🪙</span>
           <span className="coin-count">{coins}</span>
+          {isLoading && <span className="loading-spinner">⏳</span>}
         </div>
       </header>
+
+      {/* Error Message */}
+      {error && (
+        <div className="error-message">
+          ⚠️ {error}
+          <button onClick={() => setError(null)}>✕</button>
+        </div>
+      )}
+
+      {/* Insufficient Coins Warning */}
+      {coins < 10 && gameState !== 'idle' && (
+        <div className="warning-message">
+          ⚠️ Tanga yetarli emas! O'yin uchun 10 tanga kerak.
+          <button onClick={refreshCoins}>🔄 Yangilash</button>
+        </div>
+      )}
 
       {/* Progress Bar */}
       <div className="progress-container">
@@ -313,7 +463,12 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
       <div className="result-banner-container">
         {result && (
           <div className={`status-banner banner-${result}`}>
-            {result === 'win' ? 'G‘ALABA! 🎉' : result === 'lose' ? 'YUTQAZDINGIZ! 😢' : 'DURANG 🤝'}
+            {result === 'win' ? '🎉 G‘ALABA!' : 
+             result === 'lose' ? '😢 YUTQAZDINGIZ!' : 
+             '🤝 DURANG'}
+            {result === 'win' && coins > 0 && (
+              <span className="reward-amount">+{coins - (user?.coins || 0)} 🪙</span>
+            )}
           </div>
         )}
       </div>
@@ -327,7 +482,7 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
               <button
                 key={key}
                 onClick={() => handlePlay(key)}
-                disabled={gameState !== 'playing' || !!playerChoice}
+                disabled={gameState !== 'playing' || !!playerChoice || coins < 10}
                 className={`action-btn ${isSelected ? 'chosen' : ''}`}
                 style={{ 
                   backgroundColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.05)',
@@ -343,6 +498,70 @@ function BotGame({ user, setUser, difficulty = 'medium', onBackToMenu, showNotif
           })}
         </div>
       </footer>
+
+      <style>{`
+        .error-message {
+          background: rgba(255,68,68,0.15);
+          border: 1px solid #ff4444;
+          color: #ff4444;
+          padding: 10px 16px;
+          border-radius: 12px;
+          margin: 8px 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 14px;
+        }
+        .error-message button {
+          background: none;
+          border: none;
+          color: #ff4444;
+          font-size: 18px;
+          cursor: pointer;
+        }
+        .warning-message {
+          background: rgba(255,170,0,0.15);
+          border: 1px solid #ffaa00;
+          color: #ffaa00;
+          padding: 10px 16px;
+          border-radius: 12px;
+          margin: 8px 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 14px;
+        }
+        .warning-message button {
+          background: rgba(255,170,0,0.2);
+          border: 1px solid #ffaa00;
+          color: #ffaa00;
+          padding: 4px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 13px;
+        }
+        .loading-spinner {
+          font-size: 14px;
+          margin-left: 4px;
+          animation: spin 1s linear infinite;
+        }
+        .reward-amount {
+          font-size: 16px;
+          margin-left: 10px;
+          color: #00ff88;
+        }
+        .score-badge {
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+        .score-badge:hover {
+          transform: scale(1.05);
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

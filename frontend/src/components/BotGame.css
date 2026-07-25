@@ -1,423 +1,511 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+/* ============================================================
+   BotGame.css - BOT O'YINI STILLARI
+   ============================================================ */
 
-.game-wrapper {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 100vh; /* Har qanday mobil brauzer va Telegram Mini App uchun eng stabil balandlik */
-  width: 100%;
-  max-width: 480px; /* Mobil kengligi */
-  margin: 0 auto;
-  background: radial-gradient(circle at 50% 30%, #1a153b, #0a0813);
-  color: #ffffff;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  overflow: hidden;
-  position: relative;
-  box-sizing: border-box;
-  padding-bottom: calc(env(safe-area-inset-bottom, 15px) + 10px); /* Telefon pastki xavfsiz zonasi uchun */
-}
-
-.confetti-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 10;
-}
-
-/* --- HEADER (Akkaunt va Tangalar qismi) --- */
-.game-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 16px;
-  z-index: 5;
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.back-arrow {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: white;
-  padding: 8px 14px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.back-arrow:active {
-  transform: scale(0.9);
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.header-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.badge {
-  text-transform: uppercase;
-  font-weight: 800;
-  font-size: 0.7rem;
-  padding: 4px 10px;
-  border-radius: 8px;
-  letter-spacing: 1px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
-.diff-easy { background: linear-gradient(135deg, #2ecc71, #27ae60); }
-.diff-medium { background: linear-gradient(135deg, #f39c12, #d35400); }
-.diff-hard { background: linear-gradient(135deg, #e74c3c, #c0392b); }
-
-.combo-indicator {
-  font-size: 0.75rem;
-  background: linear-gradient(90deg, #ff8c00, #ff0080);
-  color: #fff;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 6px;
-  animation: pulseCombo 0.8s infinite alternate;
-}
-
-@keyframes pulseCombo {
-  0% { transform: scale(0.95); box-shadow: 0 0 5px rgba(255, 140, 0, 0.5); }
-  100% { transform: scale(1.1); box-shadow: 0 0 15px rgba(255, 0, 128, 0.8); }
-}
-
-.score-badge {
-  background: rgba(255, 215, 0, 0.1);
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  padding: 8px 14px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.15);
-}
-
-.coin-emoji {
-  font-size: 1.2rem;
-}
-
-.coin-count {
-  color: #ffd700;
-  font-weight: 800;
-  font-size: 1rem;
-}
-
-/* --- PROGRESS BAR --- */
-.progress-container {
-  width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #00f0ff, #7000ff);
-  transition: width 1s linear;
-}
-
-.progress-bar.critical {
-  background: linear-gradient(90deg, #ff0055, #ff0000);
-  animation: timerWarning 0.5s infinite alternate;
-}
-
-@keyframes timerWarning {
-  0% { opacity: 0.6; }
-  100% { opacity: 1; }
-}
-
-/* --- ARENA (Markaziy Jang Maydoni) --- */
-.arena {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 20px;
-  flex: 1; /* Ekrandan qolgan barcha bo'sh joyni egallaydi */
-  min-height: 180px; /* Tugmalar siqilib ketmasligi uchun minimal balandlik */
-  position: relative;
-}
-
-.arena-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(112, 0, 255, 0.12) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 1;
-}
-.arena-glow.win { background: radial-gradient(circle, rgba(0, 255, 157, 0.18) 0%, transparent 70%); }
-.arena-glow.lose { background: radial-gradient(circle, rgba(255, 0, 85, 0.18) 0%, transparent 70%); }
-
-.card {
-  width: 30%;
-  max-width: 110px;
-  aspect-ratio: 0.8;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  position: relative;
-  z-index: 2;
-  backdrop-filter: blur(10px);
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.card-inner {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  height: 100%;
-  padding: 12px 6px;
-}
-
-.card.active {
-  transform: translateY(-6px) scale(1.02);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.card-label {
-  font-size: 0.7rem;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.4);
-  letter-spacing: 1px;
-}
-
-.card-emoji-box {
-  font-size: 2.4rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.selected-name {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
-  letter-spacing: 0.5px;
-}
-
-.thinking-bubble {
-  font-size: 1.8rem;
-  animation: pulseThinking 1s infinite alternate;
-}
-
-@keyframes pulseThinking {
-  0% { transform: scale(0.9); opacity: 0.5; }
-  100% { transform: scale(1.1); opacity: 1; }
-}
-
-/* VS Center */
-.vs-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  z-index: 2;
-}
-
-.vs-circle {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #1d1b33, #0d0c18);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 0.9rem;
-}
-
-.timer-number-box {
-  font-weight: 800;
-  font-size: 1.6rem;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.timer-text.pulse {
-  color: #ff3366;
-  animation: timerWarningPulse 0.5s infinite alternate;
-}
-
-@keyframes timerWarningPulse {
-  0% { transform: scale(0.9); text-shadow: 0 0 5px rgba(255, 51, 102, 0.2); }
-  100% { transform: scale(1.2); text-shadow: 0 0 15px rgba(255, 51, 102, 0.8); }
-}
-
-/* Result Banner */
-.result-banner-container {
-  height: 45px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 5px;
-}
-
-.status-banner {
-  font-size: 1.4rem;
-  font-weight: 800;
-  letter-spacing: 1px;
-  text-align: center;
-  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.banner-win { color: #00ff9d; text-shadow: 0 0 15px rgba(0, 255, 157, 0.4); }
-.banner-lose { color: #ff3366; text-shadow: 0 0 15px rgba(255, 51, 102, 0.4); }
-.banner-draw { color: #ffcc00; text-shadow: 0 0 15px rgba(255, 204, 0, 0.4); }
-
-@keyframes popIn {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-/* --- FOOTER & BUTTONS GRID (Tugmalar Ekroni) --- */
-.action-area {
-  padding: 16px 16px 10px 16px;
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(12px);
-  border-radius: 28px 28px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.choices-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  width: 100%;
-}
-
-.action-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 16px 8px; /* Bosish maydoni kattalashtirildi */
-  border-radius: 18px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  outline: none;
-  position: relative;
-}
-
-.action-btn:active:not(:disabled) {
-  transform: scale(0.92);
-}
-
-.action-btn:disabled {
-  opacity: 0.3;
-}
-
-.action-emoji {
-  font-size: 2rem;
-}
-
-.action-label {
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-/* --- TANLOV EFFEKTLARI (NEW) --- */
-
-.choices-grid.has-selection .action-btn:not(.chosen) {
-  opacity: 0.2;
-  transform: scale(0.9);
-  filter: grayscale(80%);
-}
-
-.action-btn.chosen {
-  border: 2px solid #ffffff !important;
-  transform: scale(1.08) !important;
-  animation: selectedPulse 1.5s infinite alternate;
-  z-index: 5;
-}
-
-.selection-indicator {
-  position: absolute;
-  top: -8px;
-  background: #ffffff;
-  color: #0a0813;
-  font-size: 0.55rem;
-  font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 6px;
-  letter-spacing: 0.5px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-  animation: popIndicator 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.card.player-card.active {
-  border-color: #00f0ff;
-  box-shadow: 0 0 25px rgba(0, 240, 255, 0.25);
-}
-
-.card.bot-card.active {
-  border-color: #7000ff;
-  box-shadow: 0 0 25px rgba(112, 0, 255, 0.25);
-}
-
-/* --- ANIMATSIYALAR --- */
-@keyframes selectedPulse {
-  0% {
-    box-shadow: 0 0 12px rgba(255, 255, 255, 0.2), inset 0 0 8px rgba(255, 255, 255, 0.2);
+   .game-wrapper {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 16px;
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    display: flex;
+    flex-direction: column;
   }
-  100% {
-    box-shadow: 0 0 24px rgba(255, 255, 255, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.4);
-  }
-}
-
-@keyframes popIndicator {
-  from {
-    transform: translateY(5px) scale(0.5);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
-}
-
-/* Kichik ekranlar moslashuvi (masalan iPhone SE) */
-@media (max-height: 670px) {
+  
+  /* ============================================================
+     HEADER
+     ============================================================ */
   .game-header {
-    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    margin-bottom: 12px;
   }
+  
+  .back-arrow {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: all 0.3s;
+  }
+  
+  .back-arrow:hover {
+    transform: translateX(-4px);
+  }
+  
+  .header-center {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .badge {
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .diff-easy {
+    background: rgba(0,255,136,0.2);
+    color: #00ff88;
+    border: 1px solid rgba(0,255,136,0.3);
+  }
+  
+  .diff-medium {
+    background: rgba(255,170,0,0.2);
+    color: #ffaa00;
+    border: 1px solid rgba(255,170,0,0.3);
+  }
+  
+  .diff-hard {
+    background: rgba(255,68,68,0.2);
+    color: #ff4444;
+    border: 1px solid rgba(255,68,68,0.3);
+  }
+  
+  .combo-indicator {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ff6b6b;
+    animation: pulse 0.5s ease-in-out infinite;
+  }
+  
+  .score-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.05);
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  
+  .coin-emoji {
+    font-size: 18px;
+  }
+  
+  .coin-count {
+    font-size: 18px;
+    font-weight: 700;
+    color: #00ff88;
+  }
+  
+  /* ============================================================
+     PROGRESS BAR
+     ============================================================ */
+  .progress-container {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+  
+  .progress-bar.critical {
+    background: linear-gradient(90deg, #ff4444, #ff6b6b);
+    animation: pulse 0.5s ease-in-out infinite;
+  }
+  
+  /* ============================================================
+     ARENA
+     ============================================================ */
   .arena {
-    min-height: 140px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    position: relative;
+    flex: 1;
+    min-height: 280px;
   }
+  
+  .arena-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(102,126,234,0.1), transparent);
+    transition: all 0.5s ease;
+    pointer-events: none;
+  }
+  
+  .arena-glow.win {
+    background: radial-gradient(circle, rgba(0,255,136,0.3), transparent);
+  }
+  
+  .arena-glow.lose {
+    background: radial-gradient(circle, rgba(255,68,68,0.3), transparent);
+  }
+  
+  .arena-glow.draw {
+    background: radial-gradient(circle, rgba(255,170,0,0.2), transparent);
+  }
+  
+  /* ============================================================
+     CARDS
+     ============================================================ */
   .card {
-    border-radius: 12px;
+    flex: 1;
+    max-width: 120px;
+    min-height: 140px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 20px;
+    border: 2px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.5s ease;
+    position: relative;
+    padding: 16px 8px;
+    text-align: center;
   }
+  
+  .card.active {
+    border-color: #667eea;
+    background: rgba(102,126,234,0.1);
+    box-shadow: 0 0 30px rgba(102,126,234,0.1);
+  }
+  
+  .card-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #888;
+    font-weight: 600;
+  }
+  
   .card-emoji-box {
-    font-size: 1.8rem;
+    font-size: 48px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
-  .action-btn {
-    padding: 10px 4px;
+  
+  .selected-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(255,255,255,0.05);
+    padding: 4px 10px;
+    border-radius: 8px;
   }
-  .action-emoji {
-    font-size: 1.6rem;
+  
+  .thinking-bubble {
+    font-size: 28px;
+    animation: float 1s ease-in-out infinite;
   }
+  
+  /* ============================================================
+     VS CENTER
+     ============================================================ */
+  .vs-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 0 12px;
+  }
+  
+  .vs-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+    color: #fff;
+    box-shadow: 0 0 30px rgba(102,126,234,0.3);
+  }
+  
+  .timer-number-box {
+    background: rgba(255,255,255,0.05);
+    padding: 4px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  
+  .timer-text {
+    font-size: 24px;
+    font-weight: 700;
+    color: #00ff88;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  .timer-text.pulse {
+    color: #ff4444;
+    animation: pulse 0.5s ease-in-out infinite;
+  }
+  
+  /* ============================================================
+     RESULT BANNER
+     ============================================================ */
   .result-banner-container {
-    height: 35px;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 8px 0;
   }
-}
+  
+  .status-banner {
+    padding: 10px 24px;
+    border-radius: 16px;
+    font-size: 20px;
+    font-weight: 700;
+    animation: slideUp 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .banner-win {
+    background: rgba(0,255,136,0.15);
+    border: 2px solid #00ff88;
+    color: #00ff88;
+  }
+  
+  .banner-lose {
+    background: rgba(255,68,68,0.15);
+    border: 2px solid #ff4444;
+    color: #ff4444;
+  }
+  
+  .banner-draw {
+    background: rgba(255,170,0,0.15);
+    border: 2px solid #ffaa00;
+    color: #ffaa00;
+  }
+  
+  /* ============================================================
+     ACTION AREA
+     ============================================================ */
+  .action-area {
+    padding: 16px 0 8px;
+    flex-shrink: 0;
+  }
+  
+  .choices-grid {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+  
+  .choices-grid.has-selection {
+    opacity: 0.6;
+  }
+  
+  .choices-grid.has-selection .action-btn:not(.chosen) {
+    cursor: not-allowed;
+  }
+  
+  .action-btn {
+    flex: 1;
+    max-width: 100px;
+    padding: 14px 8px;
+    border-radius: 16px;
+    border: 2px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    min-height: 80px;
+  }
+  
+  .action-btn:hover:not(:disabled):not(.chosen) {
+    transform: translateY(-4px);
+    border-color: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.06);
+  }
+  
+  .action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  
+  .action-btn.chosen {
+    transform: scale(1.05);
+  }
+  
+  .action-btn .selection-indicator {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #00ff88;
+    color: #0f0c29;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    animation: popIn 0.3s ease-out;
+  }
+  
+  .action-emoji {
+    font-size: 28px;
+  }
+  
+  .action-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #888;
+  }
+  
+  .action-btn.chosen .action-label {
+    color: #fff;
+  }
+  
+  /* ============================================================
+     ANIMATIONS
+     ============================================================ */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.05);
+    }
+  }
+  
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  
+  @keyframes popIn {
+    from {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width: 480px) {
+    .game-wrapper {
+      padding: 12px;
+    }
+  
+    .card {
+      max-width: 90px;
+      min-height: 110px;
+      padding: 12px 6px;
+    }
+  
+    .card-emoji-box {
+      font-size: 36px;
+      min-height: 44px;
+    }
+  
+    .vs-circle {
+      width: 40px;
+      height: 40px;
+      font-size: 14px;
+    }
+  
+    .timer-text {
+      font-size: 20px;
+    }
+  
+    .action-btn {
+      max-width: 80px;
+      padding: 10px 6px;
+      min-height: 64px;
+    }
+  
+    .action-emoji {
+      font-size: 22px;
+    }
+  
+    .status-banner {
+      font-size: 16px;
+      padding: 8px 16px;
+    }
+  }
+  
+  @media (max-width: 380px) {
+    .card {
+      max-width: 70px;
+      min-height: 90px;
+    }
+  
+    .card-emoji-box {
+      font-size: 28px;
+      min-height: 36px;
+    }
+  
+    .action-btn {
+      max-width: 64px;
+      padding: 8px 4px;
+      min-height: 56px;
+    }
+  
+    .action-emoji {
+      font-size: 18px;
+    }
+  
+    .action-label {
+      font-size: 10px;
+    }
+  
+    .status-banner {
+      font-size: 14px;
+      padding: 6px 12px;
+    }
+  }
