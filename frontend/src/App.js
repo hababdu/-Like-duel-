@@ -1,5 +1,5 @@
 // ============================================================
-// App.js - TO'LIQ TUZATILGAN
+// App.js - TO'LIQ VERSION
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
 import socket from './socket';
@@ -11,6 +11,9 @@ import Referrals from './components/Referrals';
 import './App.css';
 
 function App() {
+  // ======================
+  // STATE
+  // ======================
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentScreen, setCurrentScreen] = useState('menu');
@@ -51,6 +54,8 @@ function App() {
     try {
       const tg = window.Telegram?.WebApp;
       
+      console.log('🔍 Checking Telegram WebApp:', tg);
+      
       if (!tg) {
         console.log('❌ Telegram WebApp mavjud emas');
         return null;
@@ -61,11 +66,16 @@ function App() {
       const initDataUnsafe = tg.initDataUnsafe || {};
       const user = initDataUnsafe.user || null;
       
+      console.log('📱 initDataUnsafe:', initDataUnsafe);
+      console.log('👤 Telegram user:', user);
+      
       if (user) {
         console.log('✅ Telegram user found!');
         console.log('📊 ID:', user.id);
         console.log('📊 First name:', user.first_name);
         console.log('📊 Username:', user.username);
+        console.log('📊 Photo URL:', user.photo_url);
+        console.log('📊 Is Premium:', user.is_premium);
         
         setTelegramUser(user);
         return user;
@@ -111,6 +121,7 @@ function App() {
 
       console.log('🔑 ===== AUTH START =====');
       console.log('📊 tgId:', tgId);
+      console.log('📊 firstName:', firstName);
 
       const response = await fetch(`${API_URL}/api/user/auth`, {
         method: 'POST',
@@ -130,13 +141,31 @@ function App() {
         })
       });
 
-      const data = await response.json();
+      console.log('📥 Response status:', response.status);
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        const text = await response.text();
+        console.log('📥 Response text:', text);
+        throw new Error('Server javobi noto\'g\'ri formatda');
+      }
+
+      console.log('📥 Auth response:', data);
 
       if (data.success && data.user) {
         const userData = {
           ...data.user,
           tgId: String(data.user.tgId)
         };
+        
+        console.log('✅ User authenticated!');
+        console.log('✅ tgId:', userData.tgId);
+        console.log('✅ firstName:', userData.firstName);
+        console.log('✅ coins:', userData.coins);
+        console.log('✅ rating:', userData.rating);
         
         setUser(userData);
         
@@ -150,7 +179,7 @@ function App() {
         
         return userData;
       } else {
-        // Fallback user
+        console.error('❌ Auth failed:', data);
         const fallbackUser = {
           tgId: tgId,
           firstName: firstName,
@@ -200,6 +229,8 @@ function App() {
         console.log('🚀 ===== INITIALIZING APP =====');
         
         const tgUser = getTelegramUser();
+        console.log('👤 tgUser:', tgUser);
+        
         await authenticateUser(tgUser);
         
         if (window.Telegram?.WebApp) {
@@ -231,7 +262,6 @@ function App() {
 
     initializeApp();
 
-    // Socket event listeners
     const onConnect = () => {
       console.log('✅ Socket connected! ID:', socket.id);
       setSocketConnected(true);
@@ -288,7 +318,7 @@ function App() {
       socket.off('connect_error', onConnectError);
       socket.off('user_connected', onUserConnected);
     };
-  }, []); // Empty dependency array
+  }, []);
 
   // ======================
   // RENDER
@@ -303,7 +333,7 @@ function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className="app">
       {/* Notification */}
       {notification && (
         <div className={`notification ${notification.type}`}>
@@ -444,15 +474,15 @@ function App() {
         )}
 
         {currentScreen === 'bot' && (
-          <BotGame
-            user={user}
-            setUser={setUser}
-            difficulty="medium"
-            onBackToMenu={() => setCurrentScreen('menu')}
-            showNotif={showNotification}
-            triggerHaptic={triggerHaptic}
-            API_URL={API_URL}
-          />
+           <BotGame
+    user={user}
+    setUser={setUser}
+    difficulty="medium"
+    onBackToMenu={() => setCurrentScreen('menu')}
+    showNotif={showNotification}
+    triggerHaptic={triggerHaptic}
+    API_URL={API_URL}
+  />
         )}
 
         {currentScreen === 'leaderboard' && (
@@ -508,268 +538,9 @@ function App() {
         .menu-profile-avatar {
           position: relative;
         }
-        .loading-screen {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(135deg, #0f0c29, #302b63);
-        }
-        .spinner {
-          width: 60px;
-          height: 60px;
-          border: 4px solid rgba(255,255,255,0.1);
-          border-top: 4px solid #667eea;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        .app-container {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-          color: #ffffff;
-          padding: 16px;
-          padding-bottom: 80px;
-        }
-        .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 16px;
-          background: rgba(255,255,255,0.05);
-          border-radius: 16px;
-          margin-bottom: 16px;
-          backdrop-filter: blur(10px);
-        }
-        .header-left h1 {
-          font-size: 20px;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        .header-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .header-coins {
-          background: rgba(0,255,136,0.15);
-          padding: 4px 12px;
-          border-radius: 20px;
-          font-size: 14px;
-          font-weight: 600;
-          color: #00ff88;
-        }
-        .header-rating {
-          background: rgba(102,126,234,0.15);
-          padding: 4px 12px;
-          border-radius: 20px;
-          font-size: 14px;
-          font-weight: 600;
-          color: #667eea;
-        }
-        .header-profile {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          border: 2px solid #667eea;
-          background: none;
-          cursor: pointer;
-          overflow: hidden;
-          padding: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .header-profile img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .header-profile span {
-          font-size: 20px;
-          font-weight: 600;
-          color: #fff;
-        }
-        .menu {
-          max-width: 400px;
-          margin: 0 auto;
-        }
-        .menu-profile {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          background: rgba(255,255,255,0.05);
-          padding: 16px;
-          border-radius: 16px;
-          margin-bottom: 16px;
-        }
-        .menu-profile-avatar {
-          width: 60px;
-          height: 60px;
-          border-radius: 50%;
-          border: 3px solid #667eea;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .menu-profile-avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .menu-profile-avatar span {
-          font-size: 28px;
-          font-weight: 600;
-        }
-        .menu-profile-info {
-          flex: 1;
-        }
-        .menu-profile-info h2 {
-          font-size: 18px;
-          margin-bottom: 2px;
-        }
-        .menu-profile-info p {
-          color: #888;
-          font-size: 14px;
-          margin-bottom: 8px;
-        }
-        .menu-profile-stats {
-          display: flex;
-          gap: 12px;
-          font-size: 14px;
-        }
-        .menu-profile-stats span {
-          background: rgba(255,255,255,0.05);
-          padding: 2px 10px;
-          border-radius: 12px;
-        }
-        .menu-buttons {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .menu-buttons button {
-          padding: 16px 20px;
-          border-radius: 16px;
-          border: none;
-          font-size: 18px;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          transition: all 0.3s;
-        }
-        .menu-buttons button:hover {
-          transform: translateY(-2px);
-        }
-        .btn-play {
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: #fff;
-          box-shadow: 0 4px 20px rgba(102,126,234,0.4);
-        }
-        .btn-bot {
-          background: linear-gradient(135deg, #f093fb, #f5576c);
-          color: #fff;
-          box-shadow: 0 4px 20px rgba(245,87,108,0.4);
-        }
-        .btn-leaderboard {
-          background: linear-gradient(135deg, #43e97b, #38f9d7);
-          color: #0f0c29;
-          box-shadow: 0 4px 20px rgba(67,233,123,0.4);
-        }
-        .btn-referrals {
-          background: linear-gradient(135deg, #4facfe, #00f2fe);
-          color: #0f0c29;
-          box-shadow: 0 4px 20px rgba(79,172,254,0.4);
-        }
-        .badge {
-          font-size: 10px;
-          background: rgba(255,255,255,0.2);
-          padding: 2px 10px;
-          border-radius: 12px;
-          font-weight: 600;
-        }
-        .notification {
-          position: fixed;
-          top: 80px;
-          left: 50%;
-          transform: translateX(-50%);
-          padding: 12px 20px;
-          border-radius: 12px;
-          z-index: 1000;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          max-width: 90%;
-          font-weight: 500;
-          animation: slideDown 0.3s ease-out;
-        }
-        .notification.info {
-          background: rgba(102,126,234,0.9);
-          color: #fff;
-        }
-        .notification.success {
-          background: rgba(0,255,136,0.9);
-          color: #0f0c29;
-        }
-        .notification.error {
-          background: rgba(255,68,68,0.9);
-          color: #fff;
-        }
-        .notification.warning {
-          background: rgba(255,170,0,0.9);
-          color: #0f0c29;
-        }
-        .notification button {
-          background: none;
-          border: none;
-          color: inherit;
-          font-size: 20px;
-          cursor: pointer;
-        }
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateX(-50%) translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-          }
-        }
-        @media (max-width: 480px) {
-          .app-container {
-            padding: 12px;
-            padding-bottom: 60px;
-          }
-          .header-left h1 {
-            font-size: 16px;
-          }
-          .header-coins, .header-rating {
-            font-size: 12px;
-            padding: 2px 8px;
-          }
-          .header-profile {
-            width: 32px;
-            height: 32px;
-          }
-          .menu-buttons button {
-            font-size: 16px;
-            padding: 14px 16px;
-          }
-        }
       `}</style>
     </div>
   );
 }
 
-export default App; // <-- MUHIM: App ni export qilish
+export default App;
