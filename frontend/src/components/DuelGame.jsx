@@ -2,6 +2,7 @@
 // DuelGame.js - TO'LIQ VERSION
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import './DuelGame.css'
 
 function DuelGame({ 
   user, 
