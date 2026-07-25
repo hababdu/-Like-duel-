@@ -1,8 +1,7 @@
 // ============================================================
-// BotGame.js - TO'LIQ TUZATILGAN VERSION
+// BotGame.js - TO'LIQ TUZATILGAN + YAXSHI DIZAYN
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import './BotGame.css';
 
 const CHOICES = {
   rock: { emoji: '🪨', color: '#ff6b6b', label: 'Tosh' },
@@ -31,7 +30,8 @@ function BotGame({
   const [streak, setStreak] = useState(0);
   const [coins, setCoins] = useState(user?.coins || 0);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [roundsPlayed, setRoundsPlayed] = useState(0);
+  const [wins, setWins] = useState(0);
 
   const timerRef = useRef(null);
   const roundRef = useRef(null);
@@ -102,38 +102,23 @@ function BotGame({
   const getBotChoice = useCallback(() => {
     const options = Object.keys(CHOICES);
     
-    // Easy: 60% counter, 40% random
     if (difficulty === 'easy') {
       if (Math.random() < 0.6 && playerChoice) {
-        const counter = {
-          rock: 'paper',
-          paper: 'scissors',
-          scissors: 'rock'
-        };
+        const counter = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
         return counter[playerChoice];
       }
     }
     
-    // Hard: 70% prediction-based, 30% random
     if (difficulty === 'hard') {
       const predicted = predictPlayerChoice() || (playerChoice || 'rock');
       if (Math.random() < 0.7) {
-        const counter = {
-          rock: 'paper',
-          paper: 'scissors',
-          scissors: 'rock'
-        };
+        const counter = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
         return counter[predicted];
       }
     }
     
-    // Medium or default: 50% counter, 50% random
     if (difficulty === 'medium' && Math.random() < 0.5 && playerChoice) {
-      const counter = {
-        rock: 'paper',
-        paper: 'scissors',
-        scissors: 'rock'
-      };
+      const counter = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
       return counter[playerChoice];
     }
     
@@ -145,11 +130,7 @@ function BotGame({
   // ======================
   const determineWinner = useCallback((player, bot) => {
     if (player === bot) return 'draw';
-    const winConditions = {
-      rock: 'scissors',
-      paper: 'rock',
-      scissors: 'paper'
-    };
+    const winConditions = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
     return winConditions[player] === bot ? 'win' : 'lose';
   }, []);
 
@@ -157,11 +138,9 @@ function BotGame({
   // START ROUND
   // ======================
   const startRound = useCallback(() => {
-    // Clear old timers
     if (roundRef.current) clearTimeout(roundRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
 
-    // Check if user has enough coins
     if (coins < 10) {
       showNotif('⚠️ Yetarli tanga yo\'q! 10 tanga kerak', 'error');
       setGameState('idle');
@@ -174,29 +153,22 @@ function BotGame({
     setTimer(30);
     setIsBotThinking(true);
     setGameState('playing');
-    setError(null);
 
-    // Bot "thinking" delay
     const thinkDelay = 600 + Math.random() * 500;
     roundRef.current = setTimeout(() => {
       setIsBotThinking(false);
     }, thinkDelay);
 
-    // Timer
     timerRef.current = setInterval(() => {
       setTimer(prev => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
-          // Timeout - player loses
           setGameState('result');
           setResult('lose');
           setStreak(0);
           
-          // Loss penalty
           const lossAmount = 10;
           const newCoins = Math.max(0, coins - lossAmount);
-          
-          // Update coins locally and on server
           setCoins(newCoins);
           if (setUser) {
             setUser(prev => ({ ...prev, coins: newCoins }));
@@ -222,7 +194,6 @@ function BotGame({
       return;
     }
 
-    // Record player history
     playerHistory.current.push(choice);
     if (playerHistory.current.length > 10) {
       playerHistory.current.shift();
@@ -231,14 +202,11 @@ function BotGame({
     setPlayerChoice(choice);
     triggerHaptic?.('light');
 
-    // Bot makes choice
     const botChoice = getBotChoice();
     setBotChoice(botChoice);
     
-    // Determine winner
     const roundResult = determineWinner(choice, botChoice);
     
-    // Calculate rewards
     const rewardTable = {
       win: difficulty === 'easy' ? 40 : difficulty === 'medium' ? 70 : 110,
       draw: 10,
@@ -249,33 +217,28 @@ function BotGame({
     const comboBonus = roundResult === 'win' && streak >= 2 ? (streak - 1) * 10 : 0;
     const finalChange = change + comboBonus;
 
-    // Calculate new coins
     const newCoins = Math.max(0, coins + finalChange);
-
-    // Update coins locally
     setCoins(newCoins);
     if (setUser) {
       setUser(prev => ({ ...prev, coins: newCoins }));
     }
 
-    // Update coins on server
     await updateCoinsOnServer(newCoins);
 
-    // Update streak
     if (roundResult === 'win') {
       setStreak(prev => prev + 1);
+      setWins(prev => prev + 1);
     } else if (roundResult === 'lose') {
       setStreak(0);
     }
+    setRoundsPlayed(prev => prev + 1);
 
-    // Show result
     setResult(roundResult);
     setGameState('result');
 
-    // Haptic feedback
     if (roundResult === 'win') {
       triggerHaptic?.('heavy');
-      showNotif(`🎉 G'alaba! +${finalChange} 🪙 ${comboBonus > 0 ? `(Combo x${streak + 1} 🔥)` : ''}`, 'success');
+      showNotif(`🎉 G'alaba! +${finalChange} 🪙 ${comboBonus > 0 ? `🔥 x${streak + 1}` : ''}`, 'success');
     } else if (roundResult === 'lose') {
       triggerHaptic?.('medium');
       showNotif(`😢 Mag'lubiyat! ${finalChange} 🪙`, 'error');
@@ -284,40 +247,27 @@ function BotGame({
       showNotif(`🤝 Durang! +${finalChange} 🪙`, 'info');
     }
 
-    // Clear timers
     if (timerRef.current) clearInterval(timerRef.current);
     if (roundRef.current) clearTimeout(roundRef.current);
 
-    // Next round after delay
     roundRef.current = setTimeout(() => {
       startRound();
-    }, 2500);
+    }, 2000);
   }, [
-    gameState, 
-    playerChoice, 
-    coins, 
-    getBotChoice, 
-    determineWinner, 
-    difficulty, 
-    streak, 
-    setUser, 
-    showNotif, 
-    triggerHaptic, 
-    startRound,
-    updateCoinsOnServer
+    gameState, playerChoice, coins, getBotChoice, determineWinner, 
+    difficulty, streak, setUser, showNotif, triggerHaptic, 
+    startRound, updateCoinsOnServer
   ]);
 
   // ======================
   // INITIALIZATION
   // ======================
   useEffect(() => {
-    // Check if user has enough coins
     if (coins < 10) {
       showNotif('⚠️ Bot o\'ynash uchun 10 tanga kerak!', 'warning');
       setGameState('idle');
       return;
     }
-    
     startRound();
     
     return () => {
@@ -325,10 +275,10 @@ function BotGame({
       if (roundRef.current) clearTimeout(roundRef.current);
       playerHistory.current = [];
     };
-  }, [difficulty, startRound, coins, showNotif]);
+  }, []);
 
   // ======================
-  // REFRESH COINS FROM SERVER
+  // REFRESH COINS
   // ======================
   const refreshCoins = useCallback(async () => {
     if (!user?.tgId) return;
@@ -356,126 +306,139 @@ function BotGame({
   // ======================
   // FORMAT FUNCTIONS
   // ======================
-  const formatChoice = (key) => {
-    return CHOICES[key]?.label || key;
-  };
-
-  const getChoiceEmoji = (key) => {
-    return CHOICES[key]?.emoji || '❓';
-  };
+  const formatChoice = (key) => CHOICES[key]?.label || key;
+  const getChoiceEmoji = (key) => CHOICES[key]?.emoji || '❓';
 
   // ======================
   // RENDER
   // ======================
   return (
-    <div className="game-wrapper">
+    <div style={styles.container}>
       {/* Header */}
-      <header className="game-header">
-        <button className="back-arrow" onClick={onBackToMenu}>
-          <span className="icon">←</span>
-        </button>
-        <div className="header-center">
-          <span className={`badge diff-${difficulty}`}>
-            {difficulty === 'easy' ? '🟢 Oson' : 
-             difficulty === 'medium' ? '🟡 O\'rta' : '🔴 Qiyin'}
+      <div style={styles.header}>
+        <button onClick={onBackToMenu} style={styles.backBtn}>←</button>
+        <div style={styles.headerCenter}>
+          <span style={{
+            ...styles.difficultyBadge,
+            ...(difficulty === 'easy' ? styles.easy : difficulty === 'medium' ? styles.medium : styles.hard)
+          }}>
+            {difficulty === 'easy' ? '🟢 Oson' : difficulty === 'medium' ? '🟡 O\'rta' : '🔴 Qiyin'}
           </span>
-          {streak >= 2 && (
-            <span className="combo-indicator">🔥 x{streak}</span>
-          )}
+          {streak >= 2 && <span style={styles.combo}>🔥 x{streak}</span>}
         </div>
-        <div className="score-badge" onClick={refreshCoins} style={{ cursor: 'pointer' }}>
-          <span className="coin-emoji">🪙</span>
-          <span className="coin-count">{coins}</span>
-          {isLoading && <span className="loading-spinner">⏳</span>}
+        <div style={styles.coins} onClick={refreshCoins}>
+          <span>🪙</span>
+          <span style={styles.coinsCount}>{coins}</span>
+          {isLoading && <span style={styles.loading}>⏳</span>}
         </div>
-      </header>
+      </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="error-message">
-          ⚠️ {error}
-          <button onClick={() => setError(null)}>✕</button>
+      {/* Stats */}
+      <div style={styles.stats}>
+        <div style={styles.statItem}>
+          <span style={styles.statValue}>{roundsPlayed}</span>
+          <span style={styles.statLabel}>O'yin</span>
         </div>
-      )}
+        <div style={styles.statDivider} />
+        <div style={styles.statItem}>
+          <span style={styles.statValue} >{wins}</span>
+          <span style={styles.statLabel}>G'alaba</span>
+        </div>
+        <div style={styles.statDivider} />
+        <div style={styles.statItem}>
+          <span style={styles.statValue} >{roundsPlayed - wins}</span>
+          <span style={styles.statLabel}>Mag'lubiyat</span>
+        </div>
+      </div>
 
-      {/* Insufficient Coins Warning */}
+      {/* Coins Warning */}
       {coins < 10 && gameState !== 'idle' && (
-        <div className="warning-message">
-          ⚠️ Tanga yetarli emas! O'yin uchun 10 tanga kerak.
-          <button onClick={refreshCoins}>🔄 Yangilash</button>
+        <div style={styles.warning}>
+          ⚠️ Tanga yetarli emas! 10 tanga kerak
+          <button onClick={refreshCoins} style={styles.warningBtn}>Yangilash</button>
         </div>
       )}
 
       {/* Progress Bar */}
-      <div className="progress-container">
-        <div 
-          className={`progress-bar ${timer <= 5 ? 'critical' : ''}`} 
-          style={{ width: `${(timer / 30) * 100}%` }}
-        />
+      <div style={styles.progressContainer}>
+        <div style={{
+          ...styles.progressBar,
+          width: `${(timer / 30) * 100}%`,
+          ...(timer <= 5 ? styles.progressCritical : {})
+        }} />
       </div>
 
       {/* Arena */}
-      <main className="arena">
-        <div className={`arena-glow ${result}`} />
+      <div style={styles.arena}>
+        <div style={{
+          ...styles.arenaGlow,
+          ...(result === 'win' ? styles.glowWin : result === 'lose' ? styles.glowLose : result === 'draw' ? styles.glowDraw : {})
+        }} />
         
-        {/* Player Card */}
-        <div className={`card player-card ${playerChoice ? 'active' : ''}`}>
-          <div className="card-inner">
-            <span className="card-label">SIZ</span>
-            <div className="card-emoji-box">
+        {/* Player */}
+        <div style={{
+          ...styles.card,
+          ...(playerChoice ? styles.cardActive : {})
+        }}>
+          <div style={styles.cardInner}>
+            <span style={styles.cardLabel}>SIZ</span>
+            <div style={styles.cardEmoji}>
               {playerChoice ? getChoiceEmoji(playerChoice) : '👤'}
             </div>
-            {playerChoice && <span className="selected-name">{formatChoice(playerChoice)}</span>}
+            {playerChoice && <span style={styles.cardName}>{formatChoice(playerChoice)}</span>}
           </div>
         </div>
 
-        {/* VS Center */}
-        <div className="vs-center">
-          <div className="vs-circle">
-            <span>VS</span>
-          </div>
+        {/* VS */}
+        <div style={styles.vsCenter}>
+          <div style={styles.vsCircle}>VS</div>
           {gameState === 'playing' && (
-            <div className="timer-number-box">
-              <span className={`timer-text ${timer <= 5 ? 'pulse' : ''}`}>{timer}</span>
+            <div style={styles.timerBox}>
+              <span style={{
+                ...styles.timerText,
+                ...(timer <= 5 ? styles.timerCritical : {})
+              }}>{timer}</span>
             </div>
           )}
         </div>
 
-        {/* Bot Card */}
-        <div className={`card bot-card ${botChoice ? 'active' : ''}`}>
-          <div className="card-inner">
-            <span className="card-label">BOT</span>
-            <div className="card-emoji-box">
+        {/* Bot */}
+        <div style={{
+          ...styles.card,
+          ...(botChoice ? styles.cardActive : {})
+        }}>
+          <div style={styles.cardInner}>
+            <span style={styles.cardLabel}>BOT</span>
+            <div style={styles.cardEmoji}>
               {botChoice ? (
                 getChoiceEmoji(botChoice)
               ) : isBotThinking ? (
-                <div className="thinking-bubble">🤖💭</div>
+                <span style={styles.thinking}>🤖💭</span>
               ) : (
                 '🤖'
               )}
             </div>
-            {botChoice && <span className="selected-name">{formatChoice(botChoice)}</span>}
+            {botChoice && <span style={styles.cardName}>{formatChoice(botChoice)}</span>}
           </div>
         </div>
-      </main>
-
-      {/* Result Banner */}
-      <div className="result-banner-container">
-        {result && (
-          <div className={`status-banner banner-${result}`}>
-            {result === 'win' ? '🎉 G‘ALABA!' : 
-             result === 'lose' ? '😢 YUTQAZDINGIZ!' : 
-             '🤝 DURANG'}
-            {result === 'win' && coins > 0 && (
-              <span className="reward-amount">+{coins - (user?.coins || 0)} 🪙</span>
-            )}
-          </div>
-        )}
       </div>
 
+      {/* Result */}
+      {result && (
+        <div style={{
+          ...styles.resultBanner,
+          ...(result === 'win' ? styles.resultWin : result === 'lose' ? styles.resultLose : styles.resultDraw)
+        }}>
+          {result === 'win' ? '🎉 G\'ALABA!' : result === 'lose' ? '😢 YUTQAZDINGIZ!' : '🤝 DURANG'}
+        </div>
+      )}
+
       {/* Choices */}
-      <footer className="action-area">
-        <div className={`choices-grid ${playerChoice ? 'has-selection' : ''}`}>
+      <div style={styles.choicesContainer}>
+        <div style={{
+          ...styles.choicesGrid,
+          ...(playerChoice ? styles.choicesDisabled : {})
+        }}>
           {Object.entries(CHOICES).map(([key, item]) => {
             const isSelected = playerChoice === key;
             return (
@@ -483,87 +446,425 @@ function BotGame({
                 key={key}
                 onClick={() => handlePlay(key)}
                 disabled={gameState !== 'playing' || !!playerChoice || coins < 10}
-                className={`action-btn ${isSelected ? 'chosen' : ''}`}
-                style={{ 
-                  backgroundColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.05)',
-                  boxShadow: isSelected ? `0 0 20px ${item.color}80` : 'none',
-                  borderColor: isSelected ? item.color : 'rgba(255, 255, 255, 0.08)'
+                style={{
+                  ...styles.choiceBtn,
+                  ...(isSelected ? {
+                    ...styles.choiceSelected,
+                    backgroundColor: item.color + '33',
+                    borderColor: item.color,
+                    boxShadow: `0 0 20px ${item.color}40`
+                  } : {}),
+                  ...(gameState !== 'playing' || !!playerChoice || coins < 10 ? styles.choiceDisabled : {})
                 }}
               >
-                {isSelected && <span className="selection-indicator">✓ SIZ</span>}
-                <span className="action-emoji">{item.emoji}</span>
-                <span className="action-label">{item.label}</span>
+                {isSelected && <span style={styles.choiceSelectedBadge}>✓</span>}
+                <span style={styles.choiceEmoji}>{item.emoji}</span>
+                <span style={styles.choiceLabel}>{item.label}</span>
               </button>
             );
           })}
         </div>
-      </footer>
-
-      <style>{`
-        .error-message {
-          background: rgba(255,68,68,0.15);
-          border: 1px solid #ff4444;
-          color: #ff4444;
-          padding: 10px 16px;
-          border-radius: 12px;
-          margin: 8px 0;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 14px;
-        }
-        .error-message button {
-          background: none;
-          border: none;
-          color: #ff4444;
-          font-size: 18px;
-          cursor: pointer;
-        }
-        .warning-message {
-          background: rgba(255,170,0,0.15);
-          border: 1px solid #ffaa00;
-          color: #ffaa00;
-          padding: 10px 16px;
-          border-radius: 12px;
-          margin: 8px 0;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 14px;
-        }
-        .warning-message button {
-          background: rgba(255,170,0,0.2);
-          border: 1px solid #ffaa00;
-          color: #ffaa00;
-          padding: 4px 12px;
-          border-radius: 8px;
-          cursor: pointer;
-          font-size: 13px;
-        }
-        .loading-spinner {
-          font-size: 14px;
-          margin-left: 4px;
-          animation: spin 1s linear infinite;
-        }
-        .reward-amount {
-          font-size: 16px;
-          margin-left: 10px;
-          color: #00ff88;
-        }
-        .score-badge {
-          cursor: pointer;
-          transition: all 0.3s;
-        }
-        .score-badge:hover {
-          transform: scale(1.05);
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+      </div>
     </div>
   );
 }
+
+// ============================================================
+// STYLES
+// ============================================================
+const styles = {
+  container: {
+    maxWidth: '400px',
+    margin: '0 auto',
+    padding: '12px 16px',
+    minHeight: '700vh',
+    background: 'linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
+    display: 'flex',
+    flexDirection: 'column',
+    fontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif'
+  },
+
+  // Header
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '8px 0',
+    marginBottom: '8px'
+  },
+  backBtn: {
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    color: '#fff',
+    fontSize: '18px',
+    width: '36px',
+    height: '36px',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.3s'
+  },
+  headerCenter: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  },
+  difficultyBadge: {
+    padding: '4px 12px',
+    borderRadius: '20px',
+    fontSize: '11px',
+    fontWeight: '600',
+    letterSpacing: '0.3px'
+  },
+  easy: {
+    background: 'rgba(0,255,136,0.15)',
+    color: '#00ff88',
+    border: '1px solid rgba(0,255,136,0.2)'
+  },
+  medium: {
+    background: 'rgba(255,170,0,0.15)',
+    color: '#ffaa00',
+    border: '1px solid rgba(255,170,0,0.2)'
+  },
+  hard: {
+    background: 'rgba(255,68,68,0.15)',
+    color: '#ff4444',
+    border: '1px solid rgba(255,68,68,0.2)'
+  },
+  combo: {
+    fontSize: '13px',
+    fontWeight: '700',
+    color: '#ff6b6b',
+    animation: 'pulse 0.6s ease-in-out infinite'
+  },
+  coins: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    background: 'rgba(255,255,255,0.05)',
+    padding: '4px 12px',
+    borderRadius: '20px',
+    border: '1px solid rgba(255,255,255,0.06)',
+    cursor: 'pointer',
+    transition: 'all 0.3s'
+  },
+  coinsCount: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#00ff88'
+  },
+  loading: {
+    fontSize: '12px',
+    animation: 'spin 1s linear infinite'
+  },
+
+  // Stats
+  stats: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: '12px',
+    background: 'rgba(255,255,255,0.03)',
+    borderRadius: '12px',
+    padding: '8px 16px',
+    marginBottom: '8px',
+    border: '1px solid rgba(255,255,255,0.04)'
+  },
+  statItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center'
+  },
+  statValue: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#fff'
+  },
+  statLabel: {
+    fontSize: '9px',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px'
+  },
+  statDivider: {
+    width: '1px',
+    height: '24px',
+    background: 'rgba(255,255,255,0.06)'
+  },
+
+  // Warning
+  warning: {
+    background: 'rgba(255,170,0,0.1)',
+    border: '1px solid rgba(255,170,0,0.2)',
+    color: '#ffaa00',
+    padding: '8px 12px',
+    borderRadius: '10px',
+    fontSize: '12px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px'
+  },
+  warningBtn: {
+    background: 'rgba(255,170,0,0.15)',
+    border: '1px solid rgba(255,170,0,0.2)',
+    color: '#ffaa00',
+    padding: '2px 12px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '11px'
+  },
+
+  // Progress
+  progressContainer: {
+    width: '100%',
+    height: '3px',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '2px',
+    overflow: 'hidden',
+    marginBottom: '12px'
+  },
+  progressBar: {
+    height: '100%',
+    background: 'linear-gradient(90deg, #667eea, #764ba2)',
+    borderRadius: '2px',
+    transition: 'width 0.3s ease'
+  },
+  progressCritical: {
+    background: 'linear-gradient(90deg, #ff4444, #ff6b6b)',
+    animation: 'pulse 0.5s ease-in-out infinite'
+  },
+
+  // Arena
+  arena: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px 0',
+    position: 'relative',
+    minHeight: '200px'
+  },
+  arenaGlow: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '160px',
+    height: '160px',
+    borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(102,126,234,0.08), transparent)',
+    transition: 'all 0.5s ease',
+    pointerEvents: 'none'
+  },
+  glowWin: {
+    background: 'radial-gradient(circle, rgba(0,255,136,0.2), transparent)'
+  },
+  glowLose: {
+    background: 'radial-gradient(circle, rgba(255,68,68,0.2), transparent)'
+  },
+  glowDraw: {
+    background: 'radial-gradient(circle, rgba(255,170,0,0.15), transparent)'
+  },
+
+  // Cards
+  card: {
+    flex: 1,
+    maxWidth: '100px',
+    minHeight: '110px',
+    background: 'rgba(255,255,255,0.03)',
+    borderRadius: '16px',
+    border: '2px solid rgba(255,255,255,0.05)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.5s ease',
+    padding: '12px 8px'
+  },
+  cardActive: {
+    borderColor: '#667eea',
+    background: 'rgba(102,126,234,0.08)',
+    boxShadow: '0 0 30px rgba(102,126,234,0.06)'
+  },
+  cardInner: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+    width: '100%'
+  },
+  cardLabel: {
+    fontSize: '9px',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    color: '#666',
+    fontWeight: '600'
+  },
+  cardEmoji: {
+    fontSize: '38px',
+    minHeight: '48px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  cardName: {
+    fontSize: '11px',
+    fontWeight: '500',
+    color: '#fff',
+    background: 'rgba(255,255,255,0.04)',
+    padding: '2px 10px',
+    borderRadius: '6px'
+  },
+  thinking: {
+    fontSize: '22px',
+    animation: 'float 1s ease-in-out infinite'
+  },
+
+  // VS
+  vsCenter: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+    flexShrink: 0,
+    padding: '0 8px'
+  },
+  vsCircle: {
+    width: '38px',
+    height: '38px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: '700',
+    fontSize: '13px',
+    color: '#fff',
+    boxShadow: '0 0 20px rgba(102,126,234,0.2)'
+  },
+  timerBox: {
+    background: 'rgba(255,255,255,0.04)',
+    padding: '2px 8px',
+    borderRadius: '8px',
+    border: '1px solid rgba(255,255,255,0.04)'
+  },
+  timerText: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#00ff88',
+    fontVariantNumeric: 'tabular-nums'
+  },
+  timerCritical: {
+    color: '#ff4444',
+    animation: 'pulse 0.5s ease-in-out infinite'
+  },
+
+  // Result
+  resultBanner: {
+    padding: '8px 16px',
+    borderRadius: '12px',
+    fontSize: '16px',
+    fontWeight: '700',
+    textAlign: 'center',
+    margin: '4px 0 8px'
+  },
+  resultWin: {
+    background: 'rgba(0,255,136,0.1)',
+    border: '1px solid rgba(0,255,136,0.2)',
+    color: '#00ff88'
+  },
+  resultLose: {
+    background: 'rgba(255,68,68,0.1)',
+    border: '1px solid rgba(255,68,68,0.2)',
+    color: '#ff4444'
+  },
+  resultDraw: {
+    background: 'rgba(255,170,0,0.1)',
+    border: '1px solid rgba(255,170,0,0.2)',
+    color: '#ffaa00'
+  },
+
+  // Choices
+  choicesContainer: {
+    padding: '4px 0'
+  },
+  choicesGrid: {
+    display: 'flex',
+    gap: '10px',
+    justifyContent: 'center'
+  },
+  choicesDisabled: {
+    opacity: '0.5'
+  },
+  choiceBtn: {
+    flex: 1,
+    maxWidth: '90px',
+    padding: '10px 6px',
+    borderRadius: '14px',
+    border: '2px solid rgba(255,255,255,0.06)',
+    background: 'rgba(255,255,255,0.03)',
+    color: '#fff',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '2px',
+    position: 'relative',
+    minHeight: '64px'
+  },
+  choiceSelected: {
+    transform: 'scale(1.04)'
+  },
+  choiceDisabled: {
+    opacity: '0.3',
+    cursor: 'not-allowed'
+  },
+  choiceSelectedBadge: {
+    position: 'absolute',
+    top: '-6px',
+    right: '-6px',
+    background: '#00ff88',
+    color: '#0f0c29',
+    fontSize: '8px',
+    fontWeight: '700',
+    padding: '1px 6px',
+    borderRadius: '8px'
+  },
+  choiceEmoji: {
+    fontSize: '22px'
+  },
+  choiceLabel: {
+    fontSize: '10px',
+    fontWeight: '500',
+    color: '#666'
+  }
+};
+
+// CSS Animations
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.05); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .duel-chat-message {
+    animation: slideUp 0.2s ease-out;
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default BotGame;

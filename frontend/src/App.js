@@ -474,15 +474,15 @@ function App() {
         )}
 
         {currentScreen === 'bot' && (
-           <BotGame
-           user={user}
-           setUser={setUser}
-           difficulty="medium"
-           onBackToMenu={() => setCurrentScreen('menu')}
-           showNotif={showNotification}
-           triggerHaptic={triggerHaptic}
-           API_URL={API_URL}
-         />
+          <BotGame
+          user={user}
+          setUser={setUser}
+          difficulty="medium"
+          onBackToMenu={() => setCurrentScreen('menu')}
+          showNotif={showNotification}
+          triggerHaptic={triggerHaptic}
+          API_URL={API_URL}
+        />
         )}
 
         {currentScreen === 'leaderboard' && (
