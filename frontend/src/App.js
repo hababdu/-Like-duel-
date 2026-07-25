@@ -95,6 +95,43 @@ function App() {
       return null;
     }
   }, []);
+  // Server.js ga qo'shing - UPDATE COINS ENDPOINT
+app.post('/api/user/update-coins', async (req, res) => {
+  try {
+    const { tgId, amount } = req.body;
+    
+    if (!tgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'tgId talab qilinadi'
+      });
+    }
+
+    const user = await User.findOne({ tgId });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Foydalanuvchi topilmadi'
+      });
+    }
+
+    const newCoins = Math.max(0, user.coins + amount);
+    user.coins = newCoins;
+    await user.save();
+
+    res.json({
+      success: true,
+      coins: newCoins
+    });
+
+  } catch (error) {
+    console.error('❌ Update coins error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server xatoligi'
+    });
+  }
+});
 
   // ======================
   // USER AUTH
