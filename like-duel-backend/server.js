@@ -239,10 +239,10 @@ function verifyTelegramInitData(initData) {
   console.log('==================================================');
 
   // 1. Token borligini tekshirish
-  const botToken = typeof TELEGRAM_BOT_TOKEN !== 'undefined' ? TELEGRAM_BOT_TOKEN : process.env.TELEGRAM_BOT_TOKEN;
+  const botToken = typeof BOT_TOKEN !== 'undefined' ? BOT_TOKEN : process.env.BOT_TOKEN;
 
   if (!botToken) {
-    console.error('❌ XATO: TELEGRAM_BOT_TOKEN server sozlamalarida topilmadi!');
+    console.error('❌ XATO: BOT_TOKEN server sozlamalarida topilmadi!');
     return null;
   }
 
