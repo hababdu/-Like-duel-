@@ -22,16 +22,22 @@ const {
   PORT = 10000,
   MONGODB_URI,
   ADMIN_TOKEN = 'admin-secret-key',
-  TELEGRAM_BOT_TOKEN,          // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
-  TELEGRAM_WEBHOOK_SECRET = '', // setWebhook chaqirilganda secret_token sifatida bering
+  TELEGRAM_BOT_TOKEN,
+  TELEGRAM_WEBHOOK_SECRET = '',
   ALLOWED_ORIGIN = ''
 } = process.env;
 
-if (!TELEGRAM_BOT_TOKEN) {
-  console.warn('⚠️  OGOHLANTIRISH: TELEGRAM_BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi!');
-}
+// Middleware'lar
+app.use(cors());
+app.use(express.json());
 
-const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+// Socket.io sozlamalari (agar ishlatayotgan bo'lsangiz)
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
 
 // ======================
 // CORS
@@ -62,7 +68,7 @@ const io = new Server(server, {
 // ============================================================
 // MONGODB ULANISHI VA SERVERNI ISHGA TUSHIRISH
 // ============================================================
-const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+const MONGO_URI = MONGODB_URI || process.env.MONGO_URI;
 
 if (!MONGO_URI) {
   console.error('❌ CRITICAL ERROR: Environment Variables ichida MONGODB_URI topilmadi!');
@@ -70,16 +76,17 @@ if (!MONGO_URI) {
 
 console.log('⏳ MongoDB-ga ulanishga urinilmoqda...');
 
-// Mongoose-ga har qanday so'rovni ulanmasdan turib bajarmaslikni tayinlaymiz (Buffering-ni o'chiramiz)
+// Mongoose ulana olmasa so'rovlarni "muzlatib" bufferda ushlab turmasligi uchun:
 mongoose.set('bufferCommands', false);
 
+// Baza ulanish so'rovi
 mongoose.connect(MONGO_URI, {
-  serverSelectionTimeoutMS: 5000, // 10s kutib turmasdan 5s da xatoni chiqaradi
+  serverSelectionTimeoutMS: 5000, // 5 soniyada ulana olmasa birdan error qaytaradi
 })
 .then(() => {
   console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
   
-  // BAZA MUVAFFAQIYATLI ULANGANIDAN KEYINGINA SERVER SO'ROVLARNI QABUL QILADI
+  // FAQT BAZA ULANGANIDAN KEYINGINA SERVER PORTNI OCHADI VA SO'ROVLARNI QABUL QILADI
   server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
   });
@@ -87,6 +94,8 @@ mongoose.connect(MONGO_URI, {
 .catch((err) => {
   console.error('❌ MONGODB BAZAGA ULANA OLMADI!');
   console.error('❌ ANIQ XATOLIK MATNI:', err.message);
+  // Baza ulana olmasa serverni to'xtatamiz, shunda Render qayta urinib ko'radi (Restart)
+  process.exit(1);
 });
 // ======================
 // USER SCHEMA
