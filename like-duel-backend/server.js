@@ -412,13 +412,40 @@ app.get('/api/debug/network-test', async (req, res) => {
     'ac-tkepmoq-shard-00-01.mku75qs.mongodb.net',
     'ac-tkepmoq-shard-00-02.mku75qs.mongodb.net'
   ];
+
+  // IPv4/IPv6 manzillarini alohida aniqlaymiz - ba'zan IPv6 orqali
+  // chiqish yo'li bloklangan/ishlamaydigan bo'ladi, IPv4 esa ishlaydi
+  results.dnsAddresses = {};
+  for (const host of shardHosts) {
+    results.dnsAddresses[host] = {};
+    try {
+      results.dnsAddresses[host].ipv4 = await dns.resolve4(host);
+    } catch (err) {
+      results.dnsAddresses[host].ipv4 = `xato: ${err.code || err.message}`;
+    }
+    try {
+      results.dnsAddresses[host].ipv6 = await dns.resolve6(host);
+    } catch (err) {
+      results.dnsAddresses[host].ipv6 = `xato: ${err.code || err.message}`;
+    }
+  }
+
   results.tcpConnect = {};
+  results.tcpConnectIPv4Forced = {};
   for (const host of shardHosts) {
     results.tcpConnect[host] = await new Promise((resolve) => {
       const socket = net.createConnection({ host, port: 27017, timeout: 5000 });
       socket.on('connect', () => { socket.destroy(); resolve('✅ TCP ulandi (port ochiq)'); });
       socket.on('timeout', () => { socket.destroy(); resolve('⏱️ vaqt tugadi (ehtimol bloklangan)'); });
       socket.on('error', (err) => resolve(`❌ ${err.code || err.message}`));
+    });
+
+    // Xuddi shu ulanishni MAJBURIY IPv4 orqali sinaymiz
+    results.tcpConnectIPv4Forced[host] = await new Promise((resolve) => {
+      const socket = net.createConnection({ host, port: 27017, timeout: 5000, family: 4 });
+      socket.on('connect', () => { socket.destroy(); resolve('✅ TCP ulandi (IPv4 majburiy, port ochiq)'); });
+      socket.on('timeout', () => { socket.destroy(); resolve('⏱️ vaqt tugadi (IPv4 majburiy)'); });
+      socket.on('error', (err) => resolve(`❌ IPv4 majburiy: ${err.code || err.message}`));
     });
   }
 
