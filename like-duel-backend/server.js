@@ -41,14 +41,14 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 10000;
-const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URI;
 
 // ============================================================
 // BAZA VA SERVER ULANISHI (FAQAT BIR MARTA CHAQIRILADI)
 // ============================================================
 console.log('⏳ MongoDB-ga ulanishga urinilmoqda...');
 
-mongoose.connect(MONGO_URI)
+mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
     
