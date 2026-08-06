@@ -545,7 +545,7 @@ app.get('/api/leaderboard', async (req, res) => {
 // ============================================================
 // 7. REFERRALS
 // ============================================================
-app.get('/api/user/:tgId/referrals', async (req, res) => {
+app.get(/api/use'r/:tgId/referrals', async (req, res) => {
   try {
     const referrals = await User.find({ refParent: req.params.tgId })
       .select('firstName username coins rating createdAt');

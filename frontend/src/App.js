@@ -1,5 +1,5 @@
 // ============================================================
-// App.js - TO'LIQ VA MUKAMMAL INTEGRATSIYA QILINGAN VERSIYA
+// App.js - 2-USUL BO'YICHA MOSLASHTIRILGAN TO'LIQ VERSIYA
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import socket from './socket';
@@ -75,127 +75,133 @@ function App() {
     });
   }, []);
 
-  // URL'dan Referal link parametri haqida ma'lumot olish (XAFSIZ PARSING)
-  const getRefParentFromUrl = () => {
-    try {
-      const tg = window.Telegram?.WebApp;
-      const startParam = tg?.initDataUnsafe?.start_param;
-      if (startParam) {
-        const match = String(startParam).match(/ref_?(\d+)/i);
-        if (match) return match[1];
-        if (/^\d+$/.test(startParam)) return String(startParam);
-      }
-      
-      if (typeof window !== 'undefined' && window.location?.search) {
-        const search = window.location.search;
-        if (search.includes('ref=')) {
-          const match = search.match(/[?&]ref=([^&]+)/);
-          return match ? match[1] : null;
-        }
-      }
-      return null;
-    } catch (e) {
-      console.warn('URL parsing error:', e);
-      return null;
-    }
-  };
-
   // ======================
-  // USER AUTHENTICATION
+  // USER AUTHENTICATION (GET /api/user/:tgId)
   // ======================
   const authenticateUser = useCallback(async () => {
     let tg = null;
-    let rawInitData = '';
     let unsafeUser = null;
 
     try {
       tg = window.Telegram?.WebApp;
-      rawInitData = typeof tg?.initData === 'string' ? tg.initData : '';
       unsafeUser = tg?.initDataUnsafe?.user || null;
     } catch (e) {
       console.warn("Telegram WebApp context access error:", e);
     }
 
-    setIsTelegramWebApp(!!tg && !!rawInitData);
-    if (unsafeUser) setTelegramUser(unsafeUser);
+    const isTgEnv = !!tg && !!unsafeUser && !!unsafeUser.id;
+    setIsTelegramWebApp(isTgEnv);
 
-    // Telegram ichida bo'lmasa yoki initData bo'sh bo'lsa -> DEV MODE (Brauzer test rejimi)
-    if (!rawInitData || rawInitData.trim() === '') {
-      console.warn('⚠️ Telegram initData topilmadi — test rejimi ishga tushirildi.');
-      setIsDevMode(true);
-      setAuthError(null);
-      const devUser = {
-        tgId: 'dev_local_user',
-        firstName: unsafeUser?.first_name || 'Test User',
-        username: unsafeUser?.username || 'test_user',
-        photoUrl: unsafeUser?.photo_url || '',
-        isPremium: false,
-        coins: 1000,
-        rating: 100,
-        level: 1,
-        xp: 0,
-        xpToNextLevel: 100,
-        totalGames: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        winStreak: 0,
-        maxWinStreak: 0,
-        refCount: 0,
-        inventory: []
-      };
-      setUser(devUser);
-      return devUser;
+    // 1. Telegram WebApp muhitida ochilganda
+    if (isTgEnv) {
+      const tgId = String(unsafeUser.id);
+      setTelegramUser(unsafeUser);
+
+      try {
+        console.log(`🔑 GET so'rovi yuborilmoqda: ${API_URL}/api/user/${tgId}`);
+
+        const response = await fetch(`${API_URL}/api/user/${tgId}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Server { success: true, user: {...} } yoki to'g'ridan-to'g'ri user obyektini qaytarishi mumkin
+          const fetchedUser = data.user || data;
+
+          const userData = {
+            ...fetchedUser,
+            tgId: String(fetchedUser.tgId || tgId)
+          };
+
+          console.log('✅ MongoDB-dan foydalanuvchi olindi:', userData.tgId);
+          setUser(userData);
+          setAuthError(null);
+          setIsDevMode(false);
+          announceUserConnect(userData);
+          return userData;
+
+        } else if (response.status === 404) {
+          // Bazada hali user bo'lmasa, Telegram profilingizdan foydalaniladi
+          console.warn('⚠️ User MongoDB-da topilmadi, Telegram ma\'lumotlari asosida tayyorlanmoqda.');
+          
+          const fallbackUser = {
+            tgId,
+            firstName: unsafeUser.first_name || "O'yinchi",
+            username: unsafeUser.username || '',
+            photoUrl: unsafeUser.photo_url || '',
+            isPremium: !!unsafeUser.is_premium,
+            coins: 1000,
+            rating: 100,
+            level: 1,
+            xp: 0,
+            xpToNextLevel: 100,
+            totalGames: 0,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            winStreak: 0,
+            maxWinStreak: 0,
+            refCount: 0,
+            inventory: []
+          };
+
+          setUser(fallbackUser);
+          setAuthError(null);
+          setIsDevMode(false);
+          announceUserConnect(fallbackUser);
+          return fallbackUser;
+
+        } else {
+          throw new Error(`Server xatoligi: Status ${response.status}`);
+        }
+
+      } catch (error) {
+        console.error('❌ User yuklashda xato:', error);
+        
+        // Server offline bo'lsa ham foydalanuvchini bloklab qo'ymaslik uchun lokal Telegram profilini beramiz
+        const localTgUser = {
+          tgId,
+          firstName: unsafeUser.first_name || "O'yinchi",
+          username: unsafeUser.username || '',
+          photoUrl: unsafeUser.photo_url || '',
+          coins: 1000,
+          rating: 100,
+          level: 1
+        };
+
+        setUser(localTgUser);
+        setAuthError(null);
+        return localTgUser;
+      }
     }
 
-    // Telegram backend autentifikatsiyasi
-    try {
-      console.log('🔑 ===== AUTH START =====');
+    // 2. Telegram-dan tashqarida (Brauzer dev-rejimi)
+    console.warn('⚠️ Telegram WebApp topilmadi — Test rejimi.');
+    const devUser = {
+      tgId: 'dev_local_user',
+      firstName: unsafeUser?.first_name || 'Test User',
+      username: unsafeUser?.username || 'test_user',
+      photoUrl: '',
+      coins: 1000,
+      rating: 100,
+      level: 1,
+      xp: 0,
+      xpToNextLevel: 100,
+      totalGames: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      inventory: []
+    };
 
-      const response = await fetch(`${API_URL}/api/user/auth`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          initData: rawInitData,
-          refParent: getRefParentFromUrl()
-        })
-      });
-
-      // HTML javob kelib qolishini tekshirish (The string did not match expected pattern xatosining oldini olish)
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const errorText = await response.text();
-        console.error("Server HTML qaytardi:", errorText);
-        throw new Error(`Server tayyor emas (Status: ${response.status})`);
-      }
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success || !data.user) {
-        throw new Error(data.message || 'Server autentifikatsiyani rad etdi.');
-      }
-
-      const userData = {
-        ...data.user,
-        tgId: String(data.user.tgId)
-      };
-
-      console.log('✅ User authenticated:', userData.tgId);
-      setUser(userData);
-      setAuthError(null);
-      setIsDevMode(false);
-      announceUserConnect(userData);
-      return userData;
-
-    } catch (error) {
-      console.error('❌ Auth error:', error);
-      setUser(null);
-      setAuthError(error.message || 'Serverga ulanishda xato');
-      return null;
-    }
+    setUser(devUser);
+    setIsDevMode(true);
+    setAuthError(null);
+    return devUser;
   }, [API_URL, announceUserConnect]);
 
   // ======================
