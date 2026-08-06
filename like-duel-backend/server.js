@@ -9,6 +9,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createHmac } from 'crypto';
 
+
 dotenv.config();
 
 const app = express();
@@ -35,6 +36,17 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 10000;
 const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 5000, // Cheksiz kutib qolmaslik uchun
+  connectTimeoutMS: 10000,
+})
+.then(() => {
+  console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
+})
+.catch((err) => {
+  console.error('❌ MONGODB BAZAGA ULANA OLMADI:', err.message);
+});
 
 // ============================================================
 // BAZA VA SERVER ULANISHI (FAQAT BIR MARTA CHAQIRILADI)
@@ -343,112 +355,42 @@ app.get('/api/health', (req, res) => {
 // ============================================================
 // 1. USER AUTH
 // ============================================================
-app.post('/api/user/auth', requireTelegramAuth, async (req, res) => {
+// Express Auth Route misolida:
+app.post('/api/auth', async (req, res) => {
   try {
-    const verified = req.telegramUser;
-    const tgId = String(verified.id);
-    const { refParent } = req.body;
-
-    console.log('📥 Auth request:', { tgId, username: verified.username });
-
-    let user = await User.findOne({ tgId });
-
-    if (!user) {
-      user = new User({
-        tgId,
-        username: verified.username || '',
-        firstName: verified.first_name || "O'yinchi",
-        lastName: verified.last_name || '',
-        photoUrl: verified.photo_url || '',
-        languageCode: verified.language_code || 'uz',
-        isPremium: !!verified.is_premium,
-        coins: 0,
-        rating: 100,
-        level: 1,
-        xp: 0,
-        xpToNextLevel: 100,
-        refParent: refParent && String(refParent) !== tgId ? String(refParent) : null
-      });
-      await user.save();
-      console.log('✅ New user created:', user.tgId);
-
-      // Ro'yxatdan o'tish bonusi - ledger orqali
-      await applyCoinTransaction(tgId, SIGNUP_BONUS, 'signup_bonus', "Ro'yxatdan o'tish bonusi");
-
-      // Referal bonusi - FAQAT taklif qilgan (referrer) ga beriladi
-      if (user.refParent) {
-        const parent = await User.findOne({ tgId: user.refParent });
-        if (parent) {
-          await applyCoinTransaction(
-            parent.tgId,
-            REFERRAL_BONUS,
-            'referral_bonus',
-            `${user.firstName} taklif qilingani uchun bonus`,
-            { referredTgId: tgId }
-          );
-          parent.refCount += 1;
-          parent.refBonus += REFERRAL_BONUS;
-          await parent.save();
-
-          user.isRefRewarded = true;
-          await user.save();
-
-          io.emit(`update_${user.refParent}`, {
-            type: 'REF_BONUS',
-            coins: parent.coins + REFERRAL_BONUS,
-            refCount: parent.refCount
-          });
-        }
-      }
-
-      user = await User.findOne({ tgId }); // coins yangilangan holatda qayta o'qish
-
-    } else {
-      user.username = verified.username || user.username;
-      user.firstName = verified.first_name || user.firstName;
-      user.lastName = verified.last_name || user.lastName;
-      user.photoUrl = verified.photo_url || user.photoUrl;
-      user.languageCode = verified.language_code || user.languageCode;
-      user.isPremium = verified.is_premium ?? user.isPremium;
-      user.lastLogin = new Date();
-      user.isOnline = true;
-      await user.save();
-      console.log('✅ User updated:', user.tgId);
+    // 1. MongoDB ulanishi tayyorligini tekshirish (1 = connected)
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⏳ MongoDB hali ulanmadi, kutilmoqda...');
+      // Mongoose ulanishini kutamiz
+      await mongoose.connection.asPromise();
     }
 
-    res.json({
-      success: true,
-      user: {
-        tgId: user.tgId,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        photoUrl: user.photoUrl,
-        languageCode: user.languageCode,
-        isPremium: user.isPremium,
-        coins: user.coins,
-        rating: user.rating,
-        level: user.level,
-        xp: user.xp,
-        xpToNextLevel: user.xpToNextLevel,
-        totalGames: user.totalGames,
-        wins: user.wins,
-        losses: user.losses,
-        draws: user.draws,
-        winStreak: user.winStreak,
-        maxWinStreak: user.maxWinStreak,
-        refCount: user.refCount,
-        refBonus: user.refBonus,
-        isRefRewarded: user.isRefRewarded
-      }
-    });
+    const { initData } = req.body;
+    const tgUser = verifyTelegramInitData(initData);
 
-  } catch (error) {
-    console.error('❌ Auth error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server xatoligi: ' + error.message
-    });
+    if (!tgUser) {
+      return res.status(401).json({ success: false, message: "Autentifikatsiya rad etildi" });
+    }
+
+    console.log('📥 Auth request:', { tgId: tgUser.id, username: tgUser.username });
+
+    // 2. Endi findOne xavfsiz ishlaydi
+    let user = await User.findOne({ telegramId: tgUser.id });
+
+    if (!user) {
+      user = await User.create({
+        telegramId: tgUser.id,
+        username: tgUser.username,
+        firstName: tgUser.first_name,
+        photoUrl: tgUser.photo_url
+      });
+    }
+
+    return res.json({ success: true, user });
+
+  } catch (err) {
+    console.error('❌ Auth error:', err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
