@@ -55,22 +55,31 @@ const io = new Server(server, {
 });
 
 // ======================
-// ======================
-// MONGODB CONNECTION & SERVER START
-// ======================
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('✅ MongoDB connected');
-    
-    // Baza muvaffaqiyatli ulanganidan keyingina serverni ishga tushiramiz
-    server.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-  })
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err.message);
-  });
+// ============================================================
+// SERVER VA MONGODB ULANISHI
+// ============================================================
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
 
+if (!MONGO_URI) {
+  console.error('❌ ERROR: MONGODB_URI/MONGO_URI environment variable kiritilmagan!');
+}
+
+console.log('⏳ MongoDB-ga ulanishga urinilmoqda...');
+
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 5000 // 10s kutmay, 5s da aniq xatoni ko'rsatadi
+})
+.then(() => {
+  console.log('✅ MongoDB-ga muvaffaqiyatli ulandi!');
+  
+  // Faqat baza ulanganidan keyin server tinglashni boshlaydi
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+})
+.catch((err) => {
+  console.error('❌ MongoDB ulanishida FATAL xatolik:', err.message);
+});
 // ======================
 // USER SCHEMA
 // ======================
