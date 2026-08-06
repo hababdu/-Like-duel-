@@ -59,27 +59,34 @@ const io = new Server(server, {
 // ============================================================
 // SERVER VA MONGODB ULANISHI
 // ============================================================
+// ============================================================
+// MONGODB ULANISHI VA SERVERNI ISHGA TUSHIRISH
+// ============================================================
 const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
 
 if (!MONGO_URI) {
-  console.error('❌ ERROR: MONGODB_URI/MONGO_URI environment variable kiritilmagan!');
+  console.error('❌ CRITICAL ERROR: Environment Variables ichida MONGODB_URI topilmadi!');
 }
 
 console.log('⏳ MongoDB-ga ulanishga urinilmoqda...');
 
+// Mongoose-ga har qanday so'rovni ulanmasdan turib bajarmaslikni tayinlaymiz (Buffering-ni o'chiramiz)
+mongoose.set('bufferCommands', false);
+
 mongoose.connect(MONGO_URI, {
-  serverSelectionTimeoutMS: 5000 // 10s kutmay, 5s da aniq xatoni ko'rsatadi
+  serverSelectionTimeoutMS: 5000, // 10s kutib turmasdan 5s da xatoni chiqaradi
 })
 .then(() => {
-  console.log('✅ MongoDB-ga muvaffaqiyatli ulandi!');
+  console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
   
-  // Faqat baza ulanganidan keyin server tinglashni boshlaydi
+  // BAZA MUVAFFAQIYATLI ULANGANIDAN KEYINGINA SERVER SO'ROVLARNI QABUL QILADI
   server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
   });
 })
 .catch((err) => {
-  console.error('❌ MongoDB ulanishida FATAL xatolik:', err.message);
+  console.error('❌ MONGODB BAZAGA ULANA OLMADI!');
+  console.error('❌ ANIQ XATOLIK MATNI:', err.message);
 });
 // ======================
 // USER SCHEMA
