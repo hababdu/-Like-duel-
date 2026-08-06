@@ -9,6 +9,12 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createHmac } from 'crypto';
 
+/**
+ * Telegram Mini App initData-sini tekshirish funksiyasi
+ * @param {string} initData - Telegram WebApp yuborgan query string
+ * @returns {Object|null} - Autentifikatsiya muvaffaqiyatli bo'lsa foydalanuvchi ob'ekti, aks holda null
+ */
+
 
 dotenv.config();
 
@@ -235,27 +241,41 @@ async function callTelegramApi(method, payload) {
 // ============================================================
 // TELEGRAM initData TEKSHIRUVI
 // ============================================================
+
 function verifyTelegramInitData(initData) {
   console.log('\n==================================================');
   console.log('📥 KELGAN INITDATA (RAW):', initData);
   console.log('==================================================');
 
-  // 1. Token borligini tekshirish
-  const botToken = typeof BOT_TOKEN !== 'undefined' ? BOT_TOKEN : process.env.BOT_TOKEN;
+  // 1. Bot token mavjudligini tekshirish
+  const botToken = typeof TELEGRAM_BOT_TOKEN !== 'undefined' 
+    ? TELEGRAM_BOT_TOKEN 
+    : process.env.TELEGRAM_BOT_TOKEN;
 
   if (!botToken) {
-    console.error('❌ XATO: BOT_TOKEN server sozlamalarida topilmadi!');
+    console.error('❌ XATO: TELEGRAM_BOT_TOKEN server sozlamalarida topilmadi!');
     return null;
   }
 
-  // 2. initData borligini tekshirish
-  if (!initData || typeof initData !== 'string') {
-    console.error('❌ XATO: initData bo\'sh yoki string formatida emas!');
+  // 2. initData parametrini tekshirish va string formatga keltirish
+  if (!initData) {
+    console.error('❌ XATO: initData kelmadi yoki bo\'sh!');
     return null;
+  }
+
+  let rawData = initData;
+  if (typeof initData !== 'string') {
+    try {
+      rawData = String(initData);
+    } catch (err) {
+      console.error('❌ XATO: initData string-ga o\'g\'irilmadi:', err.message);
+      return null;
+    }
   }
 
   try {
-    const params = new URLSearchParams(initData);
+    // 3. URLSearchParams yordamida parametrga ajratish
+    const params = new URLSearchParams(rawData);
     const hash = params.get('hash');
 
     if (!hash) {
@@ -263,15 +283,16 @@ function verifyTelegramInitData(initData) {
       return null;
     }
 
-    // Parsed qiymatlarni logga chiqarish
     console.log('🔑 Parsed Params:');
     console.log('   - hash:', hash);
     console.log('   - auth_date:', params.get('auth_date'));
     console.log('   - user:', params.get('user'));
 
-    // Hash tekshiruvi uchun hash-ni o'chirib, qolganlarini saralaymiz
+    // 4. Telegram talabi bo'yicha hash va signature parametrmalarini o'chirish
     params.delete('hash');
+    params.delete('signature'); // Uchinchi tomon SDK/liblar qo'shishi mumkin
 
+    // 5. Parametrlarni alifbo tartibida kalit=qiymat shaklida saralash
     const dataCheckArr = [];
     for (const [key, value] of params.entries()) {
       dataCheckArr.push(`${key}=${value}`);
@@ -279,26 +300,39 @@ function verifyTelegramInitData(initData) {
     dataCheckArr.sort();
     const dataCheckString = dataCheckArr.join('\n');
 
-    // HMAC SHA256 orqali Hash hisoblash
+    // 6. HMAC-SHA256 orqali Secret Key va Computed Hash yaratish
     const secretKey = createHmac('sha256', 'WebAppData')
-    .update(botToken)
-    .digest();
-  
-  const computedHash = createHmac('sha256', secretKey)
-    .update(dataCheckString)
-    .digest('hex');
+      .update(botToken)
+      .digest();
 
+    const computedHash = createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+
+    // 7. Hash-larni solishtirish
     if (computedHash !== hash) {
       console.error('❌ XATO: Telegram Hash mos kelmadi!');
-      console.error('   Expected (Bot):', computedHash);
-      console.error('   Received (App):', hash);
+      console.error('   Kutilgan (Bot):', computedHash);
+      console.error('   Kelgan (App):', hash);
+      return null;
+    }
+
+    // 8. Auth date (Vaqt) eskirganligini tekshirish (Masalan: 24 soat)
+    const authDate = Number(params.get('auth_date') || 0);
+    const now = Math.floor(Date.now() / 1000);
+    const maxAge = 86400; // 24 soat (sekundlarda)
+
+    if (authDate && (now - authDate > maxAge)) {
+      console.error('❌ XATO: initData vaqti o\'tib ketgan (auth_date expired)!');
       return null;
     }
 
     console.log('✅ TELEGRAM AUTENTIFIKATSIYASI MUVAFFAQIYATLI O\'TDI!');
 
+    // 9. Foydalanuvchi ma'lumotlarini JSON qilib qaytarish
     const userJson = params.get('user');
     return userJson ? JSON.parse(userJson) : null;
+
   } catch (err) {
     console.error('❌ initData tekshiruvida kutilmagan xato:', err.message);
     return null;
