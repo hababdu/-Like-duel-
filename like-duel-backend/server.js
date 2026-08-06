@@ -37,17 +37,6 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 10000;
 const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
 
-mongoose.connect(MONGO_URI, {
-  serverSelectionTimeoutMS: 5000, // Cheksiz kutib qolmaslik uchun
-  connectTimeoutMS: 10000,
-})
-.then(() => {
-  console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
-})
-.catch((err) => {
-  console.error('❌ MONGODB BAZAGA ULANA OLMADI:', err.message);
-});
-
 // ============================================================
 // BAZA VA SERVER ULANISHI (FAQAT BIR MARTA CHAQIRILADI)
 // ============================================================
