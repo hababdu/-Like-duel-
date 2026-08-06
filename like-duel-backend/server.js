@@ -1,65 +1,66 @@
-import dns from 'dns';
-dns.setDefaultResultOrder('ipv4first');
-
+// ============================================================
+// SERVER.JS - TO'LIQ BACKEND (EKONOMIKA TIZIMI BILAN)
+// ============================================================
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { createHmac } from 'crypto';
-
-/**
- * Telegram Mini App initData-sini tekshirish funksiyasi
- * @param {string} initData - Telegram WebApp yuborgan query string
- * @returns {Object|null} - Autentifikatsiya muvaffaqiyatli bo'lsa foydalanuvchi ob'ekti, aks holda null
- */
-
+import crypto from 'crypto';
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-// CORS sozlamalari
-app.use(cors({
-  origin: '*',
+// ======================
+// ENVIRONMENT VARIABLES
+// ======================
+const {
+  PORT = 10000,
+  MONGODB_URI,
+  ADMIN_TOKEN = 'admin-secret-key',
+  TELEGRAM_BOT_TOKEN,          // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
+  TELEGRAM_WEBHOOK_SECRET = '', // setWebhook chaqirilganda secret_token sifatida bering
+  ALLOWED_ORIGIN = ''
+} = process.env;
+
+if (!TELEGRAM_BOT_TOKEN) {
+  console.warn('⚠️  OGOHLANTIRISH: TELEGRAM_BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi!');
+}
+
+const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+
+// ======================
+// CORS
+// ======================
+const corsOptions = {
+  origin: ALLOWED_ORIGIN ? ALLOWED_ORIGIN.split(',') : true,
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  credentials: true
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+};
 
-app.options('*', cors());
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Socket.io
+// ======================
+// SOCKET.IO
+// ======================
 const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
+  cors: corsOptions,
+  transports: ['websocket', 'polling']
 });
 
-const PORT = process.env.PORT || 10000;
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URI;
-
-// ============================================================
-// BAZA VA SERVER ULANISHI (FAQAT BIR MARTA CHAQIRILADI)
-// ============================================================
-console.log('⏳ MongoDB-ga ulanishga urinilmoqda...');
-
+// ======================
+// MONGODB CONNECTION
+// ======================
 mongoose.connect(MONGODB_URI)
-  .then(() => {
-    console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
-    
-    // Server faqat BAZA ulangandan keyin VA FAQAT BIR MARTA ishga tushadi
-    server.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('❌ MONGODB BAZAGA ULANA OLMADI:', err.message);
-  });
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.error('❌ MongoDB error:', err));
+
 // ======================
 // USER SCHEMA
 // ======================
@@ -241,58 +242,15 @@ async function callTelegramApi(method, payload) {
 // ============================================================
 // TELEGRAM initData TEKSHIRUVI
 // ============================================================
-
 function verifyTelegramInitData(initData) {
-  console.log('\n==================================================');
-  console.log('📥 KELGAN INITDATA (RAW):', initData);
-  console.log('==================================================');
-
-  // 1. Bot token mavjudligini tekshirish
-  const botToken = typeof TELEGRAM_BOT_TOKEN !== 'undefined' 
-    ? TELEGRAM_BOT_TOKEN 
-    : process.env.TELEGRAM_BOT_TOKEN;
-
-  if (!botToken) {
-    console.error('❌ XATO: TELEGRAM_BOT_TOKEN server sozlamalarida topilmadi!');
-    return null;
-  }
-
-  // 2. initData parametrini tekshirish va string formatga keltirish
-  if (!initData) {
-    console.error('❌ XATO: initData kelmadi yoki bo\'sh!');
-    return null;
-  }
-
-  let rawData = initData;
-  if (typeof initData !== 'string') {
-    try {
-      rawData = String(initData);
-    } catch (err) {
-      console.error('❌ XATO: initData string-ga o\'g\'irilmadi:', err.message);
-      return null;
-    }
-  }
+  if (!TELEGRAM_BOT_TOKEN || !initData) return null;
 
   try {
-    // 3. URLSearchParams yordamida parametrga ajratish
-    const params = new URLSearchParams(rawData);
+    const params = new URLSearchParams(initData);
     const hash = params.get('hash');
-
-    if (!hash) {
-      console.error('❌ XATO: initData ichida `hash` parametri topilmadi!');
-      return null;
-    }
-
-    console.log('🔑 Parsed Params:');
-    console.log('   - hash:', hash);
-    console.log('   - auth_date:', params.get('auth_date'));
-    console.log('   - user:', params.get('user'));
-
-    // 4. Telegram talabi bo'yicha hash va signature parametrmalarini o'chirish
+    if (!hash) return null;
     params.delete('hash');
-    params.delete('signature'); // Uchinchi tomon SDK/liblar qo'shishi mumkin
 
-    // 5. Parametrlarni alifbo tartibida kalit=qiymat shaklida saralash
     const dataCheckArr = [];
     for (const [key, value] of params.entries()) {
       dataCheckArr.push(`${key}=${value}`);
@@ -300,41 +258,26 @@ function verifyTelegramInitData(initData) {
     dataCheckArr.sort();
     const dataCheckString = dataCheckArr.join('\n');
 
-    // 6. HMAC-SHA256 orqali Secret Key va Computed Hash yaratish
-    const secretKey = createHmac('sha256', 'WebAppData')
-      .update(botToken)
+    const secretKey = crypto
+      .createHmac('sha256', 'WebAppData')
+      .update(TELEGRAM_BOT_TOKEN)
       .digest();
 
-    const computedHash = createHmac('sha256', secretKey)
+    const computedHash = crypto
+      .createHmac('sha256', secretKey)
       .update(dataCheckString)
       .digest('hex');
 
-    // 7. Hash-larni solishtirish
-    if (computedHash !== hash) {
-      console.error('❌ XATO: Telegram Hash mos kelmadi!');
-      console.error('   Kutilgan (Bot):', computedHash);
-      console.error('   Kelgan (App):', hash);
-      return null;
-    }
+    if (computedHash !== hash) return null;
 
-    // 8. Auth date (Vaqt) eskirganligini tekshirish (Masalan: 24 soat)
     const authDate = Number(params.get('auth_date') || 0);
     const now = Math.floor(Date.now() / 1000);
-    const maxAge = 86400; // 24 soat (sekundlarda)
+    if (!authDate || now - authDate > 60 * 60 * 24) return null;
 
-    if (authDate && (now - authDate > maxAge)) {
-      console.error('❌ XATO: initData vaqti o\'tib ketgan (auth_date expired)!');
-      return null;
-    }
-
-    console.log('✅ TELEGRAM AUTENTIFIKATSIYASI MUVAFFAQIYATLI O\'TDI!');
-
-    // 9. Foydalanuvchi ma'lumotlarini JSON qilib qaytarish
     const userJson = params.get('user');
     return userJson ? JSON.parse(userJson) : null;
-
   } catch (err) {
-    console.error('❌ initData tekshiruvida kutilmagan xato:', err.message);
+    console.error('❌ initData tekshiruvida xato:', err);
     return null;
   }
 }
@@ -378,42 +321,112 @@ app.get('/api/health', (req, res) => {
 // ============================================================
 // 1. USER AUTH
 // ============================================================
-// Express Auth Route misolida:
-app.post('/api/auth', async (req, res) => {
+app.post('/api/user/auth', requireTelegramAuth, async (req, res) => {
   try {
-    // 1. MongoDB ulanishi tayyorligini tekshirish (1 = connected)
-    if (mongoose.connection.readyState !== 1) {
-      console.log('⏳ MongoDB hali ulanmadi, kutilmoqda...');
-      // Mongoose ulanishini kutamiz
-      await mongoose.connection.asPromise();
-    }
+    const verified = req.telegramUser;
+    const tgId = String(verified.id);
+    const { refParent } = req.body;
 
-    const { initData } = req.body;
-    const tgUser = verifyTelegramInitData(initData);
+    console.log('📥 Auth request:', { tgId, username: verified.username });
 
-    if (!tgUser) {
-      return res.status(401).json({ success: false, message: "Autentifikatsiya rad etildi" });
-    }
-
-    console.log('📥 Auth request:', { tgId: tgUser.id, username: tgUser.username });
-
-    // 2. Endi findOne xavfsiz ishlaydi
-    let user = await User.findOne({ telegramId: tgUser.id });
+    let user = await User.findOne({ tgId });
 
     if (!user) {
-      user = await User.create({
-        telegramId: tgUser.id,
-        username: tgUser.username,
-        firstName: tgUser.first_name,
-        photoUrl: tgUser.photo_url
+      user = new User({
+        tgId,
+        username: verified.username || '',
+        firstName: verified.first_name || "O'yinchi",
+        lastName: verified.last_name || '',
+        photoUrl: verified.photo_url || '',
+        languageCode: verified.language_code || 'uz',
+        isPremium: !!verified.is_premium,
+        coins: 0,
+        rating: 100,
+        level: 1,
+        xp: 0,
+        xpToNextLevel: 100,
+        refParent: refParent && String(refParent) !== tgId ? String(refParent) : null
       });
+      await user.save();
+      console.log('✅ New user created:', user.tgId);
+
+      // Ro'yxatdan o'tish bonusi - ledger orqali
+      await applyCoinTransaction(tgId, SIGNUP_BONUS, 'signup_bonus', "Ro'yxatdan o'tish bonusi");
+
+      // Referal bonusi - FAQAT taklif qilgan (referrer) ga beriladi
+      if (user.refParent) {
+        const parent = await User.findOne({ tgId: user.refParent });
+        if (parent) {
+          await applyCoinTransaction(
+            parent.tgId,
+            REFERRAL_BONUS,
+            'referral_bonus',
+            `${user.firstName} taklif qilingani uchun bonus`,
+            { referredTgId: tgId }
+          );
+          parent.refCount += 1;
+          parent.refBonus += REFERRAL_BONUS;
+          await parent.save();
+
+          user.isRefRewarded = true;
+          await user.save();
+
+          io.emit(`update_${user.refParent}`, {
+            type: 'REF_BONUS',
+            coins: parent.coins + REFERRAL_BONUS,
+            refCount: parent.refCount
+          });
+        }
+      }
+
+      user = await User.findOne({ tgId }); // coins yangilangan holatda qayta o'qish
+
+    } else {
+      user.username = verified.username || user.username;
+      user.firstName = verified.first_name || user.firstName;
+      user.lastName = verified.last_name || user.lastName;
+      user.photoUrl = verified.photo_url || user.photoUrl;
+      user.languageCode = verified.language_code || user.languageCode;
+      user.isPremium = verified.is_premium ?? user.isPremium;
+      user.lastLogin = new Date();
+      user.isOnline = true;
+      await user.save();
+      console.log('✅ User updated:', user.tgId);
     }
 
-    return res.json({ success: true, user });
+    res.json({
+      success: true,
+      user: {
+        tgId: user.tgId,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        photoUrl: user.photoUrl,
+        languageCode: user.languageCode,
+        isPremium: user.isPremium,
+        coins: user.coins,
+        rating: user.rating,
+        level: user.level,
+        xp: user.xp,
+        xpToNextLevel: user.xpToNextLevel,
+        totalGames: user.totalGames,
+        wins: user.wins,
+        losses: user.losses,
+        draws: user.draws,
+        winStreak: user.winStreak,
+        maxWinStreak: user.maxWinStreak,
+        refCount: user.refCount,
+        refBonus: user.refBonus,
+        isRefRewarded: user.isRefRewarded
+      }
+    });
 
-  } catch (err) {
-    console.error('❌ Auth error:', err);
-    return res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    console.error('❌ Auth error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server xatoligi: ' + error.message
+    });
   }
 });
 
