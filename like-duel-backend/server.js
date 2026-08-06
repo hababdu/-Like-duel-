@@ -55,11 +55,21 @@ const io = new Server(server, {
 });
 
 // ======================
-// MONGODB CONNECTION
 // ======================
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB error:', err));
+// MONGODB CONNECTION & SERVER START
+// ======================
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('✅ MongoDB connected');
+    
+    // Baza muvaffaqiyatli ulanganidan keyingina serverni ishga tushiramiz
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+  });
 
 // ======================
 // USER SCHEMA
