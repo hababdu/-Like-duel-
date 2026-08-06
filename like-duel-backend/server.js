@@ -13,7 +13,18 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// Agar loyihangizda io pastroqda e'lon qilingan bo'lsa, bu yerdagisini shunchaki ishlatasiz:
+// CORS sozlamalari
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true
+}));
+
+app.options('*', cors());
+app.use(express.json());
+
+// Socket.io
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -21,60 +32,19 @@ const io = new Server(server, {
   }
 });
 
-// Middleware
-app.use(cors({
-  origin: '*', // Barcha domenlardan (Telegram Mini App'dan ham) keladigan so'rovlarga ruxsat beradi
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  credentials: true
-}));
-
-// Preflight (OPTIONS) so'rovlarini avtomatik ruxsat bilan qaytarish
-app.options('*', cors());
-
-app.use(express.json());
-
 const PORT = process.env.PORT || 10000;
 const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
 
-// MongoDB va Server ulanishi
-mongoose.set('bufferCommands', false);
-
+// ============================================================
+// BAZA VA SERVER ULANISHI (FAQAT BIR MARTA CHAQIRILADI)
+// ============================================================
 console.log('⏳ MongoDB-ga ulanishga urinilmoqda...');
 
-mongoose.connect(MONGO_URI, {
-  serverSelectionTimeoutMS: 5000,
-})
-.then(() => {
-  console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
-  server.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-  });
-})
-.catch((err) => {
-  console.error('❌ MONGODB BAZAGA ULANA OLMADI!');
-  console.error('❌ ANIQ XATOLIK MATNI:', err.message);
-  process.exit(1);
-});
-
-// ======================
-// ============================================================
-// SERVER VA MONGODB ULANISHI
-// ============================================================
-// ============================================================
-// ============================================================
-// MONGODB VA SERVER ULANISHI
-// ============================================================
 mongoose.connect(MONGO_URI)
   .then(() => {
     console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
     
-    // FAQT BAZA ULANGANIDAN KEYINGINA SOCKET VA SERVER SO'ROV OTADI
-    io.on('connection', (socket) => {
-      // Bu yerda foydalanuvchi auth va findOne so'rovlari bo'ladi
-      // Endi `users.findOne()` xatosiz ishlaydi!
-    });
-
+    // Server faqat BAZA ulangandan keyin VA FAQAT BIR MARTA ishga tushadi
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
