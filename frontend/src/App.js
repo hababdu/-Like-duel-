@@ -1,5 +1,5 @@
 // ============================================================
-// App.js - TO'LIQ VA MUKAMMAL INTEGRATSIYA QILINGAN VERSIYA
+// App.js - TO'LIQ VA MUKAMMAL INTEGRATSIYA QILINGAN VERSIYA (TUZATILGAN)
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import socket from './socket';
@@ -22,7 +22,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
-  const [currentScreen, setCurrentScreen] = useState('menu'); // 'menu', 'profile', 'game', 'bot', 'leaderboard', 'referrals', 'wallet', 'shop'
+  const [currentScreen, setCurrentScreen] = useState('menu');
   const [socketConnected, setSocketConnected] = useState(false);
   const [notification, setNotification] = useState(null);
   const [telegramUser, setTelegramUser] = useState(null);
@@ -57,7 +57,7 @@ function App() {
     try {
       if (window.Telegram?.WebApp?.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.impactOccurred(type);
-      } else if (navigator.vibrate) {
+      } else if (navigator?.vibrate) {
         navigator.vibrate(type === 'heavy' ? 80 : 35);
       }
     } catch (e) {}
@@ -75,19 +75,27 @@ function App() {
     });
   }, []);
 
-  // URL'dan Referal link parametri haqida ma'lumot olish
+  // URL'dan Referal link parametri haqida ma'lumot olish (TUZATILGAN VA XAVFSIZ)
   const getRefParentFromUrl = () => {
     try {
       const tg = window.Telegram?.WebApp;
       const startParam = tg?.initDataUnsafe?.start_param;
       if (startParam) {
-        const match = startParam.match(/ref_?(\d+)/i);
+        const match = String(startParam).match(/ref_?(\d+)/i);
         if (match) return match[1];
-        if (/^\d+$/.test(startParam)) return startParam;
+        if (/^\d+$/.test(startParam)) return String(startParam);
       }
-      const params = new URLSearchParams(window.location.search);
-      return params.get('ref') || null;
-    } catch {
+      
+      if (typeof window !== 'undefined' && window.location?.search) {
+        const search = window.location.search;
+        if (search.includes('ref=')) {
+          const match = search.match(/[?&]ref=([^&]+)/);
+          return match ? match[1] : null;
+        }
+      }
+      return null;
+    } catch (e) {
+      console.warn('URL parsing error:', e);
       return null;
     }
   };
@@ -96,9 +104,17 @@ function App() {
   // USER AUTHENTICATION
   // ======================
   const authenticateUser = useCallback(async () => {
-    const tg = window.Telegram?.WebApp;
-    const rawInitData = tg?.initData;
-    const unsafeUser = tg?.initDataUnsafe?.user || null;
+    let tg = null;
+    let rawInitData = '';
+    let unsafeUser = null;
+
+    try {
+      tg = window.Telegram?.WebApp;
+      rawInitData = typeof tg?.initData === 'string' ? tg.initData : '';
+      unsafeUser = tg?.initDataUnsafe?.user || null;
+    } catch (e) {
+      console.warn("Telegram WebApp context access error:", e);
+    }
 
     setIsTelegramWebApp(!!tg && !!rawInitData);
     if (unsafeUser) setTelegramUser(unsafeUser);
@@ -110,9 +126,9 @@ function App() {
       setAuthError(null);
       const devUser = {
         tgId: 'dev_local_user',
-        firstName: 'Test User',
-        username: 'test_user',
-        photoUrl: '',
+        firstName: unsafeUser?.first_name || 'Test User',
+        username: unsafeUser?.username || 'test_user',
+        photoUrl: unsafeUser?.photo_url || '',
         isPremium: false,
         coins: 1000,
         rating: 100,
