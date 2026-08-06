@@ -234,7 +234,15 @@ async function callTelegramApi(method, payload) {
 // TELEGRAM initData TEKSHIRUVI
 // ============================================================
 function verifyTelegramInitData(initData) {
-  if (!TELEGRAM_BOT_TOKEN || !initData) return null;
+  // Global o'zgaruvchi bo'lmasa, process.env dan olamiz
+  const botToken = typeof TELEGRAM_BOT_TOKEN !== 'undefined' ? TELEGRAM_BOT_TOKEN : process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!botToken) {
+    console.error('❌ TELEGRAM_BOT_TOKEN server sozlamalarida topilmadi!');
+    return null;
+  }
+  
+  if (!initData) return null;
 
   try {
     const params = new URLSearchParams(initData);
@@ -249,9 +257,10 @@ function verifyTelegramInitData(initData) {
     dataCheckArr.sort();
     const dataCheckString = dataCheckArr.join('\n');
 
+    // crypto HMAC uchun botToken ishlatiladi
     const secretKey = crypto
       .createHmac('sha256', 'WebAppData')
-      .update(TELEGRAM_BOT_TOKEN)
+      .update(botToken)
       .digest();
 
     const computedHash = crypto
@@ -263,6 +272,8 @@ function verifyTelegramInitData(initData) {
 
     const authDate = Number(params.get('auth_date') || 0);
     const now = Math.floor(Date.now() / 1000);
+    
+    // Auth date tekshiruvi (24 soatdan o'tmagan bo'lishi kerak)
     if (!authDate || now - authDate > 60 * 60 * 24) return null;
 
     const userJson = params.get('user');
