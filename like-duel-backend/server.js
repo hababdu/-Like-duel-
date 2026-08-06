@@ -1,11 +1,7 @@
-// ============================================================
-// SERVER.JS - TO'LIQ BACKEND (EKONOMIKA TIZIMI BILAN)
-// ============================================================
-const dns = require('dns');
-dns.setDefaultResultOrder('ipv4first'); // DNS so'rovlarida IPv4 ga birinchi ustuvorlik beradi
+import dns from 'dns';
+// DNS so'rovlarida IPv4 ga birinchi ustuvorlik berish (IPv6 va MongoDB Atlas SRV muammosini hal qiladi)
+dns.setDefaultResultOrder('ipv4first');
 
-const express = require('express');
-const mongoose = require('mongoose');
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
