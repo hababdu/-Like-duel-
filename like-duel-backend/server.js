@@ -8,6 +8,8 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import dns from 'node:dns/promises';
+import net from 'node:net';
 
 dotenv.config();
 
@@ -383,12 +385,52 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ============================================================
+// VAQTINCHALIK DIAGNOSTIKA: DNS/tarmoq darajasida MongoDB'ga
+// yeta olish-olmasligini tekshiradi. Muammo hal bo'lgandan keyin
+// bu endpointni o'chirib tashlash tavsiya etiladi.
+// ============================================================
+app.get('/api/debug/network-test', async (req, res) => {
+  const results = {};
+
+  try {
+    const srv = await dns.resolveSrv('_mongodb._tcp.cluster0.mku75qs.mongodb.net');
+    results.srvLookup = { success: true, hostsFound: srv.map(s => `${s.name}:${s.port}`) };
+  } catch (err) {
+    results.srvLookup = { success: false, error: err.message, code: err.code };
+  }
+
+  try {
+    const txt = await dns.resolveTxt('cluster0.mku75qs.mongodb.net');
+    results.txtLookup = { success: true, records: txt };
+  } catch (err) {
+    results.txtLookup = { success: false, error: err.message, code: err.code };
+  }
+
+  const shardHosts = [
+    'ac-tkepmoq-shard-00-00.mku75qs.mongodb.net',
+    'ac-tkepmoq-shard-00-01.mku75qs.mongodb.net',
+    'ac-tkepmoq-shard-00-02.mku75qs.mongodb.net'
+  ];
+  results.tcpConnect = {};
+  for (const host of shardHosts) {
+    results.tcpConnect[host] = await new Promise((resolve) => {
+      const socket = net.createConnection({ host, port: 27017, timeout: 5000 });
+      socket.on('connect', () => { socket.destroy(); resolve('✅ TCP ulandi (port ochiq)'); });
+      socket.on('timeout', () => { socket.destroy(); resolve('⏱️ vaqt tugadi (ehtimol bloklangan)'); });
+      socket.on('error', (err) => resolve(`❌ ${err.code || err.message}`));
+    });
+  }
+
+  res.json({ success: true, results, mongooseReadyState: mongoose.connection.readyState });
+});
+
 // MUHIM: MongoDB hali ulanmagan bo'lsa (bufferCommands=false tufayli),
 // so'rovlar xom Mongoose xatosi bilan emas, tushunarli 503 xabari bilan
-// qaytariladi. /api/health va /api/telegram/webhook bundan mustasno -
-// webhook har doim Telegram'ga 200 qaytarishi kerak.
+// qaytariladi. /api/health, /api/debug/* va /api/telegram/webhook bundan
+// mustasno - ular bazasiz ham ishlashi kerak.
 app.use('/api', (req, res, next) => {
-  if (req.path === '/health' || req.path === '/telegram/webhook') {
+  if (req.path === '/health' || req.path === '/telegram/webhook' || req.path.startsWith('/debug/')) {
     return next();
   }
   if (mongoose.connection.readyState !== 1) {
