@@ -1,5 +1,4 @@
 import dns from 'dns';
-// DNS so'rovlarida IPv4 ga birinchi ustuvorlik berish (IPv6 va MongoDB Atlas SRV muammosini hal qiladi)
 dns.setDefaultResultOrder('ipv4first');
 
 import express from 'express';
@@ -8,30 +7,13 @@ import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import crypto from 'crypto';
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-// ======================
-// ENVIRONMENT VARIABLES
-// ======================
-const {
-  PORT = 10000,
-  MONGODB_URI,
-  ADMIN_TOKEN = 'admin-secret-key',
-  TELEGRAM_BOT_TOKEN,
-  TELEGRAM_WEBHOOK_SECRET = '',
-  ALLOWED_ORIGIN = ''
-} = process.env;
-
-// Middleware'lar
-app.use(cors());
-app.use(express.json());
-
-// Socket.io sozlamalari (agar ishlatayotgan bo'lsangiz)
+// Agar loyihangizda io pastroqda e'lon qilingan bo'lsa, bu yerdagisini shunchaki ishlatasiz:
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -39,26 +21,31 @@ const io = new Server(server, {
   }
 });
 
-// ======================
-// CORS
-// ======================
-const corsOptions = {
-  origin: ALLOWED_ORIGIN ? ALLOWED_ORIGIN.split(',') : true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
-};
-
-app.use(cors(corsOptions));
+// Middleware
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// ======================
-// SOCKET.IO
-// ======================
-const io = new Server(server, {
-  cors: corsOptions,
-  transports: ['websocket', 'polling']
+const PORT = process.env.PORT || 10000;
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+
+// MongoDB va Server ulanishi
+mongoose.set('bufferCommands', false);
+
+console.log('⏳ MongoDB-ga ulanishga urinilmoqda...');
+
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 5000,
+})
+.then(() => {
+  console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+})
+.catch((err) => {
+  console.error('❌ MONGODB BAZAGA ULANA OLMADI!');
+  console.error('❌ ANIQ XATOLIK MATNI:', err.message);
+  process.exit(1);
 });
 
 // ======================
