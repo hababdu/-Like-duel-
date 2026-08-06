@@ -152,18 +152,29 @@ function App() {
     // Telegram backend autentifikatsiyasi
     try {
       console.log('🔑 ===== AUTH START (Telegram initData) =====');
+// App.js ichidagi authenticateUser funksiyasining response qismini quyidagiga almashtiring:
 
-      const response = await fetch(`${API_URL}/api/user/auth`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          initData: rawInitData,
-          refParent: getRefParentFromUrl()
-        })
-      });
+const response = await fetch(`${API_URL}/api/user/auth`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+  body: JSON.stringify({
+    initData: rawInitData,
+    refParent: getRefParentFromUrl()
+  })
+});
+
+// Response JSON yoki HTML ekanligini tekshirish
+const contentType = response.headers.get("content-type");
+if (!contentType || !contentType.includes("application/json")) {
+  const textError = await response.text();
+  console.error("Server HTML qaytardi:", textError);
+  throw new Error(`Server tayyor emas yoki yo'l noto'g'ri (Status: ${response.status})`);
+}
+
+const data = await response.json();
 
       if (response.status === 401) {
         throw new Error('Telegram autentifikatsiyasi rad etildi.');
