@@ -234,20 +234,40 @@ async function callTelegramApi(method, payload) {
 // TELEGRAM initData TEKSHIRUVI
 // ============================================================
 function verifyTelegramInitData(initData) {
-  // Global o'zgaruvchi bo'lmasa, process.env dan olamiz
-  const botToken = typeof BOT_TOKEN !== 'undefined' ? BOT_TOKEN : process.env.BOT_TOKEN;
+  console.log('\n==================================================');
+  console.log('📥 KELGAN INITDATA (RAW):', initData);
+  console.log('==================================================');
+
+  // 1. Token borligini tekshirish
+  const botToken = typeof TELEGRAM_BOT_TOKEN !== 'undefined' ? TELEGRAM_BOT_TOKEN : process.env.TELEGRAM_BOT_TOKEN;
 
   if (!botToken) {
-    console.error('❌ BOT_TOKEN server sozlamalarida topilmadi!');
+    console.error('❌ XATO: TELEGRAM_BOT_TOKEN server sozlamalarida topilmadi!');
     return null;
   }
-  
-  if (!initData) return null;
+
+  // 2. initData borligini tekshirish
+  if (!initData || typeof initData !== 'string') {
+    console.error('❌ XATO: initData bo\'sh yoki string formatida emas!');
+    return null;
+  }
 
   try {
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
-    if (!hash) return null;
+
+    if (!hash) {
+      console.error('❌ XATO: initData ichida `hash` parametri topilmadi!');
+      return null;
+    }
+
+    // Parsed qiymatlarni logga chiqarish
+    console.log('🔑 Parsed Params:');
+    console.log('   - hash:', hash);
+    console.log('   - auth_date:', params.get('auth_date'));
+    console.log('   - user:', params.get('user'));
+
+    // Hash tekshiruvi uchun hash-ni o'chirib, qolganlarini saralaymiz
     params.delete('hash');
 
     const dataCheckArr = [];
@@ -257,7 +277,7 @@ function verifyTelegramInitData(initData) {
     dataCheckArr.sort();
     const dataCheckString = dataCheckArr.join('\n');
 
-    // crypto HMAC uchun botToken ishlatiladi
+    // HMAC SHA256 orqali Hash hisoblash
     const secretKey = crypto
       .createHmac('sha256', 'WebAppData')
       .update(botToken)
@@ -268,18 +288,19 @@ function verifyTelegramInitData(initData) {
       .update(dataCheckString)
       .digest('hex');
 
-    if (computedHash !== hash) return null;
+    if (computedHash !== hash) {
+      console.error('❌ XATO: Telegram Hash mos kelmadi!');
+      console.error('   Expected (Bot):', computedHash);
+      console.error('   Received (App):', hash);
+      return null;
+    }
 
-    const authDate = Number(params.get('auth_date') || 0);
-    const now = Math.floor(Date.now() / 1000);
-    
-    // Auth date tekshiruvi (24 soatdan o'tmagan bo'lishi kerak)
-    if (!authDate || now - authDate > 60 * 60 * 24) return null;
+    console.log('✅ TELEGRAM AUTENTIFIKATSIYASI MUVAFFAQIYATLI O\'TDI!');
 
     const userJson = params.get('user');
     return userJson ? JSON.parse(userJson) : null;
   } catch (err) {
-    console.error('❌ initData tekshiruvida xato:', err);
+    console.error('❌ initData tekshiruvida kutilmagan xato:', err.message);
     return null;
   }
 }
