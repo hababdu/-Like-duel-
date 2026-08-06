@@ -235,10 +235,10 @@ async function callTelegramApi(method, payload) {
 // ============================================================
 function verifyTelegramInitData(initData) {
   // Global o'zgaruvchi bo'lmasa, process.env dan olamiz
-  const botToken = typeof TELEGRAM_BOT_TOKEN !== 'undefined' ? TELEGRAM_BOT_TOKEN : process.env.TELEGRAM_BOT_TOKEN;
+  const botToken = typeof BOT_TOKEN !== 'undefined' ? BOT_TOKEN : process.env.BOT_TOKEN;
 
   if (!botToken) {
-    console.error('❌ TELEGRAM_BOT_TOKEN server sozlamalarida topilmadi!');
+    console.error('❌ BOT_TOKEN server sozlamalarida topilmadi!');
     return null;
   }
   
