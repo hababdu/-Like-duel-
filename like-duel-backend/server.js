@@ -53,37 +53,26 @@ mongoose.connect(MONGO_URI, {
 // SERVER VA MONGODB ULANISHI
 // ============================================================
 // ============================================================
-// MONGODB ULANISHI VA SERVERNI ISHGA TUSHIRISH
 // ============================================================
-const MONGO_URI = MONGODB_URI || process.env.MONGO_URI;
+// MONGODB VA SERVER ULANISHI
+// ============================================================
+mongoose.connect(MONGO_URI)
+  .then(() => {
+    console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
+    
+    // FAQT BAZA ULANGANIDAN KEYINGINA SOCKET VA SERVER SO'ROV OTADI
+    io.on('connection', (socket) => {
+      // Bu yerda foydalanuvchi auth va findOne so'rovlari bo'ladi
+      // Endi `users.findOne()` xatosiz ishlaydi!
+    });
 
-if (!MONGO_URI) {
-  console.error('❌ CRITICAL ERROR: Environment Variables ichida MONGODB_URI topilmadi!');
-}
-
-console.log('⏳ MongoDB-ga ulanishga urinilmoqda...');
-
-// Mongoose ulana olmasa so'rovlarni "muzlatib" bufferda ushlab turmasligi uchun:
-mongoose.set('bufferCommands', false);
-
-// Baza ulanish so'rovi
-mongoose.connect(MONGO_URI, {
-  serverSelectionTimeoutMS: 5000, // 5 soniyada ulana olmasa birdan error qaytaradi
-})
-.then(() => {
-  console.log('✅ DATABASE: MongoDB-ga muvaffaqiyatli ulandi!');
-  
-  // FAQT BAZA ULANGANIDAN KEYINGINA SERVER PORTNI OCHADI VA SO'ROVLARNI QABUL QILADI
-  server.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('❌ MONGODB BAZAGA ULANA OLMADI:', err.message);
   });
-})
-.catch((err) => {
-  console.error('❌ MONGODB BAZAGA ULANA OLMADI!');
-  console.error('❌ ANIQ XATOLIK MATNI:', err.message);
-  // Baza ulana olmasa serverni to'xtatamiz, shunda Render qayta urinib ko'radi (Restart)
-  process.exit(1);
-});
 // ======================
 // USER SCHEMA
 // ======================
