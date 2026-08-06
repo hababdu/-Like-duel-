@@ -57,9 +57,26 @@ const io = new Server(server, {
 // ======================
 // MONGODB CONNECTION
 // ======================
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB error:', err));
+// bufferCommands: false - agar ulanish bo'lmasa so'rovlar 10 soniya
+// "osilib qolish" o'rniga DARHOL xato qaytaradi (debug qilish osonroq bo'ladi)
+mongoose.set('bufferCommands', false);
+
+function connectMongo() {
+  mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000
+  })
+    .then(() => console.log('✅ MongoDB connected'))
+    .catch(err => {
+      console.error('❌ MongoDB error:', err.message);
+      console.log('🔄 5 soniyadan keyin qayta urinib ko\'riladi...');
+      setTimeout(connectMongo, 5000);
+    });
+}
+connectMongo();
+
+mongoose.connection.on('disconnected', () => {
+  console.warn('⚠️ MongoDB uzildi, qayta ulanishga urinilmoqda...');
+});
 
 // ======================
 // USER SCHEMA
