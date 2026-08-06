@@ -22,7 +22,16 @@ const io = new Server(server, {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*', // Barcha domenlardan (Telegram Mini App'dan ham) keladigan so'rovlarga ruxsat beradi
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true
+}));
+
+// Preflight (OPTIONS) so'rovlarini avtomatik ruxsat bilan qaytarish
+app.options('*', cors());
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
