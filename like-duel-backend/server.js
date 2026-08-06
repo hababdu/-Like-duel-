@@ -7,6 +7,7 @@ import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createHmac } from 'crypto';
 
 dotenv.config();
 
@@ -278,15 +279,13 @@ function verifyTelegramInitData(initData) {
     const dataCheckString = dataCheckArr.join('\n');
 
     // HMAC SHA256 orqali Hash hisoblash
-    const secretKey = crypto
-      .createHmac('sha256', 'WebAppData')
-      .update(botToken)
-      .digest();
-
-    const computedHash = crypto
-      .createHmac('sha256', secretKey)
-      .update(dataCheckString)
-      .digest('hex');
+    const secretKey = createHmac('sha256', 'WebAppData')
+    .update(botToken)
+    .digest();
+  
+  const computedHash = createHmac('sha256', secretKey)
+    .update(dataCheckString)
+    .digest('hex');
 
     if (computedHash !== hash) {
       console.error('❌ XATO: Telegram Hash mos kelmadi!');
