@@ -1,5 +1,5 @@
 // ============================================================
-// App.js - TO'LIQ VA MUKAMMAL INTEGRATSIYA QILINGAN VERSIYA (TUZATILGAN)
+// App.js - TO'LIQ VA MUKAMMAL INTEGRATSIYA QILINGAN VERSIYA
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import socket from './socket';
@@ -47,7 +47,7 @@ function App() {
   // ======================
   const showNotification = useCallback((message, type = 'info') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 3500);
   }, []);
 
   // ======================
@@ -75,7 +75,7 @@ function App() {
     });
   }, []);
 
-  // URL'dan Referal link parametri haqida ma'lumot olish (TUZATILGAN VA XAVFSIZ)
+  // URL'dan Referal link parametri haqida ma'lumot olish (XAFSIZ PARSING)
   const getRefParentFromUrl = () => {
     try {
       const tg = window.Telegram?.WebApp;
@@ -119,9 +119,9 @@ function App() {
     setIsTelegramWebApp(!!tg && !!rawInitData);
     if (unsafeUser) setTelegramUser(unsafeUser);
 
-    // Dev/Brauzer rejimi (Telegram ichida bo'lmaganda)
-    if (!rawInitData) {
-      console.warn('⚠️ Telegram initData topilmadi — dev/test rejimi.');
+    // Telegram ichida bo'lmasa yoki initData bo'sh bo'lsa -> DEV MODE (Brauzer test rejimi)
+    if (!rawInitData || rawInitData.trim() === '') {
+      console.warn('⚠️ Telegram initData topilmadi — test rejimi ishga tushirildi.');
       setIsDevMode(true);
       setAuthError(null);
       const devUser = {
@@ -145,45 +145,37 @@ function App() {
         inventory: []
       };
       setUser(devUser);
-      showNotification('🧪 Dev rejimi: Telegram initData topilmadi.', 'warning');
       return devUser;
     }
 
     // Telegram backend autentifikatsiyasi
     try {
-      console.log('🔑 ===== AUTH START (Telegram initData) =====');
-// App.js ichidagi authenticateUser funksiyasining response qismini quyidagiga almashtiring:
+      console.log('🔑 ===== AUTH START =====');
 
-const response = await fetch(`${API_URL}/api/user/auth`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  },
-  body: JSON.stringify({
-    initData: rawInitData,
-    refParent: getRefParentFromUrl()
-  })
-});
+      const response = await fetch(`${API_URL}/api/user/auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          initData: rawInitData,
+          refParent: getRefParentFromUrl()
+        })
+      });
 
-// Response JSON yoki HTML ekanligini tekshirish
-const contentType = response.headers.get("content-type");
-if (!contentType || !contentType.includes("application/json")) {
-  const textError = await response.text();
-  console.error("Server HTML qaytardi:", textError);
-  throw new Error(`Server tayyor emas yoki yo'l noto'g'ri (Status: ${response.status})`);
-}
-
-const data = await response.json();
-
-      if (response.status === 401) {
-        throw new Error('Telegram autentifikatsiyasi rad etildi.');
+      // HTML javob kelib qolishini tekshirish (The string did not match expected pattern xatosining oldini olish)
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const errorText = await response.text();
+        console.error("Server HTML qaytardi:", errorText);
+        throw new Error(`Server tayyor emas (Status: ${response.status})`);
       }
 
       const data = await response.json();
 
-      if (!data.success || !data.user) {
-        throw new Error(data.message || 'Auth muvaffaqiyatsiz');
+      if (!response.ok || !data.success || !data.user) {
+        throw new Error(data.message || 'Server autentifikatsiyani rad etdi.');
       }
 
       const userData = {
@@ -201,11 +193,10 @@ const data = await response.json();
     } catch (error) {
       console.error('❌ Auth error:', error);
       setUser(null);
-      setAuthError(error.message || 'Autentifikatsiya xatosi');
-      showNotification('❌ Kirish muvaffaqiyatsiz: ' + (error.message || 'nomalum xato'), 'error');
+      setAuthError(error.message || 'Serverga ulanishda xato');
       return null;
     }
-  }, [API_URL, showNotification, announceUserConnect]);
+  }, [API_URL, announceUserConnect]);
 
   // ======================
   // INITIALIZE & SOCKET EVENTS
@@ -293,8 +284,19 @@ const data = await response.json();
   if (!user && authError && !isDevMode) {
     return (
       <div className="loading-screen">
-        <p>❌ Kirishda xatolik: {authError}</p>
+        <p style={{ color: '#ff4444', textAlign: 'center', margin: '0 20px 15px' }}>
+          ❌ Kirishda xatolik: {authError}
+        </p>
         <button
+          style={{
+            padding: '10px 20px',
+            borderRadius: '10px',
+            border: 'none',
+            background: '#3b82f6',
+            color: '#fff',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          }}
           onClick={async () => {
             setLoading(true);
             await authenticateUser();
