@@ -21,16 +21,16 @@ const {
   PORT = 10000,
   MONGODB_URI,
   ADMIN_TOKEN = 'admin-secret-key',
-  TELEGRAM_BOT_TOKEN,          // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
+  BOT_TOKEN,          // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
   TELEGRAM_WEBHOOK_SECRET = '', // setWebhook chaqirilganda secret_token sifatida bering
   ALLOWED_ORIGIN = ''
 } = process.env;
 
-if (!TELEGRAM_BOT_TOKEN) {
-  console.warn('⚠️  OGOHLANTIRISH: TELEGRAM_BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi!');
+if (!BOT_TOKEN) {
+  console.warn('⚠️  OGOHLANTIRISH: BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi!');
 }
 
-const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // ======================
 // CORS
@@ -260,7 +260,7 @@ async function callTelegramApi(method, payload) {
 // TELEGRAM initData TEKSHIRUVI
 // ============================================================
 function verifyTelegramInitData(initData) {
-  if (!TELEGRAM_BOT_TOKEN || !initData) return null;
+  if (!BOT_TOKEN || !initData) return null;
 
   try {
     const params = new URLSearchParams(initData);
@@ -277,7 +277,7 @@ function verifyTelegramInitData(initData) {
 
     const secretKey = crypto
       .createHmac('sha256', 'WebAppData')
-      .update(TELEGRAM_BOT_TOKEN)
+      .update(BOT_TOKEN)
       .digest();
 
     const computedHash = crypto
