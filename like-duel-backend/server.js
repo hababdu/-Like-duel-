@@ -1,6 +1,10 @@
 // ============================================================
 // SERVER.JS - TO'LIQ BACKEND (EKONOMIKA TIZIMI BILAN)
 // ============================================================
+import dns from 'node:dns';
+// Node.js IPv6 o'rniga IPv4 dan foydalanishini ta'minlash (Render -> Atlas ulanishi uchun)
+dns.setDefaultResultOrder('ipv4first');
+
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -8,14 +12,12 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
-import dns from 'node:dns/promises';
 import net from 'node:net';
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-
 // ======================
 // ENVIRONMENT VARIABLES
 // ======================
@@ -92,13 +94,16 @@ function logMaskedMongoUri(uri) {
 logMaskedMongoUri(MONGODB_URI);
 
 function connectMongo() {
-  mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 10000
+  if (!process.env.MONGODB_URI) return;
+  
+  mongoose.connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    family: 4 // IPv4 dan foydalanishga majburlash
   })
-    .then(() => console.log('✅ MongoDB connected'))
+    .then(() => console.log('✅ MongoDB bazasiga ulanish MUVAFFAQIYATLI!'))
     .catch(err => {
       console.error('❌ MongoDB error:', err.message);
-      console.log('🔄 5 soniyadan keyin qayta urinib ko\'riladi...');
       setTimeout(connectMongo, 5000);
     });
 }
