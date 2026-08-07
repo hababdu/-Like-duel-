@@ -21,16 +21,28 @@ const {
   PORT = 10000,
   MONGODB_URI,
   ADMIN_TOKEN = 'admin-secret-key',
-  BOT_TOKEN,          // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
   TELEGRAM_WEBHOOK_SECRET = '', // setWebhook chaqirilganda secret_token sifatida bering
   ALLOWED_ORIGIN = ''
 } = process.env;
 
-if (!BOT_TOKEN) {
-  console.warn('⚠️  OGOHLANTIRISH: BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi!');
+// Bot tokeni ikki xil nom bilan qidiriladi - qaysi biri Render'da
+// o'rnatilgan bo'lsa o'shani oladi (TELEGRAM_BOT_TOKEN ustunlikka ega)
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
+
+if (!TELEGRAM_BOT_TOKEN) {
+  console.warn('⚠️  OGOHLANTIRISH: TELEGRAM_BOT_TOKEN yoki BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi!');
+} else {
+  // DIAGNOSTIKA: tokenni to'liq chiqarmasdan, faqat formatini tekshirish uchun
+  // (haqiqiy Telegram bot tokeni odatda "123456789:AAExxxxxxxxxxxxxxxxxxxxxxxxxxxxx" ko'rinishida bo'ladi)
+  const preview = `${TELEGRAM_BOT_TOKEN.slice(0, 6)}...${TELEGRAM_BOT_TOKEN.slice(-4)}`;
+  const looksValid = /^\d+:[A-Za-z0-9_-]{30,}$/.test(TELEGRAM_BOT_TOKEN.trim());
+  console.log(`🔍 TELEGRAM_BOT_TOKEN: ${preview} (uzunlik: ${TELEGRAM_BOT_TOKEN.length}, format to'g'ri: ${looksValid ? '✅' : '❌ NOTO\'G\'RI FORMAT'})`);
+  if (TELEGRAM_BOT_TOKEN !== TELEGRAM_BOT_TOKEN.trim()) {
+    console.warn('⚠️  TELEGRAM_BOT_TOKEN oldida/orqasida bo\'sh joy yoki qator ko\'chirish bor! Buni Render Environment sozlamalaridan tozalang.');
+  }
 }
 
-const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
 // ======================
 // CORS
@@ -60,6 +72,22 @@ const io = new Server(server, {
 // bufferCommands: false - agar ulanish bo'lmasa so'rovlar 10 soniya
 // "osilib qolish" o'rniga DARHOL xato qaytaradi (debug qilish osonroq bo'ladi)
 mongoose.set('bufferCommands', false);
+
+// DIAGNOSTIKA: parol/maxfiy qismini yashirib, faqat host va foydalanuvchi
+// nomini ko'rsatadi - shu orqali MONGODB_URI to'g'ri o'qilganini tekshirish mumkin
+function logMaskedMongoUri(uri) {
+  if (!uri) {
+    console.error('❌ MONGODB_URI environment variable BO\'SH yoki o\'rnatilmagan!');
+    return;
+  }
+  try {
+    const masked = uri.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:****@');
+    console.log('🔍 MONGODB_URI (parol yashirilgan):', masked);
+  } catch {
+    console.log('🔍 MONGODB_URI mavjud, lekin format tahlil qilinmadi');
+  }
+}
+logMaskedMongoUri(MONGODB_URI);
 
 function connectMongo() {
   mongoose.connect(MONGODB_URI, {
@@ -260,12 +288,22 @@ async function callTelegramApi(method, payload) {
 // TELEGRAM initData TEKSHIRUVI
 // ============================================================
 function verifyTelegramInitData(initData) {
-  if (!BOT_TOKEN || !initData) return null;
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.warn('⚠️ verifyTelegramInitData: TELEGRAM_BOT_TOKEN yo\'q');
+    return null;
+  }
+  if (!initData) {
+    console.warn('⚠️ verifyTelegramInitData: initData bo\'sh keldi');
+    return null;
+  }
 
   try {
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
-    if (!hash) return null;
+    if (!hash) {
+      console.warn('⚠️ verifyTelegramInitData: hash maydoni yo\'q. Kelgan kalitlar:', [...params.keys()]);
+      return null;
+    }
     params.delete('hash');
 
     const dataCheckArr = [];
@@ -277,7 +315,7 @@ function verifyTelegramInitData(initData) {
 
     const secretKey = crypto
       .createHmac('sha256', 'WebAppData')
-      .update(BOT_TOKEN)
+      .update(TELEGRAM_BOT_TOKEN)
       .digest();
 
     const computedHash = crypto
@@ -285,11 +323,21 @@ function verifyTelegramInitData(initData) {
       .update(dataCheckString)
       .digest('hex');
 
-    if (computedHash !== hash) return null;
+    if (computedHash !== hash) {
+      console.warn('❌ verifyTelegramInitData: HASH MOS KELMADI');
+      console.warn('   Kelgan hash    :', hash);
+      console.warn('   Hisoblangan hash:', computedHash);
+      console.warn('   dataCheckString :', dataCheckString);
+      console.warn('   👉 Bu deyarli har doim TELEGRAM_BOT_TOKEN noto\'g\'ri/mos emasligini bildiradi.');
+      return null;
+    }
 
     const authDate = Number(params.get('auth_date') || 0);
     const now = Math.floor(Date.now() / 1000);
-    if (!authDate || now - authDate > 60 * 60 * 24) return null;
+    if (!authDate || now - authDate > 60 * 60 * 24) {
+      console.warn(`⚠️ verifyTelegramInitData: auth_date eskirgan (${now - authDate} soniya oldin)`);
+      return null;
+    }
 
     const userJson = params.get('user');
     return userJson ? JSON.parse(userJson) : null;
@@ -333,6 +381,24 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime(),
     mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
+});
+
+// MUHIM: MongoDB hali ulanmagan bo'lsa (bufferCommands=false tufayli),
+// so'rovlar xom Mongoose xatosi bilan emas, tushunarli 503 xabari bilan
+// qaytariladi. /api/health va /api/telegram/webhook bundan mustasno -
+// webhook har doim Telegram'ga 200 qaytarishi kerak.
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health' || req.path === '/telegram/webhook') {
+    return next();
+  }
+  if (mongoose.connection.readyState !== 1) {
+    console.warn(`⚠️ So'rov rad etildi (baza ulanmagan): ${req.method} ${req.path}`);
+    return res.status(503).json({
+      success: false,
+      message: "Server hali bazaga ulanmoqda, bir necha soniyadan keyin qayta urinib ko'ring"
+    });
+  }
+  next();
 });
 
 // ============================================================
