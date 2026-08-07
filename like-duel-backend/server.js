@@ -1,10 +1,6 @@
 // ============================================================
 // SERVER.JS - TO'LIQ BACKEND (EKONOMIKA TIZIMI BILAN)
 // ============================================================
-import dns from 'node:dns';
-// Node.js IPv6 o'rniga IPv4 dan foydalanishini ta'minlash (Render -> Atlas ulanishi uchun)
-dns.setDefaultResultOrder('ipv4first');
-
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -12,12 +8,12 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
-import net from 'node:net';
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+
 // ======================
 // ENVIRONMENT VARIABLES
 // ======================
@@ -25,28 +21,16 @@ const {
   PORT = 10000,
   MONGODB_URI,
   ADMIN_TOKEN = 'admin-secret-key',
+  BOT_TOKEN,          // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
   TELEGRAM_WEBHOOK_SECRET = '', // setWebhook chaqirilganda secret_token sifatida bering
   ALLOWED_ORIGIN = ''
 } = process.env;
 
-// Bot tokeni ikki xil nom bilan qidiriladi - qaysi biri Render'da
-// o'rnatilgan bo'lsa o'shani oladi (TELEGRAM_BOT_TOKEN ustunlikka ega)
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
-
-if (!TELEGRAM_BOT_TOKEN) {
-  console.warn('⚠️  OGOHLANTIRISH: TELEGRAM_BOT_TOKEN yoki BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi!');
-} else {
-  // DIAGNOSTIKA: tokenni to'liq chiqarmasdan, faqat formatini tekshirish uchun
-  // (haqiqiy Telegram bot tokeni odatda "123456789:AAExxxxxxxxxxxxxxxxxxxxxxxxxxxxx" ko'rinishida bo'ladi)
-  const preview = `${TELEGRAM_BOT_TOKEN.slice(0, 6)}...${TELEGRAM_BOT_TOKEN.slice(-4)}`;
-  const looksValid = /^\d+:[A-Za-z0-9_-]{30,}$/.test(TELEGRAM_BOT_TOKEN.trim());
-  console.log(`🔍 TELEGRAM_BOT_TOKEN: ${preview} (uzunlik: ${TELEGRAM_BOT_TOKEN.length}, format to'g'ri: ${looksValid ? '✅' : '❌ NOTO\'G\'RI FORMAT'})`);
-  if (TELEGRAM_BOT_TOKEN !== TELEGRAM_BOT_TOKEN.trim()) {
-    console.warn('⚠️  TELEGRAM_BOT_TOKEN oldida/orqasida bo\'sh joy yoki qator ko\'chirish bor! Buni Render Environment sozlamalaridan tozalang.');
-  }
+if (!BOT_TOKEN) {
+  console.warn('⚠️  OGOHLANTIRISH: BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi!');
 }
 
-const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // ======================
 // CORS
@@ -77,33 +61,14 @@ const io = new Server(server, {
 // "osilib qolish" o'rniga DARHOL xato qaytaradi (debug qilish osonroq bo'ladi)
 mongoose.set('bufferCommands', false);
 
-// DIAGNOSTIKA: parol/maxfiy qismini yashirib, faqat host va foydalanuvchi
-// nomini ko'rsatadi - shu orqali MONGODB_URI to'g'ri o'qilganini tekshirish mumkin
-function logMaskedMongoUri(uri) {
-  if (!uri) {
-    console.error('❌ MONGODB_URI environment variable BO\'SH yoki o\'rnatilmagan!');
-    return;
-  }
-  try {
-    const masked = uri.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:****@');
-    console.log('🔍 MONGODB_URI (parol yashirilgan):', masked);
-  } catch {
-    console.log('🔍 MONGODB_URI mavjud, lekin format tahlil qilinmadi');
-  }
-}
-logMaskedMongoUri(MONGODB_URI);
-
 function connectMongo() {
-  if (!process.env.MONGODB_URI) return;
-  
-  mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
-    family: 4 // IPv4 dan foydalanishga majburlash
+  mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000
   })
-    .then(() => console.log('✅ MongoDB bazasiga ulanish MUVAFFAQIYATLI!'))
+    .then(() => console.log('✅ MongoDB connected'))
     .catch(err => {
       console.error('❌ MongoDB error:', err.message);
+      console.log('🔄 5 soniyadan keyin qayta urinib ko\'riladi...');
       setTimeout(connectMongo, 5000);
     });
 }
@@ -295,22 +260,12 @@ async function callTelegramApi(method, payload) {
 // TELEGRAM initData TEKSHIRUVI
 // ============================================================
 function verifyTelegramInitData(initData) {
-  if (!TELEGRAM_BOT_TOKEN) {
-    console.warn('⚠️ verifyTelegramInitData: TELEGRAM_BOT_TOKEN yo\'q');
-    return null;
-  }
-  if (!initData) {
-    console.warn('⚠️ verifyTelegramInitData: initData bo\'sh keldi');
-    return null;
-  }
+  if (!BOT_TOKEN || !initData) return null;
 
   try {
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
-    if (!hash) {
-      console.warn('⚠️ verifyTelegramInitData: hash maydoni yo\'q. Kelgan kalitlar:', [...params.keys()]);
-      return null;
-    }
+    if (!hash) return null;
     params.delete('hash');
 
     const dataCheckArr = [];
@@ -322,7 +277,7 @@ function verifyTelegramInitData(initData) {
 
     const secretKey = crypto
       .createHmac('sha256', 'WebAppData')
-      .update(TELEGRAM_BOT_TOKEN)
+      .update(BOT_TOKEN)
       .digest();
 
     const computedHash = crypto
@@ -330,21 +285,11 @@ function verifyTelegramInitData(initData) {
       .update(dataCheckString)
       .digest('hex');
 
-    if (computedHash !== hash) {
-      console.warn('❌ verifyTelegramInitData: HASH MOS KELMADI');
-      console.warn('   Kelgan hash    :', hash);
-      console.warn('   Hisoblangan hash:', computedHash);
-      console.warn('   dataCheckString :', dataCheckString);
-      console.warn('   👉 Bu deyarli har doim TELEGRAM_BOT_TOKEN noto\'g\'ri/mos emasligini bildiradi.');
-      return null;
-    }
+    if (computedHash !== hash) return null;
 
     const authDate = Number(params.get('auth_date') || 0);
     const now = Math.floor(Date.now() / 1000);
-    if (!authDate || now - authDate > 60 * 60 * 24) {
-      console.warn(`⚠️ verifyTelegramInitData: auth_date eskirgan (${now - authDate} soniya oldin)`);
-      return null;
-    }
+    if (!authDate || now - authDate > 60 * 60 * 24) return null;
 
     const userJson = params.get('user');
     return userJson ? JSON.parse(userJson) : null;
@@ -388,91 +333,6 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime(),
     mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
-});
-
-// ============================================================
-// VAQTINCHALIK DIAGNOSTIKA: DNS/tarmoq darajasida MongoDB'ga
-// yeta olish-olmasligini tekshiradi. Muammo hal bo'lgandan keyin
-// bu endpointni o'chirib tashlash tavsiya etiladi.
-// ============================================================
-app.get('/api/debug/network-test', async (req, res) => {
-  const results = {};
-
-  try {
-    const srv = await dns.resolveSrv('_mongodb._tcp.cluster0.mku75qs.mongodb.net');
-    results.srvLookup = { success: true, hostsFound: srv.map(s => `${s.name}:${s.port}`) };
-  } catch (err) {
-    results.srvLookup = { success: false, error: err.message, code: err.code };
-  }
-
-  try {
-    const txt = await dns.resolveTxt('cluster0.mku75qs.mongodb.net');
-    results.txtLookup = { success: true, records: txt };
-  } catch (err) {
-    results.txtLookup = { success: false, error: err.message, code: err.code };
-  }
-
-  const shardHosts = [
-    'ac-tkepmoq-shard-00-00.mku75qs.mongodb.net',
-    'ac-tkepmoq-shard-00-01.mku75qs.mongodb.net',
-    'ac-tkepmoq-shard-00-02.mku75qs.mongodb.net'
-  ];
-
-  // IPv4/IPv6 manzillarini alohida aniqlaymiz - ba'zan IPv6 orqali
-  // chiqish yo'li bloklangan/ishlamaydigan bo'ladi, IPv4 esa ishlaydi
-  results.dnsAddresses = {};
-  for (const host of shardHosts) {
-    results.dnsAddresses[host] = {};
-    try {
-      results.dnsAddresses[host].ipv4 = await dns.resolve4(host);
-    } catch (err) {
-      results.dnsAddresses[host].ipv4 = `xato: ${err.code || err.message}`;
-    }
-    try {
-      results.dnsAddresses[host].ipv6 = await dns.resolve6(host);
-    } catch (err) {
-      results.dnsAddresses[host].ipv6 = `xato: ${err.code || err.message}`;
-    }
-  }
-
-  results.tcpConnect = {};
-  results.tcpConnectIPv4Forced = {};
-  for (const host of shardHosts) {
-    results.tcpConnect[host] = await new Promise((resolve) => {
-      const socket = net.createConnection({ host, port: 27017, timeout: 5000 });
-      socket.on('connect', () => { socket.destroy(); resolve('✅ TCP ulandi (port ochiq)'); });
-      socket.on('timeout', () => { socket.destroy(); resolve('⏱️ vaqt tugadi (ehtimol bloklangan)'); });
-      socket.on('error', (err) => resolve(`❌ ${err.code || err.message}`));
-    });
-
-    // Xuddi shu ulanishni MAJBURIY IPv4 orqali sinaymiz
-    results.tcpConnectIPv4Forced[host] = await new Promise((resolve) => {
-      const socket = net.createConnection({ host, port: 27017, timeout: 5000, family: 4 });
-      socket.on('connect', () => { socket.destroy(); resolve('✅ TCP ulandi (IPv4 majburiy, port ochiq)'); });
-      socket.on('timeout', () => { socket.destroy(); resolve('⏱️ vaqt tugadi (IPv4 majburiy)'); });
-      socket.on('error', (err) => resolve(`❌ IPv4 majburiy: ${err.code || err.message}`));
-    });
-  }
-
-  res.json({ success: true, results, mongooseReadyState: mongoose.connection.readyState });
-});
-
-// MUHIM: MongoDB hali ulanmagan bo'lsa (bufferCommands=false tufayli),
-// so'rovlar xom Mongoose xatosi bilan emas, tushunarli 503 xabari bilan
-// qaytariladi. /api/health, /api/debug/* va /api/telegram/webhook bundan
-// mustasno - ular bazasiz ham ishlashi kerak.
-app.use('/api', (req, res, next) => {
-  if (req.path === '/health' || req.path === '/telegram/webhook' || req.path.startsWith('/debug/')) {
-    return next();
-  }
-  if (mongoose.connection.readyState !== 1) {
-    console.warn(`⚠️ So'rov rad etildi (baza ulanmagan): ${req.method} ${req.path}`);
-    return res.status(503).json({
-      success: false,
-      message: "Server hali bazaga ulanmoqda, bir necha soniyadan keyin qayta urinib ko'ring"
-    });
-  }
-  next();
 });
 
 // ============================================================
