@@ -68,11 +68,6 @@ const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 // ======================
 // CORS
 // ======================
-// TUZATISH: oddiy qiymat solishtirish o'rniga normalizatsiya qiluvchi funksiya
-// ishlatiladi - oxirgi "/" belgisi, bo'sh joylar va ko'rinmas belgilar (masalan
-// nusxalashda tushib qolgan zero-width/non-breaking space) hisobga olinmaydi.
-// Rad etilgan Origin har doim log'ga yoziladi - shu orqali .env'dagi qiymat bilan
-// brauzerdan kelayotgan qiymat orasidagi farqni darhol ko'rish mumkin.
 function normalizeOrigin(value) {
   return String(value || '')
     .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '') // ko'rinmas/maxsus bo'sh joy belgilari
@@ -89,8 +84,6 @@ console.log('🔧 Ruxsat etilgan originlar:', allowedOriginsList);
 
 const corsOptions = {
   origin: (requestOrigin, callback) => {
-    // requestOrigin undefined bo'lishi mumkin (masalan server-to-server so'rov,
-    // Postman, yoki bir xil origin'dan kelgan so'rov) - bunday holatda ruxsat beramiz.
     if (!requestOrigin) return callback(null, true);
 
     const normalized = normalizeOrigin(requestOrigin);
@@ -98,6 +91,7 @@ const corsOptions = {
       return callback(null, true);
     }
 
+    // 👇 MANA BU YERDA LOG YAZILADI
     console.warn(`⚠️ CORS rad etildi. Kelgan Origin: "${requestOrigin}" (normalized: "${normalized}"). Ruxsat etilganlar:`, allowedOriginsList);
     return callback(new Error('CORS: bu origin ruxsat etilmagan'));
   },
@@ -106,7 +100,10 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Admin-Token', 'X-Telegram-Init-Data']
 };
 
+// 👇 SHU MIDDLEWARE'LARNING KETMA-KETLIGIGA ETIBOR BERING:
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Preflight (OPTIONS) so'rovlariga javob berish uchun
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
