@@ -68,12 +68,39 @@ const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 // ======================
 // CORS
 // ======================
+// TUZATISH: oddiy qiymat solishtirish o'rniga normalizatsiya qiluvchi funksiya
+// ishlatiladi - oxirgi "/" belgisi, bo'sh joylar va ko'rinmas belgilar (masalan
+// nusxalashda tushib qolgan zero-width/non-breaking space) hisobga olinmaydi.
+// Rad etilgan Origin har doim log'ga yoziladi - shu orqali .env'dagi qiymat bilan
+// brauzerdan kelayotgan qiymat orasidagi farqni darhol ko'rish mumkin.
+function normalizeOrigin(value) {
+  return String(value || '')
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '') // ko'rinmas/maxsus bo'sh joy belgilari
+    .trim()
+    .replace(/\/+$/, '') // oxirgi slash(lar)ni olib tashlash
+    .toLowerCase();
+}
+
+const allowedOriginsList = ALLOWED_ORIGIN
+  ? ALLOWED_ORIGIN.split(',').map(normalizeOrigin).filter(Boolean)
+  : ['http://localhost:3000', 'http://127.0.0.1:3000'].map(normalizeOrigin);
+
+console.log('🔧 Ruxsat etilgan originlar:', allowedOriginsList);
+
 const corsOptions = {
-  // ALLOWED_ORIGIN har doim talab qilinadi (production'da startup tekshiruvi bilan majburlangan;
-  // dev'da bo'sh bo'lsa, faqat localhost'ga ruxsat beramiz - "hammaga ochiq" emas).
-  origin: ALLOWED_ORIGIN
-    ? ALLOWED_ORIGIN.split(',').map(o => o.trim())
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: (requestOrigin, callback) => {
+    // requestOrigin undefined bo'lishi mumkin (masalan server-to-server so'rov,
+    // Postman, yoki bir xil origin'dan kelgan so'rov) - bunday holatda ruxsat beramiz.
+    if (!requestOrigin) return callback(null, true);
+
+    const normalized = normalizeOrigin(requestOrigin);
+    if (allowedOriginsList.includes(normalized)) {
+      return callback(null, true);
+    }
+
+    console.warn(`⚠️ CORS rad etildi. Kelgan Origin: "${requestOrigin}" (normalized: "${normalized}"). Ruxsat etilganlar:`, allowedOriginsList);
+    return callback(new Error('CORS: bu origin ruxsat etilmagan'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Admin-Token', 'X-Telegram-Init-Data']
