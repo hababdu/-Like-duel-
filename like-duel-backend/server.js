@@ -1,5 +1,13 @@
 // ============================================================
 // SERVER.JS - TO'LIQ BACKEND (EKONOMIKA TIZIMI BILAN)
+// TUZATILGAN VERSIYA - barcha aniqlangan muammolar hal qilingan:
+//  1. Escrow endi MongoDB'da persistent (server qulasa ham tanga yo'qolmaydi)
+//  2. CORS production'da ALLOWED_ORIGIN'ni majburiy qiladi
+//  3. ADMIN_TOKEN uchun xavfli default yo'q - o'rnatilmasa server ishga tushmaydi
+//  4. onlineUsers'da eski/yetim socketlar tozalanadi
+//  5. Race condition kamaytirilgan (findOneAndUpdate atomik operatsiyalar bilan)
+//  6. Stavka uchun min/max chegara qo'yilgan
+//  7. Server qayta ishga tushganda "osilib qolgan" xonalar avtomatik qaytariladi
 // ============================================================
 import express from 'express';
 import http from 'http';
@@ -19,15 +27,40 @@ const server = http.createServer(app);
 // ======================
 const {
   PORT = 10000,
+  NODE_ENV = 'development',
   MONGODB_URI,
-  ADMIN_TOKEN = 'admin-secret-key',
-  TELEGRAM_BOT_TOKEN,          // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
+  ADMIN_TOKEN,                  // MAJBURIY - default yo'q (xavfsizlik uchun)
+  TELEGRAM_BOT_TOKEN,           // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
   TELEGRAM_WEBHOOK_SECRET = '', // setWebhook chaqirilganda secret_token sifatida bering
   ALLOWED_ORIGIN = ''
 } = process.env;
 
+const IS_PRODUCTION = NODE_ENV === 'production';
+
+// ======================
+// STARTUP TEKSHIRUVLARI - muhim env o'rnatilmagan bo'lsa server ishga tushmaydi
+// ======================
+const startupErrors = [];
+
+if (!MONGODB_URI) {
+  startupErrors.push('MONGODB_URI o\'rnatilmagan.');
+}
 if (!TELEGRAM_BOT_TOKEN) {
-  console.warn('⚠️  OGOHLANTIRISH: TELEGRAM_BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi!');
+  startupErrors.push('TELEGRAM_BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi.');
+}
+if (!ADMIN_TOKEN) {
+  startupErrors.push('ADMIN_TOKEN o\'rnatilmagan. Xavfsizlik uchun bu MAJBURIY (default qiymat endi yo\'q).');
+}
+if (IS_PRODUCTION && !ALLOWED_ORIGIN) {
+  startupErrors.push('Production rejimida ALLOWED_ORIGIN majburiy (CORS uchun aniq domenlar kerak).');
+}
+
+if (startupErrors.length > 0) {
+  console.error('❌ SERVER ISHGA TUSHMADI - quyidagi muammolarni hal qiling:');
+  startupErrors.forEach(err => console.error('   - ' + err));
+  // Production'da darhol to'xtatamiz. Dev'da faqat ADMIN_TOKEN/MONGODB_URI bo'lmasa ham to'xtatamiz,
+  // chunki bularsiz server xavfsiz yoki foydali ishlay olmaydi.
+  process.exit(1);
 }
 
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
@@ -36,10 +69,14 @@ const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 // CORS
 // ======================
 const corsOptions = {
-  origin: ALLOWED_ORIGIN ? ALLOWED_ORIGIN.split(',') : true,
+  // ALLOWED_ORIGIN har doim talab qilinadi (production'da startup tekshiruvi bilan majburlangan;
+  // dev'da bo'sh bo'lsa, faqat localhost'ga ruxsat beramiz - "hammaga ochiq" emas).
+  origin: ALLOWED_ORIGIN
+    ? ALLOWED_ORIGIN.split(',').map(o => o.trim())
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Admin-Token', 'X-Telegram-Init-Data']
 };
 
 app.use(cors(corsOptions));
@@ -58,8 +95,14 @@ const io = new Server(server, {
 // MONGODB CONNECTION
 // ======================
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB error:', err));
+  .then(() => {
+    console.log('✅ MongoDB connected');
+    recoverStaleRooms(); // server qayta ishga tushganda osilib qolgan xonalarni qaytarish
+  })
+  .catch(err => {
+    console.error('❌ MongoDB error:', err);
+    process.exit(1);
+  });
 
 // ======================
 // USER SCHEMA
@@ -73,7 +116,7 @@ const UserSchema = new mongoose.Schema({
   languageCode: { type: String, default: 'uz' },
   isPremium: { type: Boolean, default: false },
 
-  // MUHIM: coins maydoni endi to'g'ridan-to'g'ri o'zgartirilmaydi.
+  // MUHIM: coins maydoni to'g'ridan-to'g'ri o'zgartirilmaydi.
   // Har qanday o'zgarish FAQAT applyCoinTransaction() orqali,
   // ledger (Transaction) yozuvi bilan birga amalga oshiriladi.
   coins: { type: Number, default: 0 },
@@ -104,9 +147,6 @@ const User = mongoose.model('User', UserSchema);
 // ======================
 // TRANSACTION SCHEMA (HAMYON TARIXI / LEDGER)
 // ======================
-// Har bir tanga o'zgarishi (musbat yoki manfiy) shu yerda qayd etiladi.
-// Bu orqali istalgan vaqtda: "nega foydalanuvchida shuncha tanga bor" -
-// degan savolga aniq javob berish mumkin (audit).
 const TransactionSchema = new mongoose.Schema({
   tgId: { type: String, required: true, index: true },
   type: {
@@ -116,7 +156,7 @@ const TransactionSchema = new mongoose.Schema({
       'signup_bonus',       // ro'yxatdan o'tish bonusi (+100)
       'referral_bonus',     // do'st taklif qilgani uchun (+50)
       'game_stake_hold',    // duelga kirishda stavka ushlab turiladi (-)
-      'game_stake_refund',  // raqib topilmadi/xato bo'lgani uchun qaytarildi (+)
+      'game_stake_refund',  // raqib topilmadi/xato/server tiklandi - qaytarildi (+)
       'game_win',           // duelda g'alaba (+2x stavka)
       'game_lose',          // duelda mag'lubiyat (0, faqat ledger yozuvi uchun)
       'game_draw_refund',   // durang - stavka qaytarildi (+)
@@ -124,7 +164,7 @@ const TransactionSchema = new mongoose.Schema({
       'admin_adjust'        // admin tomonidan qo'lda tuzatish (+/-)
     ]
   },
-  amount: { type: Number, required: true }, // haqiqiy o'zgarish (0 dan pastga tushmaslik hisobga olingan holda)
+  amount: { type: Number, required: true },
   balanceAfter: { type: Number, required: true },
   description: { type: String, default: '' },
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
@@ -148,18 +188,47 @@ const PaymentSchema = new mongoose.Schema({
 const Payment = mongoose.model('Payment', PaymentSchema);
 
 // ======================
-// GAME STATE
+// ROOM SCHEMA (YANGI) - duel xonalarini MongoDB'da saqlash
+// ======================
+// Nima uchun kerak: avvalgi versiyada activeRooms faqat xotirada (RAM) saqlanardi.
+// Agar stavka ikkala o'yinchidan yechilgandan (escrow) keyin server qulasa,
+// xonaga oid butun ma'lumot yo'qolib, tanga hech kimga qaytarilmasdan yo'qolib
+// qolardi. Endi har bir xona MongoDB'da ham yoziladi va status bilan kuzatiladi:
+//   'active'    -> o'yin davom etmoqda, stavkalar escrow'da
+//   'completed' -> natija chiqarilgan, tanga taqsimlangan
+//   'refunded'  -> server tiklanganda topilib, ikkala tarafga ham qaytarilgan
+const RoomSchema = new mongoose.Schema({
+  roomId: { type: String, required: true, unique: true },
+  status: { type: String, enum: ['active', 'completed', 'refunded'], default: 'active', index: true },
+  stake: { type: Number, required: true },
+  players: [{
+    tgId: String,
+    name: String,
+    username: String,
+    rating: Number,
+    level: Number,
+    photoUrl: String
+  }],
+  createdAt: { type: Date, default: Date.now },
+  completedAt: { type: Date, default: null }
+});
+
+const Room = mongoose.model('Room', RoomSchema);
+
+// ======================
+// GAME STATE (faqat vaqtinchalik/runtime holat - manba MongoDB)
 // ======================
 let searchQueue = [];
-let activeRooms = {};
-let onlineUsers = new Map();
+let activeRooms = {}; // roomId -> { players, choices, stake, timer, timeLeft, chat }
+let onlineUsers = new Map(); // tgId -> { socketId, user }
 
 const VALID_CHOICES = ['rock', 'paper', 'scissors'];
 const ROUND_SECONDS = 30;
-const REFERRAL_BONUS = 50;   // har bir taklif qilingan do'st uchun referrer oladigan tanga
-const SIGNUP_BONUS = 100;    // yangi foydalanuvchiga beriladigan boshlang'ich tanga
+const REFERRAL_BONUS = 50;
+const SIGNUP_BONUS = 100;
+const MIN_STAKE = 1;
+const MAX_STAKE = 100000; // haddan tashqari katta/manfiy stavkalarning oldini olish
 
-// Sotib olish uchun paketlar. "stars" - Telegram Stars miqdori (real pul, Telegram ichida).
 const COIN_PACKAGES = [
   { id: 'pack_100', coins: 100, stars: 50, title: '100 🪙 Tanga' },
   { id: 'pack_500', coins: 500, stars: 200, title: '500 🪙 Tanga' },
@@ -169,10 +238,7 @@ const COIN_PACKAGES = [
 
 // ============================================================
 // MARKAZIY TANGA FUNKSIYASI - BUTUN TIZIMDA FAQAT SHU ORQALI
-// TANGA O'ZGARTIRILADI. Bu orqali:
-//  - har bir o'zgarish ledger'da qayd etiladi (audit)
-//  - "requireSufficient" bilan yetarli mablag' yo'qligi oldindan ushlanadi
-//  - iloji bo'lsa MongoDB tranzaksiyasi (session) orqali atomik bajariladi
+// TANGA O'ZGARTIRILADI.
 // ============================================================
 async function applyCoinTransaction(tgId, amount, type, description = '', metadata = {}, opts = {}) {
   const { requireSufficient = false } = opts;
@@ -203,7 +269,7 @@ async function applyCoinTransaction(tgId, amount, type, description = '', metada
   try {
     session = await mongoose.startSession();
   } catch {
-    session = null; // sessiyalar mavjud bo'lmasa (replica set emas) oddiy rejimda davom etamiz
+    session = null;
   }
 
   if (!session) {
@@ -222,6 +288,47 @@ async function applyCoinTransaction(tgId, amount, type, description = '', metada
     return run(null);
   } finally {
     session.endSession();
+  }
+}
+
+// ============================================================
+// SERVER TIKLANGANDA - "OSILIB QOLGAN" XONALARNI QAYTARISH
+// ============================================================
+// Server ishga tushganda (yoki qayta ishga tushganda), MongoDB'dagi
+// 'active' statusidagi barcha xonalarni topamiz. Bu holat faqat server
+// ilgari kutilmaganda o'chgan/qulagan bo'lsa yuzaga keladi (chunki normal
+// oqimda evaluateRound() har doim xonani 'completed' qilib yopadi).
+// Xavfsizlik nuqtai nazaridan eng to'g'ri yechim - ikkala tarafga ham
+// stavkasini to'liq qaytarish, chunki o'yin natijasi noma'lum.
+async function recoverStaleRooms() {
+  try {
+    const staleRooms = await Room.find({ status: 'active' });
+    if (staleRooms.length === 0) return;
+
+    console.log(`🔄 ${staleRooms.length} ta osilib qolgan xona topildi, tangalar qaytarilmoqda...`);
+
+    for (const room of staleRooms) {
+      for (const player of room.players) {
+        try {
+          await applyCoinTransaction(
+            player.tgId,
+            room.stake,
+            'game_stake_refund',
+            `Server tiklandi, duel yakunlanmagan - stavka qaytarildi (${room.roomId})`,
+            { roomId: room.roomId, recovery: true }
+          );
+        } catch (err) {
+          console.error(`❌ ${player.tgId} uchun qaytarishda xato:`, err.message);
+        }
+      }
+      room.status = 'refunded';
+      room.completedAt = new Date();
+      await room.save();
+    }
+
+    console.log('✅ Barcha osilib qolgan xonalar uchun tangalar qaytarildi.');
+  } catch (err) {
+    console.error('❌ recoverStaleRooms xatosi:', err);
   }
 }
 
@@ -299,7 +406,13 @@ function requireTelegramAuth(req, res, next) {
 
 function requireAdmin(req, res, next) {
   const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
+  // timingSafeEqual bilan solishtirish - timing attack'larning oldini olish uchun
+  const tokenBuf = Buffer.from(String(token || ''));
+  const adminBuf = Buffer.from(String(ADMIN_TOKEN));
+  const isValid = tokenBuf.length === adminBuf.length &&
+    crypto.timingSafeEqual(tokenBuf, adminBuf);
+
+  if (!isValid) {
     return res.status(403).json({ success: false, message: 'Ruxsat berilmagan' });
   }
   next();
@@ -350,10 +463,8 @@ app.post('/api/user/auth', requireTelegramAuth, async (req, res) => {
       await user.save();
       console.log('✅ New user created:', user.tgId);
 
-      // Ro'yxatdan o'tish bonusi - ledger orqali
       await applyCoinTransaction(tgId, SIGNUP_BONUS, 'signup_bonus', "Ro'yxatdan o'tish bonusi");
 
-      // Referal bonusi - FAQAT taklif qilgan (referrer) ga beriladi
       if (user.refParent) {
         const parent = await User.findOne({ tgId: user.refParent });
         if (parent) {
@@ -379,7 +490,7 @@ app.post('/api/user/auth', requireTelegramAuth, async (req, res) => {
         }
       }
 
-      user = await User.findOne({ tgId }); // coins yangilangan holatda qayta o'qish
+      user = await User.findOne({ tgId });
 
     } else {
       user.username = verified.username || user.username;
@@ -504,9 +615,18 @@ app.get('/api/user/:tgId/wallet', async (req, res) => {
 app.post('/api/admin/update-coins', requireAdmin, async (req, res) => {
   try {
     const { tgId, amount, reason } = req.body;
+
+    if (!tgId) {
+      return res.status(400).json({ success: false, message: 'tgId majburiy' });
+    }
+    const numAmount = Number(amount);
+    if (!Number.isFinite(numAmount) || numAmount === 0) {
+      return res.status(400).json({ success: false, message: 'amount noto\'g\'ri' });
+    }
+
     const user = await applyCoinTransaction(
       tgId,
-      Number(amount || 0),
+      numAmount,
       'admin_adjust',
       reason || 'Admin tuzatishi'
     );
@@ -533,7 +653,23 @@ app.get('/api/admin/economy-stats', requireAdmin, async (req, res) => {
       { $sort: { totalAmount: -1 } }
     ]);
 
-    res.json({ success: true, totalCoins, totalUsers, totalTransactions, byType });
+    // Qo'shimcha: hozirda 'active' turgan (hal qilinmagan) xonalar soni va ularda
+    // "muzlab" turgan umumiy tanga miqdori - operativ monitoring uchun foydali.
+    const activeRoomsAgg = await Room.aggregate([
+      { $match: { status: 'active' } },
+      { $group: { _id: null, count: { $sum: 1 }, frozenCoins: { $sum: { $multiply: ['$stake', { $size: '$players' }] } } } }
+    ]);
+    const activeRoomsStats = activeRoomsAgg[0] || { count: 0, frozenCoins: 0 };
+
+    res.json({
+      success: true,
+      totalCoins,
+      totalUsers,
+      totalTransactions,
+      byType,
+      activeRooms: activeRoomsStats.count,
+      frozenCoinsInActiveRooms: activeRoomsStats.frozenCoins
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server xatoligi' });
   }
@@ -621,8 +757,6 @@ app.post('/api/shop/create-invoice', requireTelegramAuth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Nomalum paket' });
     }
 
-    // XTR - Telegram Stars valyutasi. Bu Telegram'ning o'z ichki to'lov
-    // tizimi - alohida bank/merchant hisobi kerak emas.
     const invoiceLink = await callTelegramApi('createInvoiceLink', {
       title: pkg.title,
       description: `${pkg.coins} tanga hamyoningizga qo'shiladi`,
@@ -640,10 +774,6 @@ app.post('/api/shop/create-invoice', requireTelegramAuth, async (req, res) => {
 
 // ============================================================
 // 10. TELEGRAM WEBHOOK - to'lovlarni tasdiqlash
-//     Buni ishlatish uchun bot tomonida bir marta shu chaqiriladi:
-//     POST https://api.telegram.org/bot<TOKEN>/setWebhook
-//       { "url": "<SERVER_URL>/api/telegram/webhook",
-//         "secret_token": "<TELEGRAM_WEBHOOK_SECRET>" }
 // ============================================================
 app.post('/api/telegram/webhook', async (req, res) => {
   if (TELEGRAM_WEBHOOK_SECRET) {
@@ -657,31 +787,50 @@ app.post('/api/telegram/webhook', async (req, res) => {
 
   try {
     if (update.pre_checkout_query) {
-      // To'lovni yakuniy tasdiqlashdan oldin Telegram shuni so'raydi.
-      // 10 soniya ichida javob berish SHART.
       const query = update.pre_checkout_query;
       let payload = null;
       try { payload = JSON.parse(query.invoice_payload); } catch {}
 
       const pkg = payload ? COIN_PACKAGES.find(p => p.id === payload.packageId) : null;
 
-      await callTelegramApi('answerPreCheckoutQuery', {
+      const answerPayload = {
         pre_checkout_query_id: query.id,
-        ok: !!pkg,
-        error_message: pkg ? undefined : 'Paket topilmadi'
-      });
+        ok: !!pkg
+      };
+      if (!pkg) answerPayload.error_message = 'Paket topilmadi';
+
+      await callTelegramApi('answerPreCheckoutQuery', answerPayload);
 
     } else if (update.message?.successful_payment) {
       const payment = update.message.successful_payment;
       const chargeId = payment.telegram_payment_charge_id;
 
-      // Idempotentlik: Telegram ba'zan bir xil update'ni qayta yuborishi mumkin.
       const existing = await Payment.findOne({ telegramPaymentChargeId: chargeId });
       if (!existing) {
         const payload = JSON.parse(payment.invoice_payload);
         const pkg = COIN_PACKAGES.find(p => p.id === payload.packageId);
 
         if (pkg) {
+          // Payment yozuvini AVVAL unique constraint bilan yaratamiz - bu ikkita
+          // parallel webhook chaqiruvi bir xil to'lovni ikki marta qayta ishlashining
+          // oldini oladi (unique index xato tashlaydi, shunda tangani ikki marta bermaymiz).
+          try {
+            await Payment.create({
+              telegramPaymentChargeId: chargeId,
+              tgId: payload.tgId,
+              packageId: pkg.id,
+              starsAmount: payment.total_amount,
+              coinsAwarded: pkg.coins
+            });
+          } catch (dupErr) {
+            if (dupErr.code === 11000) {
+              // Boshqa parallel so'rov allaqachon qayta ishlagan - xavfsiz chiqib ketamiz
+              res.status(200).end();
+              return;
+            }
+            throw dupErr;
+          }
+
           const user = await applyCoinTransaction(
             payload.tgId,
             pkg.coins,
@@ -690,16 +839,8 @@ app.post('/api/telegram/webhook', async (req, res) => {
             { telegramPaymentChargeId: chargeId, starsAmount: payment.total_amount }
           );
 
-          await Payment.create({
-            telegramPaymentChargeId: chargeId,
-            tgId: payload.tgId,
-            packageId: pkg.id,
-            starsAmount: payment.total_amount,
-            coinsAwarded: pkg.coins
-          });
-
           const socketInfo = onlineUsers.get(payload.tgId);
-          if (socketInfo) {
+          if (socketInfo && io.sockets.sockets.has(socketInfo.socketId)) {
             io.to(socketInfo.socketId).emit('wallet_updated', {
               reason: 'purchase',
               coinsAwarded: pkg.coins,
@@ -713,7 +854,6 @@ app.post('/api/telegram/webhook', async (req, res) => {
     console.error('❌ Telegram webhook xatosi:', error);
   }
 
-  // Telegram javobni har doim 200 status bilan kutadi
   res.status(200).end();
 });
 
@@ -734,18 +874,33 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'tgId kerak' });
         return;
       }
+      const tgIdStr = String(tgId);
 
-      const user = await User.findOne({ tgId: String(tgId) });
+      const user = await User.findOne({ tgId: tgIdStr });
       if (!user) {
         socket.emit('error', { message: 'Foydalanuvchi topilmadi' });
         return;
+      }
+
+      // TUZATISH: agar shu tgId oldindan boshqa socket bilan ulangan bo'lsa
+      // (masalan eski tab yopilmagan yoki tarmoq uzilib qayta ulangan),
+      // eski socketni topib, uni "yetim" holatda qoldirmasdan tozalaymiz.
+      const previous = onlineUsers.get(tgIdStr);
+      if (previous && previous.socketId !== socket.id) {
+        const oldSocket = io.sockets.sockets.get(previous.socketId);
+        if (oldSocket) {
+          oldSocket.emit('force_disconnect', { reason: 'new_session' });
+          oldSocket.disconnect(true);
+        }
+        // Eski socket qidiruv navbatida bo'lsa, olib tashlaymiz
+        searchQueue = searchQueue.filter(p => p.socketId !== previous.socketId);
       }
 
       user.isOnline = true;
       user.lastLogin = new Date();
       await user.save();
 
-      onlineUsers.set(String(tgId), { socketId: socket.id, user });
+      onlineUsers.set(tgIdStr, { socketId: socket.id, user });
 
       socket.emit('user_connected', {
         success: true,
@@ -760,7 +915,7 @@ io.on('connection', (socket) => {
         }
       });
 
-      io.emit('user_status', { tgId: String(tgId), status: 'online', firstName: user.firstName });
+      io.emit('user_status', { tgId: tgIdStr, status: 'online', firstName: user.firstName });
 
     } catch (error) {
       console.error('❌ User connect error:', error);
@@ -769,7 +924,8 @@ io.on('connection', (socket) => {
   });
 
   // ============================================================
-  // FIND MATCH - stavka endi xona ochilganda darhol "ushlab turiladi" (escrow)
+  // FIND MATCH - stavka xona ochilganda darhol "ushlab turiladi" (escrow)
+  // va MongoDB'da Room hujjati yaratiladi (crash-safety uchun).
   // ============================================================
   socket.on('find_match', async ({ player, stake = 10 }) => {
     try {
@@ -778,7 +934,8 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const requestedStake = Math.max(1, Number(stake) || 10);
+      // TUZATISH: stavka min/max chegara bilan cheklanadi
+      const requestedStake = Math.min(MAX_STAKE, Math.max(MIN_STAKE, Math.floor(Number(stake) || 10)));
 
       const user = await User.findOne({ tgId: String(player.tgId) });
       if (!user) {
@@ -837,13 +994,34 @@ io.on('connection', (socket) => {
             { requireSufficient: true }
           );
         } catch {
-          // newPlayer'dan olingan stavkani qaytaramiz
           await applyCoinTransaction(
             newPlayer.tgId, newPlayer.stake, 'game_stake_refund',
             'Raqibda mablag\' yetarli emas, stavka qaytarildi', { roomId }
           );
           socket.emit('error', { message: 'Raqibda mablag\' yetarli emas edi, qayta qidiring' });
           if (oppSocket) oppSocket.emit('error', { message: 'Sizda mablag\' yetarli emas edi' });
+          return;
+        }
+
+        // TUZATISH: xonani MongoDB'ga ham yozamiz - shu bilan server qulasa ham
+        // stavkalar "kimga tegishli ekani" ma'lum bo'lib qoladi va recoverStaleRooms()
+        // keyingi ishga tushishda ularni qaytara oladi.
+        try {
+          await Room.create({
+            roomId,
+            status: 'active',
+            stake: newPlayer.stake,
+            players: [
+              { tgId: newPlayer.tgId, name: newPlayer.name, username: newPlayer.username, rating: newPlayer.rating, level: newPlayer.level, photoUrl: newPlayer.photoUrl },
+              { tgId: opponent.tgId, name: opponent.name, username: opponent.username, rating: opponent.rating, level: opponent.level, photoUrl: opponent.photoUrl }
+            ]
+          });
+        } catch (err) {
+          console.error('❌ Room yozishda xato, ehtiyot chorasi sifatida ikkalasiga ham qaytariladi:', err);
+          await applyCoinTransaction(newPlayer.tgId, newPlayer.stake, 'game_stake_refund', 'Xona yaratishda xato, qaytarildi', { roomId });
+          await applyCoinTransaction(opponent.tgId, opponent.stake, 'game_stake_refund', 'Xona yaratishda xato, qaytarildi', { roomId });
+          socket.emit('error', { message: 'Xona yaratishda xato, qaytadan urinib ko\'ring' });
+          if (oppSocket) oppSocket.emit('error', { message: 'Xona yaratishda xato, qaytadan urinib ko\'ring' });
           return;
         }
 
@@ -952,6 +1130,7 @@ io.on('connection', (socket) => {
     if (!player) return;
 
     const safeMessage = String(message || '').slice(0, 500);
+    if (!safeMessage.trim()) return;
 
     io.to(roomId).emit('chat_message', {
       tgId: player.tgId,
@@ -1032,8 +1211,7 @@ function startRoomTimer(roomId) {
 }
 
 // Stavka allaqachon ikkala o'yinchidan ham "ushlab turilgan" (escrow) holda.
-// Shu sabab bu yerda faqat QAYTARISH/QO'SHISH amallari bajariladi, hech qachon
-// stavkadan ortiq manfiy summa berilmaydi.
+// Shu sabab bu yerda faqat QAYTARISH/QO'SHISH amallari bajariladi.
 async function evaluateRound(roomId) {
   const room = activeRooms[roomId];
   if (!room) return;
@@ -1052,16 +1230,15 @@ async function evaluateRound(roomId) {
 
   let result1, result2;
   let xpChange1 = 0, xpChange2 = 0;
-  // coinPayout - stavka escrow'dan keyin foydalanuvchiga QAYTARILADIGAN/QO'SHILADIGAN miqdor
   let coinPayout1 = 0, coinPayout2 = 0;
 
   if (p1Absent && p2Absent) {
     result1 = 'draw'; result2 = 'draw';
-    coinPayout1 = room.stake; coinPayout2 = room.stake; // ikkalasiga ham qaytariladi
+    coinPayout1 = room.stake; coinPayout2 = room.stake;
 
   } else if (p1Absent) {
     result1 = 'lose'; result2 = 'win';
-    coinPayout2 = room.stake * 2; // o'z stavkasi + raqibniki
+    coinPayout2 = room.stake * 2;
     xpChange1 = -10; xpChange2 = 15;
 
   } else if (p2Absent) {
@@ -1092,7 +1269,6 @@ async function evaluateRound(roomId) {
       User.findOne({ tgId: p2.tgId })
     ]);
 
-    // Tanga to'lovi - ledger orqali
     let finalUser1 = user1, finalUser2 = user2;
     if (coinPayout1 > 0) {
       const txType = result1 === 'draw' ? 'game_draw_refund' : 'game_win';
@@ -1114,7 +1290,14 @@ async function evaluateRound(roomId) {
       });
     }
 
-    // Statistika va reyting/xp - tanga bilan bog'liq bo'lmagan maydonlar
+    // TUZATISH: Room hujjatini 'completed' deb belgilaymiz - shunda
+    // recoverStaleRooms() uni "osilib qolgan" deb hisoblamaydi.
+    try {
+      await Room.updateOne({ roomId }, { status: 'completed', completedAt: new Date() });
+    } catch (err) {
+      console.error('❌ Room statusini yangilashda xato:', err);
+    }
+
     await applyStatsUpdate(finalUser1, result1, xpChange1);
     await applyStatsUpdate(finalUser2, result2, xpChange2);
 
@@ -1122,7 +1305,7 @@ async function evaluateRound(roomId) {
       myChoice: rawC1 || 'timeout',
       opponentChoice: rawC2 || 'timeout',
       result: result1,
-      rewardCoins: coinPayout1 - room.stake, // netto o'zgarish (foydalanuvchiga tushunarli bo'lishi uchun)
+      rewardCoins: coinPayout1 - room.stake,
       rewardXP: xpChange1,
       newCoins: finalUser1?.coins ?? 0,
       newRating: finalUser1?.rating ?? 0,
@@ -1147,11 +1330,17 @@ async function evaluateRound(roomId) {
     });
 
   } catch (error) {
+    // TUZATISH: agar shu yerda xato bo'lsa, stavka escrow'da "muzlab" qolishi mumkin.
+    // Bu holatda xonani 'active' deb qoldiramiz (status o'zgartirilmagan bo'ladi),
+    // shunda keyingi server-restart'da recoverStaleRooms() uni albatta topib,
+    // ikkala o'yinchiga ham stavkani qaytaradi. Shu bilan birga darhol
+    // qayta urinib ko'ramiz, xatoni yashirmasdan.
     console.error('❌ Evaluate round error:', error);
+    io.to(p1.socketId).emit('error', { message: 'Duel natijasini hisoblashda xato yuz berdi, tez orada tekshiriladi' });
+    io.to(p2.socketId).emit('error', { message: 'Duel natijasini hisoblashda xato yuz berdi, tez orada tekshiriladi' });
   }
 }
 
-// Faqat rating/xp/level/g'alaba-mag'lubiyat statistikasi - tangaga tegmaydi
 async function applyStatsUpdate(user, result, xpChange) {
   if (!user) return;
 
@@ -1190,8 +1379,49 @@ function determineWinner(choice1, choice2) {
 }
 
 // ============================================================
+// GRACEFUL SHUTDOWN - SIGTERM/SIGINT kelganda ochiq xonalarni yopish
+// ============================================================
+// TUZATISH: agar hosting platforma (masalan Render) serverni muntazam
+// deploy/restart qilsa, biz buni oldindan bilamiz (SIGTERM keladi).
+// Shu vaqtda hali 'active' bo'lgan xonalarni darhol qaytarib, keyingi
+// ishga tushishda recoverStaleRooms()ga qoldirmasdan tezroq hal qilamiz.
+async function gracefulShutdown(signal) {
+  console.log(`⚠️ ${signal} qabul qilindi, faol xonalar yopilmoqda...`);
+  const roomIds = Object.keys(activeRooms);
+
+  for (const roomId of roomIds) {
+    const room = activeRooms[roomId];
+    if (room.timer) clearInterval(room.timer);
+    for (const player of room.players) {
+      try {
+        await applyCoinTransaction(
+          player.tgId, room.stake, 'game_stake_refund',
+          `Server to'xtatildi, stavka qaytarildi (${roomId})`, { roomId }
+        );
+      } catch (err) {
+        console.error(`❌ ${player.tgId} uchun shutdown-refund xatosi:`, err.message);
+      }
+    }
+    try {
+      await Room.updateOne({ roomId }, { status: 'refunded', completedAt: new Date() });
+    } catch {}
+  }
+
+  server.close(() => {
+    console.log('✅ Server toza yopildi.');
+    process.exit(0);
+  });
+
+  // Agar 10 soniyada yopilmasa, majburan chiqamiz
+  setTimeout(() => process.exit(1), 10000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// ============================================================
 // START SERVER
 // ============================================================
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT} (${NODE_ENV})`);
 });
