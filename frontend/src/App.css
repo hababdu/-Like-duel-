@@ -1,593 +1,610 @@
 /* ============================================================
-   APP.CSS - TO'LIQ STILLAR
+   APP.CSS – Desktop + Responsive (icon-only on mobile)
    ============================================================ */
 
-   * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f0c29;
+  color: #ffffff;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   APP
+   ============================================================ */
+.app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  padding: 16px;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  max-width: 520px;          /* desktop markazlash */
+  margin: 0 auto;
+}
+
+/* ============================================================
+   LOADING
+   ============================================================ */
+.loading-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f0c29, #302b63);
+  gap: 16px;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255,255,255,0.1);
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 16px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.header-left h1 {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-status {
+  font-size: 14px;
+}
+
+.header-coins {
+  background: rgba(0,255,136,0.15);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #00ff88;
+  white-space: nowrap;
+}
+
+.header-rating {
+  background: rgba(102,126,234,0.15);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #667eea;
+  white-space: nowrap;
+}
+
+.header-profile {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #667eea;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+}
+
+.header-profile:hover {
+  border-color: #764ba2;
+  transform: scale(1.06);
+}
+
+.header-profile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.header-profile span {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* ============================================================
+   DEV BANNER
+   ============================================================ */
+.dev-mode-banner {
+  background: rgba(255,170,0,0.12);
+  border: 1px solid rgba(255,170,0,0.35);
+  color: #ffaa00;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* ============================================================
+   MENU
+   ============================================================ */
+.menu {
+  width: 100%;
+}
+
+.menu-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(255,255,255,0.05);
+  padding: 16px;
+  border-radius: 18px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.menu-profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 3px solid #667eea;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.menu-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.menu-profile-avatar span {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.premium-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: #ffaa00;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border: 2px solid #0f0c29;
+}
+
+.menu-profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-profile-info h2 {
+  font-size: 18px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-profile-info p {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.menu-profile-stats span {
+  background: rgba(255,255,255,0.07);
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+/* ============================================================
+   MENU BUTTONS
+   ============================================================ */
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.menu-buttons button {
+  position: relative;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: none;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.25s ease;
+  min-height: 56px;
+  width: 100%;
+  color: #fff;
+  overflow: hidden;
+}
+
+.menu-buttons button:hover {
+  transform: translateY(-2px);
+}
+
+.menu-buttons button:active {
+  transform: scale(0.97);
+}
+
+/* Icon + Text structure */
+.btn-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.btn-text {
+  white-space: nowrap;
+}
+
+/* Individual button colors */
+.btn-play {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  box-shadow: 0 4px 20px rgba(102,126,234,0.4);
+}
+.btn-play:hover {
+  box-shadow: 0 6px 28px rgba(102,126,234,0.55);
+}
+
+.btn-bot {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  box-shadow: 0 4px 20px rgba(245,87,108,0.4);
+}
+.btn-bot:hover {
+  box-shadow: 0 6px 28px rgba(245,87,108,0.55);
+}
+
+.btn-leaderboard {
+  background: linear-gradient(135deg, #43e97b, #38f9d7);
+  color: #0f0c29;
+  box-shadow: 0 4px 20px rgba(67,233,123,0.4);
+}
+.btn-leaderboard:hover {
+  box-shadow: 0 6px 28px rgba(67,233,123,0.55);
+}
+
+.btn-wallet {
+  background: linear-gradient(135deg, #fa709a, #fee140);
+  color: #0f0c29;
+  box-shadow: 0 4px 20px rgba(250,112,154,0.4);
+}
+.btn-wallet:hover {
+  box-shadow: 0 6px 28px rgba(250,112,154,0.55);
+}
+
+.btn-shop {
+  background: linear-gradient(135deg, #a18cd1, #fbc2eb);
+  color: #0f0c29;
+  box-shadow: 0 4px 20px rgba(161,140,209,0.4);
+}
+.btn-shop:hover {
+  box-shadow: 0 6px 28px rgba(161,140,209,0.55);
+}
+
+.btn-referrals {
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  color: #0f0c29;
+  box-shadow: 0 4px 20px rgba(79,172,254,0.4);
+}
+.btn-referrals:hover {
+  box-shadow: 0 6px 28px rgba(79,172,254,0.55);
+}
+
+/* Badge */
+.badge {
+  font-size: 11px;
+  background: rgba(255,255,255,0.22);
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-weight: 600;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   NOTIFICATION
+   ============================================================ */
+.notification {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 18px;
+  border-radius: 12px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 92%;
+  font-weight: 500;
+  font-size: 14px;
+  animation: slideDown 0.3s ease-out;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.notification.info {
+  background: rgba(102,126,234,0.95);
+  color: #fff;
+}
+
+.notification.success {
+  background: rgba(0,255,136,0.95);
+  color: #0f0c29;
+}
+
+.notification.error {
+  background: rgba(255,68,68,0.95);
+  color: #fff;
+}
+
+.notification.warning {
+  background: rgba(255,170,0,0.95);
+  color: #0f0c29;
+}
+
+.notification button {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-16px);
   }
-  
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #0f0c29;
-    color: #ffffff;
-    min-height: 100vh;
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
-  
-  /* ============================================================
-     APP
-     ============================================================ */
+}
+
+/* ============================================================
+   PROFILE PAGE (kept for compatibility)
+   ============================================================ */
+.profile-page {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.back-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-bottom: 16px;
+  transition: all 0.25s;
+}
+
+.back-btn:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+/* ============================================================
+   DESKTOP (≥768px)
+   ============================================================ */
+@media (min-width: 768px) {
   .app {
-    min-height: 100vh;
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-    padding: 16px;
-    padding-bottom: 80px;
-  }
-  
-  /* ============================================================
-     LOADING
-     ============================================================ */
-  .loading-screen {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #0f0c29, #302b63);
-  }
-  
-  .spinner {
-    width: 60px;
-    height: 60px;
-    border: 4px solid rgba(255,255,255,0.1);
-    border-top: 4px solid #667eea;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  /* ============================================================
-     HEADER
-     ============================================================ */
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 16px;
-    margin-bottom: 16px;
-    backdrop-filter: blur(10px);
-  }
-  
-  .header-left h1 {
-    font-size: 20px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  
-  .header-status {
-    font-size: 14px;
-  }
-  
-  .header-coins {
-    background: rgba(0,255,136,0.15);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #00ff88;
-  }
-  
-  .header-rating {
-    background: rgba(102,126,234,0.15);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #667eea;
-  }
-  
-  .header-profile {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 2px solid #667eea;
-    background: none;
-    cursor: pointer;
-    overflow: hidden;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s;
-  }
-  
-  .header-profile:hover {
-    border-color: #764ba2;
-    transform: scale(1.05);
-  }
-  
-  .header-profile img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .header-profile span {
-    font-size: 20px;
-    font-weight: 600;
-    color: #fff;
-  }
-  
-  /* ============================================================
-     MENU
-     ============================================================ */
-  .menu {
-    max-width: 400px;
-    margin: 0 auto;
-  }
-  
-  .menu-profile {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: rgba(255,255,255,0.05);
-    padding: 16px;
-    border-radius: 16px;
-    margin-bottom: 16px;
-  }
-  
-  .menu-profile-avatar {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    border: 3px solid #667eea;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  
-  .menu-profile-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .menu-profile-avatar span {
-    font-size: 28px;
-    font-weight: 600;
-  }
-  
-  .menu-profile-info {
-    flex: 1;
-  }
-  
-  .menu-profile-info h2 {
-    font-size: 18px;
-    margin-bottom: 2px;
-  }
-  
-  .menu-profile-info p {
-    color: #888;
-    font-size: 14px;
-    margin-bottom: 8px;
-  }
-  
-  .menu-profile-stats {
-    display: flex;
-    gap: 12px;
-    font-size: 14px;
-  }
-  
-  .menu-profile-stats span {
-    background: rgba(255,255,255,0.05);
-    padding: 2px 10px;
-    border-radius: 12px;
-  }
-  
-  /* ============================================================
-     MENU BUTTONS
-     ============================================================ */
-  .menu-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .menu-buttons button {
-    padding: 16px 20px;
-    border-radius: 16px;
-    border: none;
-    font-size: 18px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    transition: all 0.3s;
-  }
-  
-  .menu-buttons button:hover {
-    transform: translateY(-2px);
-  }
-  
-  .menu-buttons button:active {
-    transform: scale(0.97);
-  }
-  
-  .btn-play {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: #fff;
-    box-shadow: 0 4px 20px rgba(102,126,234,0.4);
-  }
-  
-  .btn-play:hover {
-    box-shadow: 0 6px 30px rgba(102,126,234,0.6);
-  }
-  
-  .btn-bot {
-    background: linear-gradient(135deg, #f093fb, #f5576c);
-    color: #fff;
-    box-shadow: 0 4px 20px rgba(245,87,108,0.4);
-  }
-  
-  .btn-bot:hover {
-    box-shadow: 0 6px 30px rgba(245,87,108,0.6);
-  }
-  
-  .btn-leaderboard {
-    background: linear-gradient(135deg, #43e97b, #38f9d7);
-    color: #0f0c29;
-    box-shadow: 0 4px 20px rgba(67,233,123,0.4);
-  }
-  
-  .btn-leaderboard:hover {
-    box-shadow: 0 6px 30px rgba(67,233,123,0.6);
-  }
-  
-  .btn-referrals {
-    background: linear-gradient(135deg, #4facfe, #00f2fe);
-    color: #0f0c29;
-    box-shadow: 0 4px 20px rgba(79,172,254,0.4);
-  }
-  
-  .btn-referrals:hover {
-    box-shadow: 0 6px 30px rgba(79,172,254,0.6);
-  }
-  
-  .badge {
-    font-size: 10px;
-    background: rgba(255,255,255,0.2);
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-weight: 600;
-  }
-  
-  /* ============================================================
-     NOTIFICATION
-     ============================================================ */
-  .notification {
-    position: fixed;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 12px 20px;
-    border-radius: 12px;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    max-width: 90%;
-    font-weight: 500;
-    animation: slideDown 0.3s ease-out;
-  }
-  
-  .notification.info {
-    background: rgba(102,126,234,0.9);
-    color: #fff;
-  }
-  
-  .notification.success {
-    background: rgba(0,255,136,0.9);
-    color: #0f0c29;
-  }
-  
-  .notification.error {
-    background: rgba(255,68,68,0.9);
-    color: #fff;
-  }
-  
-  .notification button {
-    background: none;
-    border: none;
-    color: inherit;
-    font-size: 20px;
-    cursor: pointer;
-  }
-  
-  @keyframes slideDown {
-    from {
-      opacity: 0;
-      transform: translateX(-50%) translateY(-20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-  }
-  
-  /* ============================================================
-     PROFILE PAGE
-     ============================================================ */
-  .profile-page {
-    max-width: 400px;
-    margin: 0 auto;
-  }
-  
-  .back-btn {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #fff;
-    padding: 10px 16px;
-    border-radius: 12px;
-    cursor: pointer;
-    font-size: 14px;
-    margin-bottom: 16px;
-    transition: all 0.3s;
-  }
-  
-  .back-btn:hover {
-    background: rgba(255,255,255,0.1);
-  }
-  
-  .profile-card {
-    background: rgba(255,255,255,0.05);
-    border-radius: 20px;
+    max-width: 480px;
     padding: 24px;
-    backdrop-filter: blur(10px);
+    padding-bottom: 40px;
   }
-  
-  .profile-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    border: 3px solid #667eea;
-    overflow: hidden;
-    margin: 0 auto 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
+
+  .header {
+    padding: 14px 20px;
   }
-  
-  .profile-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .profile-avatar span {
-    font-size: 36px;
-    font-weight: 600;
-  }
-  
-  .premium-badge {
-    position: absolute;
-    bottom: -4px;
-    right: -4px;
-    background: #ffaa00;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    border: 2px solid #0f0c29;
-  }
-  
-  .profile-name {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  
-  .profile-name h2 {
+
+  .header-left h1 {
     font-size: 22px;
-    margin-bottom: 2px;
   }
-  
-  .profile-name p {
-    color: #888;
-    font-size: 14px;
+
+  .menu-profile {
+    padding: 20px;
   }
-  
-  .profile-name .profile-id {
-    color: #666;
-    font-size: 12px;
-    font-family: monospace;
+
+  .menu-profile-avatar {
+    width: 72px;
+    height: 72px;
   }
-  
-  .profile-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
+
+  .menu-buttons {
+    gap: 14px;
   }
-  
-  .stat-box {
-    background: rgba(255,255,255,0.05);
+
+  .menu-buttons button {
+    padding: 18px 24px;
+    font-size: 18px;
+    min-height: 62px;
+  }
+
+  .btn-icon {
+    font-size: 24px;
+  }
+}
+
+/* ============================================================
+   TABLET / SMALL DESKTOP
+   ============================================================ */
+@media (min-width: 481px) and (max-width: 767px) {
+  .app {
+    max-width: 440px;
+  }
+}
+
+/* ============================================================
+   MOBILE (≤480px) – ICON ONLY MODE
+   ============================================================ */
+@media (max-width: 480px) {
+  .app {
     padding: 12px;
-    border-radius: 12px;
-    text-align: center;
+    padding-bottom: calc(70px + env(safe-area-inset-bottom));
   }
-  
-  .stat-label {
-    display: block;
-    font-size: 12px;
-    color: #888;
-    margin-bottom: 4px;
-  }
-  
-  .stat-value {
-    font-size: 20px;
-    font-weight: 700;
-  }
-  
-  .profile-xp {
-    margin-bottom: 20px;
-  }
-  
-  .xp-info {
-    display: flex;
-    justify-content: space-between;
-    font-size: 14px;
-    color: #888;
-    margin-bottom: 6px;
-  }
-  
-  .xp-bar {
-    height: 8px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  
-  .xp-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
-    border-radius: 4px;
-    transition: width 0.5s ease;
-  }
-  
-  .profile-game-stats h3,
-  .profile-ref h3 {
-    font-size: 16px;
+
+  .header {
+    padding: 10px 12px;
+    border-radius: 14px;
     margin-bottom: 12px;
-    color: #888;
   }
-  
-  .game-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-  
-  .game-stat {
-    background: rgba(255,255,255,0.05);
-    padding: 12px;
-    border-radius: 12px;
-    text-align: center;
-  }
-  
-  .stat-number {
-    display: block;
-    font-size: 20px;
-    font-weight: 700;
-  }
-  
-  .stat-name {
-    font-size: 11px;
-    color: #888;
-    margin-top: 2px;
-  }
-  
-  .ref-stats {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-  
-  .ref-stat {
-    background: rgba(255,255,255,0.05);
-    padding: 12px;
-    border-radius: 12px;
-    text-align: center;
-  }
-  
-  .btn-refresh {
-    width: 100%;
-    padding: 12px;
-    border-radius: 12px;
-    border: none;
-    background: rgba(255,255,255,0.05);
-    color: #fff;
+
+  .header-left h1 {
     font-size: 16px;
-    cursor: pointer;
-    margin-top: 16px;
-    transition: all 0.3s;
   }
-  
-  .btn-refresh:hover {
-    background: rgba(255,255,255,0.1);
+
+  .header-right {
+    gap: 8px;
   }
-  
-  .btn-refresh:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+
+  .header-coins,
+  .header-rating {
+    font-size: 12px;
+    padding: 4px 8px;
   }
-  
-  /* ============================================================
-     RESPONSIVE
-     ============================================================ */
-  @media (max-width: 480px) {
-    .header {
-      padding: 8px 12px;
-    }
-    
-    .header-left h1 {
-      font-size: 16px;
-    }
-    
-    .header-coins,
-    .header-rating {
-      font-size: 12px;
-      padding: 2px 8px;
-    }
-    
-    .header-profile {
-      width: 32px;
-      height: 32px;
-    }
-    
-    .menu-buttons button {
-      font-size: 16px;
-      padding: 14px 16px;
-    }
-    
-    .profile-stats-grid {
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-    
-    .game-stats-grid {
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-    }
-    
-    .stat-box,
-    .game-stat {
-      padding: 8px;
-    }
-    
-    .stat-value,
-    .stat-number {
-      font-size: 16px;
-    }
+
+  .header-profile {
+    width: 34px;
+    height: 34px;
   }
+
+  .menu-profile {
+    padding: 14px;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .menu-profile-avatar {
+    width: 54px;
+    height: 54px;
+  }
+
+  .menu-profile-info h2 {
+    font-size: 16px;
+  }
+
+  .menu-profile-info p {
+    font-size: 13px;
+  }
+
+  .menu-profile-stats {
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  /* === ICON ONLY BUTTONS === */
+  .menu-buttons {
+    gap: 10px;
+  }
+
+  .menu-buttons button {
+    padding: 14px 12px;
+    min-height: 52px;
+    font-size: 15px;
+    gap: 0;
+    justify-content: center;
+  }
+
+  /* Textni yashirish */
+  .btn-text {
+    display: none;
+  }
+
+  /* Iconni kattaroq qilish */
+  .btn-icon {
+    font-size: 26px;
+  }
+
+  /* Badge'ni icon yonida saqlash */
+  .badge {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 9px;
+    padding: 2px 6px;
+    margin: 0;
+  }
+}
+
+/* ============================================================
+   VERY SMALL PHONES (≤360px)
+   ============================================================ */
+@media (max-width: 360px) {
+  .header-coins,
+  .header-rating {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+
+  .menu-buttons button {
+    min-height: 48px;
+    padding: 12px 10px;
+  }
+
+  .btn-icon {
+    font-size: 24px;
+  }
+}

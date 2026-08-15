@@ -361,63 +361,69 @@ function App() {
               </div>
             </div>
 
-            <div className="menu-buttons">
-              <button
-                className="btn-play"
-                onClick={() => {
-                  if (!user?.tgId) {
-                    showNotification('⚠️ Iltimos avval tizimga kiring!', 'warning');
-                    return;
-                  }
-                  if (isDevMode) {
-                    showNotification('⚠️ Dev rejimida onlayn duel ishlamaydi (haqiqiy Telegram kerak).', 'warning');
-                    return;
-                  }
-                  setCurrentScreen('game');
-                }}
-              >
-                ⚔️ Onlayn Duel
-                <span className="badge">Jonli</span>
-              </button>
+           <div className="menu-buttons">
+  <button
+    className="btn-play"
+    onClick={() => {
+      if (!user?.tgId) {
+        showNotification('⚠️ Iltimos avval tizimga kiring!', 'warning');
+        return;
+      }
+      if (isDevMode) {
+        showNotification('⚠️ Dev rejimida onlayn duel ishlamaydi (haqiqiy Telegram kerak).', 'warning');
+        return;
+      }
+      setCurrentScreen('game');
+    }}
+  >
+    <span className="btn-icon">⚔️</span>
+    <span className="btn-text">Onlayn Duel</span>
+    <span className="badge">Jonli</span>
+  </button>
 
-              <button
-                className="btn-bot"
-                onClick={() => setCurrentScreen('bot')}
-              >
-                🤖 Bot bilan
-                <span className="badge">AI</span>
-              </button>
+  <button
+    className="btn-bot"
+    onClick={() => setCurrentScreen('bot')}
+  >
+    <span className="btn-icon">🤖</span>
+    <span className="btn-text">Bot bilan</span>
+    <span className="badge">AI</span>
+  </button>
 
-              <button
-                className="btn-leaderboard"
-                onClick={() => setCurrentScreen('leaderboard')}
-              >
-                🏆 Peshqadamlar
-              </button>
+  <button
+    className="btn-leaderboard"
+    onClick={() => setCurrentScreen('leaderboard')}
+  >
+    <span className="btn-icon">🏆</span>
+    <span className="btn-text">Peshqadamlar</span>
+  </button>
 
-              <button
-                className="btn-wallet"
-                onClick={() => setCurrentScreen('wallet')}
-              >
-                💰 Hamyonim
-              </button>
+  <button
+    className="btn-wallet"
+    onClick={() => setCurrentScreen('wallet')}
+  >
+    <span className="btn-icon">💰</span>
+    <span className="btn-text">Hamyonim</span>
+  </button>
 
-              <button
-                className="btn-shop"
-                onClick={() => setCurrentScreen('shop')}
-              >
-                🛒 Tanga Do'koni
-                <span className="badge">⭐ Stars</span>
-              </button>
+  <button
+    className="btn-shop"
+    onClick={() => setCurrentScreen('shop')}
+  >
+    <span className="btn-icon">🛒</span>
+    <span className="btn-text">Tanga Do'koni</span>
+    <span className="badge">⭐ Stars</span>
+  </button>
 
-              <button
-                className="btn-referrals"
-                onClick={() => setCurrentScreen('referrals')}
-              >
-                👥 Do'stlarni taklif qilish
-                <span className="badge">+50 🪙</span>
-              </button>
-            </div>
+  <button
+    className="btn-referrals"
+    onClick={() => setCurrentScreen('referrals')}
+  >
+    <span className="btn-icon">👥</span>
+    <span className="btn-text">Do'stlarni taklif qilish</span>
+    <span className="badge">+50 🪙</span>
+  </button>
+</div>
           </div>
         )}
 
