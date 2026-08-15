@@ -1,5 +1,5 @@
 /* ============================================================
-   APP.CSS – Dark + Serious Indigo (pushti o‘rniga)
+   APP.CSS – Dark + Serious Indigo + 2-column Grid (mobile ham)
    ============================================================ */
 
 * {
@@ -258,53 +258,59 @@ body {
 }
 
 /* ============================================================
-   MENU BUTTONS
+   MENU BUTTONS – 2 USTUNLI GRID (mobile ham)
    ============================================================ */
 .menu-buttons {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;   /* 2 ustun */
   gap: 12px;
 }
 
 .menu-buttons button {
   position: relative;
-  padding: 16px 20px;
-  border-radius: 14px;
+  padding: 18px 12px;
+  border-radius: 16px;
   border: none;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
+  flex-direction: column;          /* icon + text vertikal */
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   transition: all 0.25s ease;
-  min-height: 56px;
+  min-height: 90px;
   width: 100%;
   color: #ffffff;
   overflow: hidden;
   background: #111111;
   border: 1px solid rgba(99, 102, 241, 0.18);
+  text-align: center;
 }
 
 .menu-buttons button:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   border-color: #6366f1;
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
 }
 
 .menu-buttons button:active {
   transform: scale(0.97);
 }
 
+/* Icon + Text */
 .btn-icon {
-  font-size: 22px;
+  font-size: 28px;
   line-height: 1;
   flex-shrink: 0;
 }
 
 .btn-text {
-  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: normal;
+  text-align: center;
 }
 
 /* Primary button */
@@ -312,9 +318,10 @@ body {
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   border: none;
   box-shadow: 0 4px 18px rgba(99, 102, 241, 0.35);
+  grid-column: 1 / -1;             /* to‘liq kenglikda (ixtiyoriy) */
 }
 .btn-play:hover {
-  box-shadow: 0 6px 26px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.5);
 }
 
 /* Secondary buttons */
@@ -326,6 +333,7 @@ body {
   background: #111111;
   border: 1px solid rgba(99, 102, 241, 0.25);
 }
+
 .btn-bot:hover,
 .btn-leaderboard:hover,
 .btn-wallet:hover,
@@ -336,14 +344,15 @@ body {
 
 /* Badge */
 .badge {
-  font-size: 11px;
-  background: rgba(99, 102, 241, 0.2);
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  background: rgba(99, 102, 241, 0.25);
   color: #a5b4fc;
-  padding: 3px 9px;
-  border-radius: 12px;
+  padding: 2px 7px;
+  border-radius: 10px;
   font-weight: 600;
-  margin-left: 4px;
-  flex-shrink: 0;
   border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
@@ -471,18 +480,21 @@ body {
   }
 
   .menu-buttons button {
-    padding: 18px 24px;
-    font-size: 18px;
-    min-height: 62px;
+    min-height: 100px;
+    padding: 20px 14px;
   }
 
   .btn-icon {
-    font-size: 24px;
+    font-size: 32px;
+  }
+
+  .btn-text {
+    font-size: 14px;
   }
 }
 
 /* ============================================================
-   MOBILE (≤480px) – ICON ONLY
+   MOBILE (≤480px) – 2 USTUN SAQLANADI
    ============================================================ */
 @media (max-width: 480px) {
   .app {
@@ -544,47 +556,41 @@ body {
   }
 
   .menu-buttons button {
-    padding: 14px 12px;
-    min-height: 52px;
-    font-size: 15px;
-    gap: 0;
-    justify-content: center;
-  }
-
-  .btn-text {
-    display: none;
+    min-height: 84px;
+    padding: 14px 8px;
+    border-radius: 14px;
   }
 
   .btn-icon {
     font-size: 26px;
   }
 
+  .btn-text {
+    font-size: 12px;
+  }
+
   .badge {
-    position: absolute;
     top: 6px;
-    right: 8px;
+    right: 6px;
     font-size: 9px;
     padding: 2px 6px;
-    margin: 0;
   }
 }
 
 /* ============================================================
-   VERY SMALL (≤360px)
+   JUDA KICHIK TELEFONLAR (≤360px)
    ============================================================ */
 @media (max-width: 360px) {
-  .header-coins,
-  .header-rating {
-    font-size: 11px;
-    padding: 3px 6px;
-  }
-
   .menu-buttons button {
-    min-height: 48px;
-    padding: 12px 10px;
+    min-height: 78px;
+    padding: 12px 6px;
   }
 
   .btn-icon {
     font-size: 24px;
+  }
+
+  .btn-text {
+    font-size: 11px;
   }
 }
