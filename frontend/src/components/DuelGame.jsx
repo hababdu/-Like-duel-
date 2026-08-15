@@ -1,5 +1,5 @@
 // ============================================================
-// DuelGame.js - TO'LIQ VERSION (TUZATILGAN - server ledger'iga ishonadi)
+// DuelGame.js - TO'LIQ VERSION (UZLUKSIZ RAUNDLAR + CHIQISH TUGMASI)
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './DuelGame.css'
@@ -16,17 +16,20 @@ function DuelGame({
   // ======================
   // STATE
   // ======================
+  // gameState: 'idle' | 'searching' | 'playing' | 'ended'
   const [gameState, setGameState] = useState('idle');
   const [opponent, setOpponent] = useState(null);
   const [roomId, setRoomId] = useState(null);
   const [timer, setTimer] = useState(30);
   const [myChoice, setMyChoice] = useState(null);
+  const [roundNumber, setRoundNumber] = useState(1);
   const [roundResult, setRoundResult] = useState(null);
+  const [showResult, setShowResult] = useState(false);
+  const [sessionEndReason, setSessionEndReason] = useState(null); // 'opponent_left' | 'opponent_disconnected' | 'insufficient_funds' | null (=o'zi chiqdi/normal)
   const [stake, setStake] = useState(10);
   const [socketError, setSocketError] = useState(null);
   const [queueLength, setQueueLength] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
-  const [showResult, setShowResult] = useState(false);
   const [opponentChoiceMade, setOpponentChoiceMade] = useState(false);
 
   // Chat state
@@ -37,48 +40,31 @@ function DuelGame({
   const chatEndRef = useRef(null);
   const chatInputRef = useRef(null);
 
-  // Debug
-  const [debugLog, setDebugLog] = useState([]);
-
-  // gameState/isSearching ni socket callbacklar ichida eskirmagan holda o'qish uchun
+  // Socket callbacklar ichida eskirmagan holda o'qish uchun
   const gameStateRef = useRef(gameState);
   const isSearchingRef = useRef(isSearching);
   const stakeRef = useRef(stake);
+  const roomIdRef = useRef(roomId);
+  const nextRoundTimeoutRef = useRef(null);
+
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   useEffect(() => { isSearchingRef.current = isSearching; }, [isSearching]);
   useEffect(() => { stakeRef.current = stake; }, [stake]);
-
-  // ======================
-  // DEBUG LOG
-  // ======================
-  const addDebug = (msg) => {
-    const log = { time: new Date().toLocaleTimeString(), msg };
-    setDebugLog(prev => [...prev.slice(-10), log]);
-    console.log('🔍', msg);
-  };
+  useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
 
   // ======================
   // SCROLL CHAT TO BOTTOM
   // ======================
-  const scrollChatToBottom = () => {
+  useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  };
-
-  useEffect(() => {
-    scrollChatToBottom();
   }, [chatMessages]);
 
   // ======================
-  // START SEARCH (oldindan e'lon qilinadi, chunki reconnect handler ichida ishlatiladi)
+  // START SEARCH
   // ======================
   const startSearch = useCallback(() => {
-    addDebug('🚀 Starting search...');
-    addDebug(`📊 User: ${user?.tgId} - ${user?.firstName}`);
-    addDebug(`📊 Stake: ${stakeRef.current}`);
-    addDebug(`🔌 Socket connected: ${socket?.connected}`);
-
     if (!user) {
       onNotification?.('⚠️ Iltimos avval tizimga kiring!', 'error');
       return;
@@ -101,13 +87,11 @@ function DuelGame({
     }
 
     if (!socket.connected) {
-      addDebug('🔄 Socket not connected, trying to connect...');
       setSocketError('Serverga ulanish yo\'q, qayta ulanmoqda...');
       socket.connect();
 
       setTimeout(() => {
         if (socket.connected) {
-          addDebug('✅ Socket reconnected, retrying search...');
           startSearch();
         } else {
           setSocketError('Serverga ulanish yo\'q');
@@ -127,8 +111,6 @@ function DuelGame({
       photoUrl: user.photoUrl || ''
     };
 
-    addDebug(`📤 Emitting find_match with tgId: ${playerData.tgId}`);
-
     setGameState('searching');
     setIsSearching(true);
 
@@ -140,20 +122,22 @@ function DuelGame({
   }, [user, socket, onNotification]);
 
   // ======================
+  // LEAVE DUEL (YANGI) - "Chiqish" tugmasi
+  // ======================
+  const leaveDuel = useCallback(() => {
+    if (roomIdRef.current && socket) {
+      socket.emit('leave_room', { roomId: roomIdRef.current });
+      triggerHaptic?.('medium');
+    }
+  }, [socket, triggerHaptic]);
+
+  // ======================
   // SOCKET EVENT HANDLERS
   // ======================
   useEffect(() => {
-    if (!socket) {
-      addDebug('❌ Socket is null!');
-      return;
-    }
-
-    addDebug(`✅ DuelGame mounted, socket: ${socket.id}`);
-    addDebug(`✅ Socket connected: ${socket.connected}`);
-    addDebug(`👤 User: ${user?.firstName} (${user?.tgId})`);
+    if (!socket) return;
 
     const onSearching = (data) => {
-      addDebug(`🔍 Searching: ${JSON.stringify(data)}`);
       setGameState('searching');
       setIsSearching(true);
       if (data?.stake) setStake(data.stake);
@@ -161,13 +145,13 @@ function DuelGame({
     };
 
     const onMatchFound = (data) => {
-      addDebug(`🎯 MATCH FOUND!!! ${JSON.stringify(data)}`);
-
       setRoomId(data.roomId);
       setOpponent(data.opponent);
       setStake(data.stake || stakeRef.current);
       setMyChoice(null);
+      setRoundNumber(1);
       setRoundResult(null);
+      setSessionEndReason(null);
       setGameState('playing');
       setIsSearching(false);
       setShowResult(false);
@@ -179,45 +163,31 @@ function DuelGame({
       onNotification?.(`🎯 Raqib topildi! ${data.opponent?.name || 'Noma\'lum'} bilan duel!`, 'success');
     };
 
-    // MUHIM: stavka xona ochilganda serverda darhol "ushlab turiladi" (escrow).
-    // Bu voqea sodir bo'lganda haqiqiy balansni serverdan olib, UI'ni yangilaymiz -
-    // aks holda foydalanuvchi eski (stavka olinmagandek ko'rinadigan) balansni ko'rardi.
+    // Stavka xona ochilganda/har yangi raundda serverda darhol "ushlab turiladi" (escrow).
     const onBalanceUpdated = (data) => {
-      addDebug(`💰 Balance updated: ${JSON.stringify(data)}`);
       if (typeof data?.coins === 'number' && setUser) {
         setUser(prev => ({ ...prev, coins: data.coins }));
-      }
-      if (data?.reason === 'game_stake_hold') {
-        onNotification?.(`🔒 Stavka ushlab turildi: -${stakeRef.current} 🪙`, 'info');
       }
     };
 
     const onTimerTick = (timeLeft) => {
       setTimer(timeLeft);
-      if (timeLeft <= 5 && timeLeft > 0) {
-        triggerHaptic?.('light');
-      }
-      if (timeLeft === 0) {
-        triggerHaptic?.('heavy');
-      }
+      if (timeLeft <= 5 && timeLeft > 0) triggerHaptic?.('light');
+      if (timeLeft === 0) triggerHaptic?.('heavy');
     };
 
     const onOpponentChoiceMade = () => {
-      addDebug(`👀 Opponent made choice`);
       setOpponentChoiceMade(true);
     };
 
-    // MUHIM: tanga/rating/level qiymatlari ENDI to'g'ridan-to'g'ri serverdan
-    // kelgan (newCoins/newRating/newLevel) qiymatlarga TENGLASHTIRILADI, mahalliy
-    // qo'shish-ayirish qilinmaydi. Chunki stavka escrow serverda avval ushlab
-    // turilgan, shu sabab mijoz tomonida "prev + reward" hisoblash noto'g'ri
-    // natija berishi mumkin edi (masalan hold paytida ham yangilanmagan bo'lsa).
+    // Har raund natijasi serverdan keladi. Agar sessionContinues=true bo'lsa,
+    // qisqa vaqt natija ko'rsatilib, keyin avtomatik yangi raundga o'tiladi
+    // (next_round_started orqali). Aks holda duel butunlay tugaydi.
     const onRoundResult = (result) => {
-      addDebug(`📊 Round result: ${JSON.stringify(result)}`);
       setRoundResult(result);
-      setGameState('result');
       setShowResult(true);
       setIsSearching(false);
+      setOpponentChoiceMade(false);
 
       if (result.result === 'win') {
         triggerHaptic?.('heavy');
@@ -242,29 +212,62 @@ function DuelGame({
           draws: (prev?.draws || 0) + (result.result === 'draw' ? 1 : 0)
         }));
       }
+
+      if (nextRoundTimeoutRef.current) clearTimeout(nextRoundTimeoutRef.current);
+
+      if (!result.sessionContinues) {
+        // Duel shu yerda tugaydi
+        nextRoundTimeoutRef.current = setTimeout(() => {
+          setGameState('ended');
+        }, 1200);
+      } else {
+        // Qisqa vaqtdan keyin natija oynasini yopib, yangi raundga tayyorlanamiz
+        nextRoundTimeoutRef.current = setTimeout(() => {
+          setShowResult(false);
+          setMyChoice(null);
+        }, 2200);
+      }
+    };
+
+    const onNextRoundStarted = (data) => {
+      if (data?.roundNumber) setRoundNumber(data.roundNumber);
+      setOpponentChoiceMade(false);
     };
 
     const onChatMessage = (data) => {
-      addDebug(`💬 Chat: ${data.name}: ${data.message}`);
       setChatMessages(prev => [...prev, data]);
       setShowChat(prevShow => {
-        if (!prevShow) {
-          setUnreadCount(prev => prev + 1);
-        }
+        if (!prevShow) setUnreadCount(c => c + 1);
         return prevShow;
       });
     };
 
+    // Raqib ulanishi uzildi (majburiy)
     const onOpponentLeft = () => {
-      addDebug('🚪 Opponent left');
-      setGameState('opponent_left');
-      setIsSearching(false);
+      setSessionEndReason('opponent_disconnected');
       triggerHaptic?.('medium');
-      onNotification?.('⚠️ Raqib o\'yinni tark etdi! Natija hisoblanmoqda...', 'error');
+      onNotification?.('⚠️ Raqib bilan aloqa uzildi! Natija hisoblanmoqda...', 'error');
+    };
+
+    // Raqib "Chiqish" tugmasini bosdi (o'z hohishi bilan)
+    const onOpponentLeftRoom = () => {
+      setSessionEndReason('opponent_left');
+      triggerHaptic?.('medium');
+      onNotification?.('🚪 Raqib duelni tark etdi. Natija hisoblanmoqda...', 'info');
+    };
+
+    // Keyingi raund uchun kimdadir mablag' yetmadi - duel majburan tugaydi
+    const onDuelEnded = (data) => {
+      if (nextRoundTimeoutRef.current) clearTimeout(nextRoundTimeoutRef.current);
+      if (data?.reason === 'insufficient_funds') {
+        setSessionEndReason('insufficient_funds');
+        onNotification?.('⚠️ Keyingi raund uchun mablag\' yetarli emas, duel tugadi.', 'error');
+      }
+      setShowResult(false);
+      setGameState('ended');
     };
 
     const onError = (data) => {
-      addDebug(`❌ Error: ${JSON.stringify(data)}`);
       setSocketError(data?.message || 'Xatolik yuz berdi');
       onNotification?.(`⚠️ ${data?.message || 'Xatolik yuz berdi'}`, 'error');
       setGameState('idle');
@@ -272,37 +275,23 @@ function DuelGame({
     };
 
     const onSearchCancelled = () => {
-      addDebug('🔴 Search cancelled');
       setGameState('idle');
       setIsSearching(false);
       setQueueLength(0);
     };
 
-    const onConnect = () => {
-      addDebug(`✅ Socket connected: ${socket.id}`);
-      setSocketError(null);
-    };
+    const onConnect = () => setSocketError(null);
 
     const onReconnect = () => {
-      addDebug('🔄 Socket reconnected');
       setSocketError(null);
       onNotification?.('✅ Serverga qayta ulandi!', 'success');
-
       if (gameStateRef.current === 'searching' && isSearchingRef.current) {
-        addDebug('🔄 Retrying search after reconnect...');
         startSearch();
       }
     };
 
-    const onDisconnect = () => {
-      addDebug('❌ Socket disconnected');
-      setSocketError('Serverdan uzildi');
-    };
-
-    const onConnectError = (error) => {
-      addDebug(`❌ Connect error: ${error.message}`);
-      setSocketError('Serverga ulanishda xatolik');
-    };
+    const onDisconnect = () => setSocketError('Serverdan uzildi');
+    const onConnectError = () => setSocketError('Serverga ulanishda xatolik');
 
     socket.on('connect', onConnect);
     socket.on('reconnect', onReconnect);
@@ -314,13 +303,15 @@ function DuelGame({
     socket.on('timer_tick', onTimerTick);
     socket.on('opponent_choice_made', onOpponentChoiceMade);
     socket.on('round_result', onRoundResult);
+    socket.on('next_round_started', onNextRoundStarted);
     socket.on('chat_message', onChatMessage);
     socket.on('opponent_left', onOpponentLeft);
+    socket.on('opponent_left_room', onOpponentLeftRoom);
+    socket.on('duel_ended', onDuelEnded);
     socket.on('error', onError);
     socket.on('search_cancelled', onSearchCancelled);
 
     return () => {
-      addDebug('🧹 Cleaning up DuelGame');
       socket.off('connect', onConnect);
       socket.off('reconnect', onReconnect);
       socket.off('disconnect', onDisconnect);
@@ -331,22 +322,36 @@ function DuelGame({
       socket.off('timer_tick', onTimerTick);
       socket.off('opponent_choice_made', onOpponentChoiceMade);
       socket.off('round_result', onRoundResult);
+      socket.off('next_round_started', onNextRoundStarted);
       socket.off('chat_message', onChatMessage);
       socket.off('opponent_left', onOpponentLeft);
+      socket.off('opponent_left_room', onOpponentLeftRoom);
+      socket.off('duel_ended', onDuelEnded);
       socket.off('error', onError);
       socket.off('search_cancelled', onSearchCancelled);
+      if (nextRoundTimeoutRef.current) clearTimeout(nextRoundTimeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, triggerHaptic, onNotification, setUser, user, startSearch]);
+
+  // Xavfsizlik to'ri: komponent faol duel davomida ekrandan chiqib ketsa
+  // (masalan boshqa ekranga o'tilsa), xonani ham tark etamiz - aks holda
+  // socket ilova bo'ylab umumiy bo'lgani uchun duel "osilib" qolib,
+  // raqib har raundda vaqt tugashi bilan "yutib" o'tiraveradi.
+  useEffect(() => {
+    return () => {
+      if (roomIdRef.current && (gameStateRef.current === 'playing')) {
+        socket?.emit('leave_room', { roomId: roomIdRef.current });
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ======================
   // CANCEL SEARCH
   // ======================
   const cancelSearch = useCallback(() => {
-    addDebug('❌ Cancelling search');
-    if (socket) {
-      socket.emit('cancel_search');
-    }
+    if (socket) socket.emit('cancel_search');
     setGameState('idle');
     setIsSearching(false);
     setQueueLength(0);
@@ -356,10 +361,7 @@ function DuelGame({
   // SUBMIT CHOICE
   // ======================
   const submitChoice = useCallback((choice) => {
-    addDebug(`✋ Submitting choice: ${choice}, roomId: ${roomId}`);
-
     if (!socket || !roomId) {
-      addDebug('❌ No socket or roomId');
       onNotification?.('⚠️ Xatolik yuz berdi', 'error');
       return;
     }
@@ -399,26 +401,23 @@ function DuelGame({
     setShowChat(prev => {
       if (!prev) {
         setUnreadCount(0);
-        setTimeout(() => {
-          if (chatInputRef.current) {
-            chatInputRef.current.focus();
-          }
-        }, 100);
+        setTimeout(() => chatInputRef.current?.focus(), 100);
       }
       return !prev;
     });
   }, []);
 
   // ======================
-  // RESET GAME
+  // RESET GAME (yangi duel qidirish uchun)
   // ======================
   const resetGame = useCallback(() => {
-    addDebug('🔄 Resetting game');
     setGameState('idle');
     setRoundResult(null);
+    setSessionEndReason(null);
     setMyChoice(null);
     setOpponent(null);
     setRoomId(null);
+    setRoundNumber(1);
     setTimer(30);
     setIsSearching(false);
     setQueueLength(0);
@@ -429,6 +428,17 @@ function DuelGame({
     setUnreadCount(0);
   }, []);
 
+  // Bosh menyuga qaytish - agar duel faol bo'lsa, avval uni tark etamiz
+  const goToMenu = useCallback(() => {
+    if (roomId && gameState === 'playing') {
+      leaveDuel();
+    } else if (gameState === 'searching') {
+      cancelSearch();
+    }
+    resetGame();
+    onBack();
+  }, [roomId, gameState, leaveDuel, cancelSearch, resetGame, onBack]);
+
   // ======================
   // FORMAT FUNCTIONS
   // ======================
@@ -438,6 +448,7 @@ function DuelGame({
     if (str === 'scissors') return '✂️ Qaychi';
     if (str === 'timeout') return '⏳ Kechikdi';
     if (str === 'disconnected') return '🔌 Chiqib ketdi';
+    if (str === 'left') return '🚪 Chiqdi';
     return '❓ Noma\'lum';
   };
 
@@ -454,6 +465,7 @@ function DuelGame({
     if (str === 'scissors') return 'Qaychi';
     if (str === 'timeout') return 'Kechikdi';
     if (str === 'disconnected') return 'Chiqib ketdi';
+    if (str === 'left') return 'Chiqdi';
     return '';
   };
 
@@ -462,37 +474,22 @@ function DuelGame({
     return date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const endReasonText = () => {
+    if (sessionEndReason === 'opponent_left') return '🚪 Raqib duelni tark etdi';
+    if (sessionEndReason === 'opponent_disconnected') return '🔌 Raqib bilan aloqa uzildi';
+    if (sessionEndReason === 'insufficient_funds') return '💸 Keyingi raund uchun mablag\' yetarli emas';
+    return null;
+  };
+
   // ======================
   // RENDER
   // ======================
   return (
     <div className="duel-game">
       {/* Back Button */}
-      <button
-        className="duel-back-btn"
-        onClick={() => {
-          if (gameState === 'searching') cancelSearch();
-          onBack();
-          resetGame();
-        }}
-      >
+      <button className="duel-back-btn" onClick={goToMenu}>
         ⬅️ Menuga Qaytish
       </button>
-
-      {/* Debug Panel */}
-      <div className="duel-debug">
-        <div className="duel-debug-row">
-          <span>🔌 {socket?.connected ? '🟢' : '🔴'} {socket?.id?.substring(0, 6) || 'no'}</span>
-          <span>📊 <strong>{gameState}</strong></span>
-          <span>⏱️ {timer}s</span>
-          <span>👥 {queueLength}</span>
-        </div>
-        <div className="duel-debug-logs">
-          {debugLog.slice(-3).map((log, i) => (
-            <div key={i} className="duel-debug-log">[{log.time}] {log.msg}</div>
-          ))}
-        </div>
-      </div>
 
       {/* Error */}
       {socketError && (
@@ -544,9 +541,9 @@ function DuelGame({
               ))}
             </div>
             <p className="duel-stake-hint">
-              🔒 Duel boshlanganda stavka hamyoningizdan darhol ushlab turiladi.
-              G'alaba qozonsangiz — o'z stavkangiz + raqibniki qaytariladi.
-              Durang bo'lsa — stavkangiz to'liq qaytariladi.
+              🔒 Har raund boshlanganda stavka hamyoningizdan ushlab turiladi.
+              Duel siz "Chiqish" tugmasini bosmaguningizcha yangi raundlar bilan
+              davom etadi. G'alaba qozonsangiz — stavkangiz + raqibniki qaytariladi.
             </p>
           </div>
 
@@ -599,9 +596,11 @@ function DuelGame({
         </div>
       )}
 
-      {/* ===== PLAYING ===== */}
+      {/* ===== PLAYING (raund davom etmoqda yoki natija ko'rsatilmoqda) ===== */}
       {gameState === 'playing' && (
         <div className="duel-playing">
+          <div className="duel-round-badge">Raund #{roundNumber}</div>
+
           <div className="duel-versus">
             <div className="duel-player">
               <div className="duel-player-avatar">
@@ -614,10 +613,8 @@ function DuelGame({
               <div className="duel-player-name">🥊 {user?.firstName || 'Siz'}</div>
               <div className="duel-player-rating">🏆 {user?.rating || 0}</div>
               <div className="duel-player-level">📊 Lv.{user?.level || 1}</div>
-              {myChoice && (
-                <div className="duel-player-choice">
-                  ✅ {formatChoice(myChoice)}
-                </div>
+              {myChoice && !showResult && (
+                <div className="duel-player-choice">✅ {formatChoice(myChoice)}</div>
               )}
             </div>
 
@@ -640,12 +637,12 @@ function DuelGame({
               <div className="duel-player-name">🥷 {opponent?.name || 'Raqib'}</div>
               <div className="duel-player-rating">🏆 {opponent?.rating || 0}</div>
               <div className="duel-player-level">📊 Lv.{opponent?.level || 1}</div>
-              {opponentChoiceMade && (
+              {opponentChoiceMade && !showResult && (
                 <div className="duel-player-choice" style={{ color: '#ffaa00' }}>
                   ⏳ Tanlov qildi
                 </div>
               )}
-              {!opponentChoiceMade && myChoice && (
+              {!opponentChoiceMade && myChoice && !showResult && (
                 <div className="duel-player-choice" style={{ color: '#888' }}>
                   ⏳ Kutilmoqda...
                 </div>
@@ -653,44 +650,77 @@ function DuelGame({
             </div>
           </div>
 
-          <p className="duel-choice-label">🎯 Tanlovingizni qiling:</p>
-
-          <div className="duel-choices">
-            <button
-              className={`duel-choice-btn ${myChoice === 'rock' ? 'active' : ''}`}
-              onClick={() => submitChoice('rock')}
-              disabled={!!myChoice}
-            >
-              <span className="duel-choice-emoji">🪨</span>
-              <span className="duel-choice-name">Tosh</span>
-            </button>
-            <button
-              className={`duel-choice-btn ${myChoice === 'paper' ? 'active' : ''}`}
-              onClick={() => submitChoice('paper')}
-              disabled={!!myChoice}
-            >
-              <span className="duel-choice-emoji">📄</span>
-              <span className="duel-choice-name">Qog'oz</span>
-            </button>
-            <button
-              className={`duel-choice-btn ${myChoice === 'scissors' ? 'active' : ''}`}
-              onClick={() => submitChoice('scissors')}
-              disabled={!!myChoice}
-            >
-              <span className="duel-choice-emoji">✂️</span>
-              <span className="duel-choice-name">Qaychi</span>
-            </button>
-          </div>
-
-          {myChoice && (
-            <div className="duel-waiting">
-              <div className="duel-waiting-spinner"></div>
-              <p>
-                ⏳ Siz <strong>{formatChoice(myChoice)}</strong> tanladingiz.
-                Raqib kutilmoqda...
-              </p>
+          {/* Raund natijasi - qisqa muddatli overlay */}
+          {showResult && roundResult && (
+            <div className={`duel-round-overlay ${roundResult.result}`}>
+              <div className="duel-round-overlay-banner">
+                {roundResult.result === 'win' && '🎉 Bu raundni yutdingiz!'}
+                {roundResult.result === 'lose' && '😢 Bu raundda mag\'lub bo\'ldingiz'}
+                {roundResult.result === 'draw' && '🤝 Durang'}
+              </div>
+              <div className="duel-round-overlay-choices">
+                <span>{getChoiceEmoji(roundResult.myChoice)} {getChoiceName(roundResult.myChoice)}</span>
+                <span>vs</span>
+                <span>{getChoiceEmoji(roundResult.opponentChoice)} {getChoiceName(roundResult.opponentChoice)}</span>
+              </div>
+              <div className="duel-round-overlay-reward">
+                {roundResult.rewardCoins >= 0 ? '+' : ''}{roundResult.rewardCoins} 🪙
+              </div>
+              {roundResult.sessionContinues ? (
+                <p className="duel-round-overlay-hint">⏳ Keyingi raund boshlanmoqda...</p>
+              ) : (
+                <p className="duel-round-overlay-hint">🏁 Duel yakunlanmoqda...</p>
+              )}
             </div>
           )}
+
+          {!showResult && (
+            <>
+              <p className="duel-choice-label">🎯 Tanlovingizni qiling:</p>
+
+              <div className="duel-choices">
+                <button
+                  className={`duel-choice-btn ${myChoice === 'rock' ? 'active' : ''}`}
+                  onClick={() => submitChoice('rock')}
+                  disabled={!!myChoice}
+                >
+                  <span className="duel-choice-emoji">🪨</span>
+                  <span className="duel-choice-name">Tosh</span>
+                </button>
+                <button
+                  className={`duel-choice-btn ${myChoice === 'paper' ? 'active' : ''}`}
+                  onClick={() => submitChoice('paper')}
+                  disabled={!!myChoice}
+                >
+                  <span className="duel-choice-emoji">📄</span>
+                  <span className="duel-choice-name">Qog'oz</span>
+                </button>
+                <button
+                  className={`duel-choice-btn ${myChoice === 'scissors' ? 'active' : ''}`}
+                  onClick={() => submitChoice('scissors')}
+                  disabled={!!myChoice}
+                >
+                  <span className="duel-choice-emoji">✂️</span>
+                  <span className="duel-choice-name">Qaychi</span>
+                </button>
+              </div>
+
+              {myChoice && (
+                <div className="duel-waiting">
+                  <div className="duel-waiting-spinner"></div>
+                  <p>
+                    ⏳ Siz <strong>{formatChoice(myChoice)}</strong> tanladingiz.
+                    Raqib kutilmoqda...
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Chiqish tugmasi - istalgan vaqtda duel to'liq yakunlanadi */}
+          <button className="duel-leave-btn" onClick={leaveDuel}>
+            🚪 Duelni tark etish
+          </button>
 
           {/* Chat Toggle */}
           <button className="duel-chat-toggle" onClick={toggleChat}>
@@ -754,13 +784,17 @@ function DuelGame({
         </div>
       )}
 
-      {/* ===== RESULT ===== */}
-      {gameState === 'result' && roundResult && showResult && (
+      {/* ===== ENDED - duel butunlay yakunlangan ===== */}
+      {gameState === 'ended' && roundResult && (
         <div className="duel-result">
+          {endReasonText() && (
+            <div className="duel-end-reason">{endReasonText()}</div>
+          )}
+
           <div className={`duel-result-banner ${roundResult.result}`}>
-            {roundResult.result === 'win' && '🎉 SIZ YUTDINGIZ!'}
-            {roundResult.result === 'lose' && '😢 MAG\'LUB BO\'LDINGIZ'}
-            {roundResult.result === 'draw' && '🤝 DURANG'}
+            {roundResult.result === 'win' && '🎉 SO\'NGGI RAUNDNI YUTDINGIZ!'}
+            {roundResult.result === 'lose' && '😢 SO\'NGGI RAUNDDA MAG\'LUB BO\'LDINGIZ'}
+            {roundResult.result === 'draw' && '🤝 SO\'NGGI RAUND DURANG'}
           </div>
 
           <div className="duel-result-card">
@@ -812,37 +846,18 @@ function DuelGame({
                 <span>📊 Yangi level</span>
                 <span className="stat-value">{roundResult.newLevel ?? user?.level ?? 1}</span>
               </div>
+              <div className="duel-result-stat">
+                <span>🔁 Jami raundlar</span>
+                <span className="stat-value">{roundNumber}</span>
+              </div>
             </div>
           </div>
 
           <div className="duel-result-buttons">
-            <button className="duel-restart-btn" onClick={resetGame}>
+            <button className="duel-restart-btn" onClick={() => { resetGame(); startSearch(); }}>
               🔄 Yana O'ynash
             </button>
-            <button className="duel-menu-btn" onClick={() => {
-              resetGame();
-              onBack();
-            }}>
-              📋 Menuga
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ===== OPPONENT LEFT ===== */}
-      {gameState === 'opponent_left' && (
-        <div className="duel-opponent-left">
-          <div className="duel-opponent-left-icon">⚠️</div>
-          <h3>Raqib o'yinni tark etdi!</h3>
-          <p>Server avtomatik hisoblab, sizga g'alaba (stavka x2) berdi. Natija tez orada ko'rinadi.</p>
-          <div className="duel-result-buttons">
-            <button className="duel-restart-btn" onClick={resetGame}>
-              🔄 Yana O'ynash
-            </button>
-            <button className="duel-menu-btn" onClick={() => {
-              resetGame();
-              onBack();
-            }}>
+            <button className="duel-menu-btn" onClick={() => { resetGame(); onBack(); }}>
               📋 Menuga
             </button>
           </div>
@@ -865,6 +880,77 @@ function DuelGame({
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        .duel-round-badge {
+          text-align: center;
+          font-size: 12px;
+          color: #888;
+          background: rgba(255,255,255,0.05);
+          border-radius: 12px;
+          padding: 4px 10px;
+          display: inline-block;
+          margin: 0 auto 10px;
+        }
+        .duel-round-overlay {
+          text-align: center;
+          padding: 20px 12px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          margin: 12px 0;
+          animation: slideUp 0.25s ease-out;
+        }
+        .duel-round-overlay.win { border-color: rgba(67,233,123,0.4); }
+        .duel-round-overlay.lose { border-color: rgba(255,68,68,0.4); }
+        .duel-round-overlay.draw { border-color: rgba(255,170,0,0.4); }
+        .duel-round-overlay-banner {
+          font-size: 17px;
+          font-weight: 700;
+          margin-bottom: 10px;
+        }
+        .duel-round-overlay-choices {
+          display: flex;
+          justify-content: center;
+          gap: 10px;
+          font-size: 14px;
+          color: #ccc;
+          margin-bottom: 8px;
+        }
+        .duel-round-overlay-reward {
+          font-size: 15px;
+          font-weight: 600;
+          margin-bottom: 8px;
+        }
+        .duel-round-overlay-hint {
+          font-size: 12px;
+          color: #888;
+          margin: 0;
+        }
+        .duel-leave-btn {
+          display: block;
+          margin: 14px auto 0;
+          padding: 10px 20px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,68,68,0.3);
+          background: rgba(255,68,68,0.08);
+          color: #ff6b6b;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .duel-leave-btn:hover {
+          background: rgba(255,68,68,0.16);
+        }
+        .duel-end-reason {
+          text-align: center;
+          font-size: 13px;
+          color: #ffaa00;
+          background: rgba(255,170,0,0.08);
+          border: 1px solid rgba(255,170,0,0.2);
+          border-radius: 10px;
+          padding: 8px 12px;
+          margin-bottom: 12px;
         }
         .duel-stake-hint {
           font-size: 11px;

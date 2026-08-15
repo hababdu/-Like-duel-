@@ -1,5 +1,5 @@
 // ============================================================
-// App.js - TO'LIQ VERSION (TUZATILGAN - backend initData tekshiruviga mos)
+// App.js - TO'LIQ VERSION (TOZALANGAN - ortiqcha debug panel olib tashlandi)
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import socket from './socket';
@@ -12,7 +12,7 @@ import Wallet from './components/Wallet';
 import Shop from './components/Shop';
 import './App.css';
 
-// Backend endi /api/user/auth uchun XOM Telegram initData satrini talab qiladi
+// Backend /api/user/auth uchun XOM Telegram initData satrini talab qiladi
 // va uni bot tokeni bilan imzo (hash) orqali tekshiradi. Bu tufayli:
 //  - firstName/username/photoUrl kabi maydonlarni client bermaydi,
 //    ular server tomonida verifikatsiyalangan initData'dan olinadi.
@@ -31,8 +31,6 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState('menu');
   const [socketConnected, setSocketConnected] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [telegramUser, setTelegramUser] = useState(null);
-  const [isTelegramWebApp, setIsTelegramWebApp] = useState(false);
   const [isDevMode, setIsDevMode] = useState(false);
 
   // user state'ni socket eventlar ichida (closure eskirishisiz) o'qish uchun
@@ -77,15 +75,11 @@ function App() {
   }, []);
 
   // ======================
-  // USER AUTH - endi xom initData satri bilan
+  // USER AUTH - xom initData satri bilan
   // ======================
   const authenticateUser = useCallback(async () => {
     const tg = window.Telegram?.WebApp;
     const rawInitData = tg?.initData; // XOM, imzolangan satr (hash tekshiruvi uchun)
-    const unsafeUser = tg?.initDataUnsafe?.user || null;
-
-    setIsTelegramWebApp(!!tg);
-    if (unsafeUser) setTelegramUser(unsafeUser);
 
     // ----------------------------------------------------------
     // DEV/TEST REJIMI: Telegram WebApp mavjud emas yoki initData bo'sh.
@@ -94,7 +88,6 @@ function App() {
     // sinov profili ko'rsatamiz va buni foydalanuvchiga ochiq aytamiz.
     // ----------------------------------------------------------
     if (!rawInitData) {
-      console.warn('⚠️ Telegram initData topilmadi — dev/test rejimi.');
       setIsDevMode(true);
       setAuthError(null);
       const devUser = {
@@ -123,14 +116,11 @@ function App() {
     }
 
     // ----------------------------------------------------------
-    // HAQIQIY AUTENTifikATSIYA: faqat initData yuboriladi.
+    // HAQIQIY AUTENTIFIKATSIYA: faqat initData yuboriladi.
     // Server o'zi hash imzosini tekshirib, tgId/firstName/username/photoUrl'ni
-    // O'ZI initData'dan chiqarib oladi — client bu maydonlarni yubormaydi,
-    // chunki client aytgan gapga ishonish xavfsizlik teshigi edi.
+    // O'ZI initData'dan chiqarib oladi.
     // ----------------------------------------------------------
     try {
-      console.log('🔑 ===== AUTH START (Telegram initData) =====');
-
       const response = await fetch(`${API_URL}/api/user/auth`, {
         method: 'POST',
         headers: {
@@ -143,8 +133,6 @@ function App() {
         })
       });
 
-      console.log('📥 Response status:', response.status);
-
       if (response.status === 401) {
         throw new Error('Telegram autentifikatsiyasi rad etildi (imzo mos kelmadi yoki eskirgan)');
       }
@@ -153,8 +141,6 @@ function App() {
       try {
         data = await response.json();
       } catch (parseError) {
-        const text = await response.text();
-        console.error('❌ JSON parse error. Response text:', text);
         throw new Error('Server javobi noto\'g\'ri formatda');
       }
 
@@ -167,7 +153,6 @@ function App() {
         tgId: String(data.user.tgId)
       };
 
-      console.log('✅ User authenticated:', userData.tgId);
       setUser(userData);
       setAuthError(null);
       setIsDevMode(false);
@@ -175,11 +160,9 @@ function App() {
       return userData;
 
     } catch (error) {
-      console.error('❌ Auth error:', error);
       // MUHIM: Bu yerda soxta "offline" foydalanuvchi yaratmaymiz.
       // Chunki bu holat foydalanuvchiga u ro'yxatdan o'tgandek va coin/rating
       // egasidek ko'rsatib, keyin server bilan sinxron bo'lmagan holatga olib kelardi.
-      // Buning o'rniga xatoni ochiq ko'rsatamiz va qayta urinish imkonini beramiz.
       setUser(null);
       setAuthError(error.message || 'Autentifikatsiya xatosi');
       showNotification('❌ Kirish muvaffaqiyatsiz: ' + (error.message || 'nomalum xato'), 'error');
@@ -210,58 +193,42 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        console.log('🚀 ===== INITIALIZING APP =====');
-
         if (window.Telegram?.WebApp) {
           window.Telegram.WebApp.ready();
           window.Telegram.WebApp.expand();
-          console.log('✅ Telegram WebApp ready');
         }
 
         await authenticateUser();
 
       } catch (error) {
-        console.error('❌ Initialize error:', error);
         setAuthError(error.message || 'Ilovani ishga tushirishda xato');
       } finally {
         setLoading(false);
-        console.log('✅ ===== INITIALIZATION COMPLETE =====');
       }
     };
 
     initializeApp();
 
     const onConnect = () => {
-      console.log('✅ Socket connected! ID:', socket.id);
       setSocketConnected(true);
       announceUserConnect(userRef.current);
     };
 
-    const onReconnect = (attemptNumber) => {
-      console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
+    const onReconnect = () => {
       setSocketConnected(true);
       announceUserConnect(userRef.current);
     };
 
-    const onDisconnect = () => {
-      console.log('❌ Socket disconnected');
-      setSocketConnected(false);
-    };
-
-    const onConnectError = (error) => {
-      console.error('❌ Socket connect error:', error);
-      setSocketConnected(false);
-    };
+    const onDisconnect = () => setSocketConnected(false);
+    const onConnectError = () => setSocketConnected(false);
 
     const onUserConnected = (data) => {
-      console.log('✅ User connected response:', data);
       if (data.success && data.user) {
         setUser(prev => ({ ...prev, ...data.user }));
       }
     };
 
     const onServerError = (data) => {
-      console.error('⚠️ Server error event:', data);
       showNotification('⚠️ ' + (data?.message || 'Server xatoligi'), 'error');
     };
 
@@ -362,21 +329,11 @@ function App() {
         </div>
       </div>
 
-      {/* Telegram Debug Info */}
-      <div className="telegram-debug">
-        <div className="debug-row">
-          <span>📱 Platform: {isTelegramWebApp ? 'Telegram WebApp' : 'Web Browser'}</span>
-          <span>👤 User: {user?.firstName || 'No Name'}</span>
-          <span>🆔 ID: {user?.tgId || 'No ID'}</span>
-          {isDevMode && <span style={{ color: '#ffaa00' }}>🧪 DEV REJIMI — saqlanmaydi</span>}
+      {isDevMode && (
+        <div className="dev-mode-banner">
+          🧪 DEV REJIMI — Telegram orqali kirilmadi, ma'lumotlar saqlanmaydi
         </div>
-        {telegramUser && (
-          <div className="debug-row" style={{ fontSize: '11px', color: '#888' }}>
-            <span>📛 @{telegramUser.username || 'no_username'}</span>
-            <span>⭐ {telegramUser.is_premium ? 'Premium' : 'Free'}</span>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="main-content">
@@ -535,23 +492,15 @@ function App() {
       </div>
 
       <style>{`
-        .telegram-debug {
-          background: rgba(0,0,0,0.5);
+        .dev-mode-banner {
+          background: rgba(255,170,0,0.1);
+          border: 1px solid rgba(255,170,0,0.3);
+          color: #ffaa00;
           border-radius: 8px;
           padding: 8px 12px;
           margin: 8px 0;
           font-size: 12px;
-          font-family: monospace;
-          border: 1px solid rgba(255,255,255,0.05);
-        }
-        .debug-row {
-          display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-          color: #888;
-        }
-        .debug-row span {
-          color: #00ff88;
+          text-align: center;
         }
         .premium-badge {
           position: absolute;
