@@ -1,164 +1,242 @@
+/* ============================================================
+   LEADERBOARD.CSS – Dark + Serious Indigo (LIKE-DUEL uslubi)
+   ============================================================ */
+
 .leaderboard-screen {
-    padding: 15px;
-    color: #ffffff;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    box-sizing: border-box;
-  }
-  
-  .leaderboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-  }
-  
-  .leaderboard-header h2 {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 700;
-    background: linear-gradient(45deg, #ffca28, #ffa000);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  
-  .back-btn-small {
-    background: #242f3d;
-    border: none;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-  }
-  
-  .leaderboard-subtitle {
-    text-align: center;
-    color: #aaaaaa;
-    font-size: 13px;
-    margin-top: 0;
-    margin-bottom: 20px;
-  }
-  
-  .leaderboard-list {
-    flex: 1;
-    overflow-y: auto;
-    padding-right: 5px;
-  }
-  
-  /* Har bir o'yinchi kartochkasi */
-  .leader-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #17212b;
+  padding: 16px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.leaderboard-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #6366f1, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.back-btn-small {
+  background: #111111;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.back-btn-small:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: #6366f1;
+}
+
+.leaderboard-subtitle {
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+  margin-top: 0;
+  margin-bottom: 18px;
+}
+
+.leaderboard-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Har bir o'yinchi kartochkasi */
+.leader-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #111111;
+  padding: 12px 14px;
+  border-radius: 14px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  transition: all 0.25s ease;
+}
+
+.leader-card:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Top 3 */
+.rank-1 {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: linear-gradient(90deg, #111111, rgba(99, 102, 241, 0.12));
+  box-shadow: 0 0 18px rgba(99, 102, 241, 0.15);
+}
+
+.rank-2 {
+  border-color: rgba(129, 140, 248, 0.4);
+  background: linear-gradient(90deg, #111111, rgba(129, 140, 248, 0.08));
+}
+
+.rank-3 {
+  border-color: rgba(165, 180, 252, 0.35);
+  background: linear-gradient(90deg, #111111, rgba(165, 180, 252, 0.06));
+}
+
+.leader-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.leader-rank {
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
+  color: #a5b4fc;
+}
+
+.rank-1 .leader-rank {
+  color: #6366f1;
+}
+
+.rank-2 .leader-rank {
+  color: #818cf8;
+}
+
+.rank-3 .leader-rank {
+  color: #a5b4fc;
+}
+
+.leader-avatar,
+.leader-avatar-placeholder {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(99, 102, 241, 0.3);
+}
+
+.leader-avatar-placeholder {
+  background: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #a5b4fc;
+}
+
+.leader-name-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.leader-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: #ffffff;
+}
+
+.leader-username {
+  font-size: 12px;
+  color: #818cf8;
+}
+
+.leader-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.leader-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #ccc;
+}
+
+.stat-val {
+  font-weight: 700;
+  color: #a5b4fc;
+}
+
+/* Yuklanish */
+.leaderboard-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  color: #888;
+}
+
+.spinner-small {
+  border: 3px solid rgba(99, 102, 241, 0.15);
+  border-top: 3px solid #6366f1;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  animation: spin 0.9s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.leaderboard-warning {
+  background: rgba(99, 102, 241, 0.1);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 480px) {
+  .leaderboard-screen {
     padding: 12px;
-    border-radius: 12px;
-    margin-bottom: 10px;
-    border: 1px solid #242f3d;
-    transition: transform 0.2s;
   }
-  
-  /* Top 3 talik o'yinchilarni alohida ajratish */
-  .rank-1 { border-color: #ffd700; background: linear-gradient(90deg, #1e2a38, #2a2515); }
-  .rank-2 { border-color: #c0c0c0; background: linear-gradient(90deg, #1e2a38, #222528); }
-  .rank-3 { border-color: #cd7f32; background: linear-gradient(90deg, #1e2a38, #24201b); }
-  
-  .leader-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  
-  .leader-rank {
-    font-size: 16px;
-    font-weight: bold;
-    min-width: 28px;
-    text-align: center;
-    color: #e4e6eb;
-  }
-  
-  .leader-avatar, .leader-avatar-placeholder {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-  
-  .leader-avatar-placeholder {
-    background: #2b394a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+
+  .leaderboard-header h2 {
     font-size: 20px;
   }
-  
-  .leader-name-block {
-    display: flex;
-    flex-direction: column;
+
+  .leader-card {
+    padding: 10px 12px;
   }
-  
+
+  .leader-avatar,
+  .leader-avatar-placeholder {
+    width: 36px;
+    height: 36px;
+  }
+
   .leader-name {
-    font-weight: 600;
-    font-size: 15px;
-    color: #ffffff;
+    font-size: 14px;
   }
-  
+
   .leader-username {
-    font-size: 12px;
-    color: #2481cc;
+    font-size: 11px;
   }
-  
-  .leader-right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-  }
-  
-  .leader-stat {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-  }
-  
-  .stat-val {
-    font-weight: 700;
-  }
-  
-  /* Yuklanish spinneri */
-  .leaderboard-status {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 0;
-    color: #aaaaaa;
-  }
-  
-  .spinner-small {
-    border: 3px solid #242f3d;
-    border-top: 3px solid #2481cc;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 10px;
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  .leaderboard-warning {
-    background: #fff3cd;
-    color: #856404;
-    padding: 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    text-align: center;
-    margin-bottom: 15px;
-  }
+}
