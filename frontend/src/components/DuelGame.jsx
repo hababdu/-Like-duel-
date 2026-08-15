@@ -46,6 +46,7 @@ function DuelGame({
   const stakeRef = useRef(stake);
   const roomIdRef = useRef(roomId);
   const nextRoundTimeoutRef = useRef(null);
+  const startSearchRef = useRef(null);
 
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   useEffect(() => { isSearchingRef.current = isSearching; }, [isSearching]);
