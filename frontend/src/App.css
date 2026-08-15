@@ -1,5 +1,5 @@
 /* ============================================================
-   APP.CSS – Desktop + Responsive (icon-only on mobile)
+   APP.CSS – Dark + Hot Magenta (rasmdan olingan palitra)
    ============================================================ */
 
 * {
@@ -10,7 +10,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0f0c29;
+  background: #0a0a0a;
   color: #ffffff;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -21,10 +21,10 @@ body {
    ============================================================ */
 .app {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  background: linear-gradient(160deg, #0a0a0a 0%, #111111 50%, #0d0d0d 100%);
   padding: 16px;
   padding-bottom: calc(80px + env(safe-area-inset-bottom));
-  max-width: 520px;          /* desktop markazlash */
+  max-width: 520px;
   margin: 0 auto;
 }
 
@@ -37,17 +37,17 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0f0c29, #302b63);
+  background: #0a0a0a;
   gap: 16px;
 }
 
 .spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid rgba(255,255,255,0.1);
-  border-top: 4px solid #667eea;
+  width: 56px;
+  height: 56px;
+  border: 3px solid rgba(255, 45, 149, 0.15);
+  border-top: 3px solid #ff2d95;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.9s linear infinite;
 }
 
 @keyframes spin {
@@ -63,20 +63,20 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: rgba(255,255,255,0.05);
-  border-radius: 16px;
+  background: #111111;
+  border-radius: 14px;
   margin-bottom: 16px;
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255, 45, 149, 0.12);
 }
 
 .header-left h1 {
   font-size: 20px;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(90deg, #ff2d95, #ff4da6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  letter-spacing: 0.5px;
 }
 
 .header-right {
@@ -90,22 +90,23 @@ body {
 }
 
 .header-coins {
-  background: rgba(0,255,136,0.15);
+  background: rgba(255, 45, 149, 0.12);
   padding: 5px 12px;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 600;
-  color: #00ff88;
+  color: #ff2d95;
   white-space: nowrap;
+  border: 1px solid rgba(255, 45, 149, 0.2);
 }
 
 .header-rating {
-  background: rgba(102,126,234,0.15);
+  background: rgba(255, 255, 255, 0.06);
   padding: 5px 12px;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 600;
-  color: #667eea;
+  color: #ffffff;
   white-space: nowrap;
 }
 
@@ -113,8 +114,8 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid #667eea;
-  background: none;
+  border: 2px solid #ff2d95;
+  background: #1a1a1a;
   cursor: pointer;
   overflow: hidden;
   padding: 0;
@@ -126,8 +127,9 @@ body {
 }
 
 .header-profile:hover {
-  border-color: #764ba2;
-  transform: scale(1.06);
+  border-color: #ff4da6;
+  box-shadow: 0 0 12px rgba(255, 45, 149, 0.4);
+  transform: scale(1.05);
 }
 
 .header-profile img {
@@ -139,16 +141,16 @@ body {
 .header-profile span {
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
+  color: #ff2d95;
 }
 
 /* ============================================================
    DEV BANNER
    ============================================================ */
 .dev-mode-banner {
-  background: rgba(255,170,0,0.12);
-  border: 1px solid rgba(255,170,0,0.35);
-  color: #ffaa00;
+  background: rgba(255, 45, 149, 0.08);
+  border: 1px solid rgba(255, 45, 149, 0.3);
+  color: #ff2d95;
   border-radius: 10px;
   padding: 8px 12px;
   margin-bottom: 14px;
@@ -168,24 +170,25 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: rgba(255,255,255,0.05);
+  background: #111111;
   padding: 16px;
-  border-radius: 18px;
+  border-radius: 16px;
   margin-bottom: 18px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255, 45, 149, 0.1);
 }
 
 .menu-profile-avatar {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  border: 3px solid #667eea;
+  border: 2.5px solid #ff2d95;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   position: relative;
+  background: #1a1a1a;
 }
 
 .menu-profile-avatar img {
@@ -197,13 +200,14 @@ body {
 .menu-profile-avatar span {
   font-size: 28px;
   font-weight: 600;
+  color: #ff2d95;
 }
 
 .premium-badge {
   position: absolute;
   bottom: -2px;
   right: -2px;
-  background: #ffaa00;
+  background: #ff2d95;
   border-radius: 50%;
   width: 22px;
   height: 22px;
@@ -211,7 +215,8 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  border: 2px solid #0f0c29;
+  border: 2px solid #0a0a0a;
+  color: #fff;
 }
 
 .menu-profile-info {
@@ -225,6 +230,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: #fff;
 }
 
 .menu-profile-info p {
@@ -244,9 +250,11 @@ body {
 }
 
 .menu-profile-stats span {
-  background: rgba(255,255,255,0.07);
+  background: rgba(255, 45, 149, 0.1);
   padding: 3px 10px;
   border-radius: 12px;
+  color: #ff2d95;
+  border: 1px solid rgba(255, 45, 149, 0.15);
 }
 
 /* ============================================================
@@ -261,7 +269,7 @@ body {
 .menu-buttons button {
   position: relative;
   padding: 16px 20px;
-  border-radius: 16px;
+  border-radius: 14px;
   border: none;
   font-size: 17px;
   font-weight: 600;
@@ -273,19 +281,23 @@ body {
   transition: all 0.25s ease;
   min-height: 56px;
   width: 100%;
-  color: #fff;
+  color: #ffffff;
   overflow: hidden;
+  background: #111111;
+  border: 1px solid rgba(255, 45, 149, 0.18);
 }
 
 .menu-buttons button:hover {
   transform: translateY(-2px);
+  border-color: #ff2d95;
+  box-shadow: 0 0 20px rgba(255, 45, 149, 0.25);
 }
 
 .menu-buttons button:active {
   transform: scale(0.97);
 }
 
-/* Icon + Text structure */
+/* Icon + Text */
 .btn-icon {
   font-size: 22px;
   line-height: 1;
@@ -296,68 +308,73 @@ body {
   white-space: nowrap;
 }
 
-/* Individual button colors */
+/* Individual button accents */
 .btn-play {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  box-shadow: 0 4px 20px rgba(102,126,234,0.4);
+  background: linear-gradient(135deg, #ff2d95 0%, #e60073 100%);
+  border: none;
+  box-shadow: 0 4px 18px rgba(255, 45, 149, 0.35);
 }
 .btn-play:hover {
-  box-shadow: 0 6px 28px rgba(102,126,234,0.55);
+  box-shadow: 0 6px 26px rgba(255, 45, 149, 0.5);
 }
 
 .btn-bot {
-  background: linear-gradient(135deg, #f093fb, #f5576c);
-  box-shadow: 0 4px 20px rgba(245,87,108,0.4);
+  background: #111111;
+  border: 1px solid rgba(255, 45, 149, 0.25);
 }
 .btn-bot:hover {
-  box-shadow: 0 6px 28px rgba(245,87,108,0.55);
+  background: rgba(255, 45, 149, 0.08);
 }
 
 .btn-leaderboard {
-  background: linear-gradient(135deg, #43e97b, #38f9d7);
-  color: #0f0c29;
-  box-shadow: 0 4px 20px rgba(67,233,123,0.4);
+  background: #111111;
+  border: 1px solid rgba(255, 45, 149, 0.25);
 }
 .btn-leaderboard:hover {
-  box-shadow: 0 6px 28px rgba(67,233,123,0.55);
+  background: rgba(255, 45, 149, 0.08);
 }
 
 .btn-wallet {
-  background: linear-gradient(135deg, #fa709a, #fee140);
-  color: #0f0c29;
-  box-shadow: 0 4px 20px rgba(250,112,154,0.4);
+  background: #111111;
+  border: 1px solid rgba(255, 45, 149, 0.25);
 }
 .btn-wallet:hover {
-  box-shadow: 0 6px 28px rgba(250,112,154,0.55);
+  background: rgba(255, 45, 149, 0.08);
 }
 
 .btn-shop {
-  background: linear-gradient(135deg, #a18cd1, #fbc2eb);
-  color: #0f0c29;
-  box-shadow: 0 4px 20px rgba(161,140,209,0.4);
+  background: #111111;
+  border: 1px solid rgba(255, 45, 149, 0.25);
 }
 .btn-shop:hover {
-  box-shadow: 0 6px 28px rgba(161,140,209,0.55);
+  background: rgba(255, 45, 149, 0.08);
 }
 
 .btn-referrals {
-  background: linear-gradient(135deg, #4facfe, #00f2fe);
-  color: #0f0c29;
-  box-shadow: 0 4px 20px rgba(79,172,254,0.4);
+  background: #111111;
+  border: 1px solid rgba(255, 45, 149, 0.25);
 }
 .btn-referrals:hover {
-  box-shadow: 0 6px 28px rgba(79,172,254,0.55);
+  background: rgba(255, 45, 149, 0.08);
 }
 
 /* Badge */
 .badge {
   font-size: 11px;
-  background: rgba(255,255,255,0.22);
+  background: rgba(255, 45, 149, 0.2);
+  color: #ff2d95;
   padding: 3px 9px;
   border-radius: 12px;
   font-weight: 600;
   margin-left: 4px;
   flex-shrink: 0;
+  border: 1px solid rgba(255, 45, 149, 0.3);
+}
+
+.btn-play .badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: none;
 }
 
 /* ============================================================
@@ -378,27 +395,31 @@ body {
   font-weight: 500;
   font-size: 14px;
   animation: slideDown 0.3s ease-out;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
 }
 
 .notification.info {
-  background: rgba(102,126,234,0.95);
+  background: #1a1a1a;
   color: #fff;
+  border: 1px solid rgba(255, 45, 149, 0.4);
 }
 
 .notification.success {
-  background: rgba(0,255,136,0.95);
-  color: #0f0c29;
+  background: #111111;
+  color: #00ff9d;
+  border: 1px solid rgba(0, 255, 157, 0.3);
 }
 
 .notification.error {
-  background: rgba(255,68,68,0.95);
-  color: #fff;
+  background: #1a1a1a;
+  color: #ff4d4d;
+  border: 1px solid rgba(255, 77, 77, 0.4);
 }
 
 .notification.warning {
-  background: rgba(255,170,0,0.95);
-  color: #0f0c29;
+  background: #1a1a1a;
+  color: #ff2d95;
+  border: 1px solid rgba(255, 45, 149, 0.5);
 }
 
 .notification button {
@@ -423,17 +444,12 @@ body {
 }
 
 /* ============================================================
-   PROFILE PAGE (kept for compatibility)
+   PROFILE / BACK BUTTON
    ============================================================ */
-.profile-page {
-  max-width: 400px;
-  margin: 0 auto;
-}
-
 .back-btn {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #fff;
+  background: #111111;
+  border: 1px solid rgba(255, 45, 149, 0.2);
+  color: #ff2d95;
   padding: 10px 16px;
   border-radius: 12px;
   cursor: pointer;
@@ -443,7 +459,8 @@ body {
 }
 
 .back-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 45, 149, 0.1);
+  border-color: #ff2d95;
 }
 
 /* ============================================================
@@ -489,16 +506,7 @@ body {
 }
 
 /* ============================================================
-   TABLET / SMALL DESKTOP
-   ============================================================ */
-@media (min-width: 481px) and (max-width: 767px) {
-  .app {
-    max-width: 440px;
-  }
-}
-
-/* ============================================================
-   MOBILE (≤480px) – ICON ONLY MODE
+   MOBILE (≤480px) – ICON ONLY
    ============================================================ */
 @media (max-width: 480px) {
   .app {
@@ -508,7 +516,7 @@ body {
 
   .header {
     padding: 10px 12px;
-    border-radius: 14px;
+    border-radius: 12px;
     margin-bottom: 12px;
   }
 
@@ -555,7 +563,7 @@ body {
     gap: 6px;
   }
 
-  /* === ICON ONLY BUTTONS === */
+  /* Icon-only mode */
   .menu-buttons {
     gap: 10px;
   }
@@ -568,17 +576,14 @@ body {
     justify-content: center;
   }
 
-  /* Textni yashirish */
   .btn-text {
     display: none;
   }
 
-  /* Iconni kattaroq qilish */
   .btn-icon {
     font-size: 26px;
   }
 
-  /* Badge'ni icon yonida saqlash */
   .badge {
     position: absolute;
     top: 6px;
@@ -590,7 +595,7 @@ body {
 }
 
 /* ============================================================
-   VERY SMALL PHONES (≤360px)
+   VERY SMALL (≤360px)
    ============================================================ */
 @media (max-width: 360px) {
   .header-coins,
