@@ -1,5 +1,5 @@
 /* ============================================================
-   APP.CSS – Dark + Hot Magenta (rasmdan olingan palitra)
+   APP.CSS – Dark + Serious Indigo (pushti o‘rniga)
    ============================================================ */
 
 * {
@@ -44,8 +44,8 @@ body {
 .spinner {
   width: 56px;
   height: 56px;
-  border: 3px solid rgba(255, 45, 149, 0.15);
-  border-top: 3px solid #ff2d95;
+  border: 3px solid rgba(99, 102, 241, 0.15);
+  border-top: 3px solid #6366f1;
   border-radius: 50%;
   animation: spin 0.9s linear infinite;
 }
@@ -66,13 +66,13 @@ body {
   background: #111111;
   border-radius: 14px;
   margin-bottom: 16px;
-  border: 1px solid rgba(255, 45, 149, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.12);
 }
 
 .header-left h1 {
   font-size: 20px;
   font-weight: 700;
-  background: linear-gradient(90deg, #ff2d95, #ff4da6);
+  background: linear-gradient(90deg, #6366f1, #818cf8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -90,14 +90,14 @@ body {
 }
 
 .header-coins {
-  background: rgba(255, 45, 149, 0.12);
+  background: rgba(99, 102, 241, 0.12);
   padding: 5px 12px;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 600;
-  color: #ff2d95;
+  color: #818cf8;
   white-space: nowrap;
-  border: 1px solid rgba(255, 45, 149, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 .header-rating {
@@ -114,7 +114,7 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 2px solid #ff2d95;
+  border: 2px solid #6366f1;
   background: #1a1a1a;
   cursor: pointer;
   overflow: hidden;
@@ -127,8 +127,8 @@ body {
 }
 
 .header-profile:hover {
-  border-color: #ff4da6;
-  box-shadow: 0 0 12px rgba(255, 45, 149, 0.4);
+  border-color: #818cf8;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
   transform: scale(1.05);
 }
 
@@ -141,16 +141,16 @@ body {
 .header-profile span {
   font-size: 18px;
   font-weight: 600;
-  color: #ff2d95;
+  color: #6366f1;
 }
 
 /* ============================================================
    DEV BANNER
    ============================================================ */
 .dev-mode-banner {
-  background: rgba(255, 45, 149, 0.08);
-  border: 1px solid rgba(255, 45, 149, 0.3);
-  color: #ff2d95;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #818cf8;
   border-radius: 10px;
   padding: 8px 12px;
   margin-bottom: 14px;
@@ -174,14 +174,14 @@ body {
   padding: 16px;
   border-radius: 16px;
   margin-bottom: 18px;
-  border: 1px solid rgba(255, 45, 149, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.1);
 }
 
 .menu-profile-avatar {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  border: 2.5px solid #ff2d95;
+  border: 2.5px solid #6366f1;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -200,14 +200,14 @@ body {
 .menu-profile-avatar span {
   font-size: 28px;
   font-weight: 600;
-  color: #ff2d95;
+  color: #6366f1;
 }
 
 .premium-badge {
   position: absolute;
   bottom: -2px;
   right: -2px;
-  background: #ff2d95;
+  background: #6366f1;
   border-radius: 50%;
   width: 22px;
   height: 22px;
@@ -250,11 +250,11 @@ body {
 }
 
 .menu-profile-stats span {
-  background: rgba(255, 45, 149, 0.1);
+  background: rgba(99, 102, 241, 0.1);
   padding: 3px 10px;
   border-radius: 12px;
-  color: #ff2d95;
-  border: 1px solid rgba(255, 45, 149, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.15);
 }
 
 /* ============================================================
@@ -284,20 +284,19 @@ body {
   color: #ffffff;
   overflow: hidden;
   background: #111111;
-  border: 1px solid rgba(255, 45, 149, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.18);
 }
 
 .menu-buttons button:hover {
   transform: translateY(-2px);
-  border-color: #ff2d95;
-  box-shadow: 0 0 20px rgba(255, 45, 149, 0.25);
+  border-color: #6366f1;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
 }
 
 .menu-buttons button:active {
   transform: scale(0.97);
 }
 
-/* Icon + Text */
 .btn-icon {
   font-size: 22px;
   line-height: 1;
@@ -308,67 +307,44 @@ body {
   white-space: nowrap;
 }
 
-/* Individual button accents */
+/* Primary button */
 .btn-play {
-  background: linear-gradient(135deg, #ff2d95 0%, #e60073 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   border: none;
-  box-shadow: 0 4px 18px rgba(255, 45, 149, 0.35);
+  box-shadow: 0 4px 18px rgba(99, 102, 241, 0.35);
 }
 .btn-play:hover {
-  box-shadow: 0 6px 26px rgba(255, 45, 149, 0.5);
+  box-shadow: 0 6px 26px rgba(99, 102, 241, 0.5);
 }
 
-.btn-bot {
-  background: #111111;
-  border: 1px solid rgba(255, 45, 149, 0.25);
-}
-.btn-bot:hover {
-  background: rgba(255, 45, 149, 0.08);
-}
-
-.btn-leaderboard {
-  background: #111111;
-  border: 1px solid rgba(255, 45, 149, 0.25);
-}
-.btn-leaderboard:hover {
-  background: rgba(255, 45, 149, 0.08);
-}
-
-.btn-wallet {
-  background: #111111;
-  border: 1px solid rgba(255, 45, 149, 0.25);
-}
-.btn-wallet:hover {
-  background: rgba(255, 45, 149, 0.08);
-}
-
-.btn-shop {
-  background: #111111;
-  border: 1px solid rgba(255, 45, 149, 0.25);
-}
-.btn-shop:hover {
-  background: rgba(255, 45, 149, 0.08);
-}
-
+/* Secondary buttons */
+.btn-bot,
+.btn-leaderboard,
+.btn-wallet,
+.btn-shop,
 .btn-referrals {
   background: #111111;
-  border: 1px solid rgba(255, 45, 149, 0.25);
+  border: 1px solid rgba(99, 102, 241, 0.25);
 }
+.btn-bot:hover,
+.btn-leaderboard:hover,
+.btn-wallet:hover,
+.btn-shop:hover,
 .btn-referrals:hover {
-  background: rgba(255, 45, 149, 0.08);
+  background: rgba(99, 102, 241, 0.08);
 }
 
 /* Badge */
 .badge {
   font-size: 11px;
-  background: rgba(255, 45, 149, 0.2);
-  color: #ff2d95;
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
   padding: 3px 9px;
   border-radius: 12px;
   font-weight: 600;
   margin-left: 4px;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 45, 149, 0.3);
+  border: 1px solid rgba(99, 102, 241, 0.3);
 }
 
 .btn-play .badge {
@@ -401,25 +377,25 @@ body {
 .notification.info {
   background: #1a1a1a;
   color: #fff;
-  border: 1px solid rgba(255, 45, 149, 0.4);
+  border: 1px solid rgba(99, 102, 241, 0.4);
 }
 
 .notification.success {
   background: #111111;
-  color: #00ff9d;
-  border: 1px solid rgba(0, 255, 157, 0.3);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
 }
 
 .notification.error {
   background: #1a1a1a;
-  color: #ff4d4d;
-  border: 1px solid rgba(255, 77, 77, 0.4);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.4);
 }
 
 .notification.warning {
   background: #1a1a1a;
-  color: #ff2d95;
-  border: 1px solid rgba(255, 45, 149, 0.5);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.5);
 }
 
 .notification button {
@@ -444,12 +420,12 @@ body {
 }
 
 /* ============================================================
-   PROFILE / BACK BUTTON
+   BACK BUTTON
    ============================================================ */
 .back-btn {
   background: #111111;
-  border: 1px solid rgba(255, 45, 149, 0.2);
-  color: #ff2d95;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: #818cf8;
   padding: 10px 16px;
   border-radius: 12px;
   cursor: pointer;
@@ -459,8 +435,8 @@ body {
 }
 
 .back-btn:hover {
-  background: rgba(255, 45, 149, 0.1);
-  border-color: #ff2d95;
+  background: rgba(99, 102, 241, 0.1);
+  border-color: #6366f1;
 }
 
 /* ============================================================
@@ -563,7 +539,6 @@ body {
     gap: 6px;
   }
 
-  /* Icon-only mode */
   .menu-buttons {
     gap: 10px;
   }
