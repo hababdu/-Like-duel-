@@ -470,6 +470,7 @@ function requireAdmin(req, res, next) {
 // API ROUTES
 // ======================
 
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -477,6 +478,196 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime(),
     mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
+});
+
+// ============================================================
+// ADMIN PANEL - TO'LIQ NAZORAT
+// ============================================================
+
+// Barcha foydalanuvchilar (qidiruv + pagination)
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 20);
+    const search = (req.query.search || '').trim();
+    const skip = (page - 1) * limit;
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { tgId: { $regex: search, $options: 'i' } },
+        { username: { $regex: search, $options: 'i' } },
+        { firstName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .sort({ lastLogin: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('-__v'),
+      User.countDocuments(query)
+    ]);
+
+    res.json({
+      success: true,
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Bitta foydalanuvchi to'liq ma'lumot
+app.get('/api/admin/user/:tgId', requireAdmin, async (req, res) => {
+  try {
+    const user = await User.findOne({ tgId: req.params.tgId });
+    if (!user) return res.status(404).json({ success: false, message: 'Topilmadi' });
+
+    const lastTx = await Transaction.find({ tgId: user.tgId })
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    res.json({ success: true, user, recentTransactions: lastTx });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Faol xonalar (runtime + MongoDB)
+app.get('/api/admin/rooms', requireAdmin, async (req, res) => {
+  try {
+    const dbRooms = await Room.find({ status: 'active' }).sort({ createdAt: -1 });
+    const runtimeRooms = Object.values(activeRooms).map(r => ({
+      roomId: r.roomId,
+      stake: r.stake,
+      roundNumber: r.roundNumber,
+      timeLeft: r.timeLeft,
+      sessionEnded: r.sessionEnded,
+      players: r.players.map(p => ({
+        tgId: p.tgId,
+        name: p.name,
+        socketId: p.socketId,
+        isConnected: io.sockets.sockets.has(p.socketId)
+      })),
+      choices: r.choices
+    }));
+
+    res.json({
+      success: true,
+      dbActiveRooms: dbRooms,
+      runtimeRooms,
+      searchQueueLength: searchQueue.length
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Xonani majburiy yopish + stavkalarni qaytarish
+app.post('/api/admin/rooms/:roomId/force-close', requireAdmin, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const room = activeRooms[roomId];
+
+    if (room) {
+      if (room.timer) clearInterval(room.timer);
+
+      for (const p of room.players) {
+        try {
+          await applyCoinTransaction(
+            p.tgId,
+            room.stake,
+            'game_stake_refund',
+            `Admin tomonidan majburiy yopildi (${roomId})`,
+            { roomId, adminForce: true }
+          );
+        } catch (e) {
+          console.error('Force close refund error:', e.message);
+        }
+      }
+      delete activeRooms[roomId];
+    }
+
+    await Room.updateOne(
+      { roomId },
+      { status: 'refunded', completedAt: new Date() }
+    );
+
+    // O'yinchilarga xabar
+    if (room) {
+      for (const p of room.players) {
+        const s = io.sockets.sockets.get(p.socketId);
+        if (s) {
+          s.emit('duel_ended', { reason: 'admin_force_close' });
+          s.leave(roomId);
+        }
+      }
+    }
+
+    res.json({ success: true, message: 'Xona yopildi va stavkalar qaytarildi' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Qidiruv navbatini tozalash
+app.post('/api/admin/clear-queue', requireAdmin, (req, res) => {
+  const count = searchQueue.length;
+  searchQueue = [];
+  res.json({ success: true, cleared: count });
+});
+
+// Online foydalanuvchilar
+app.get('/api/admin/online', requireAdmin, (req, res) => {
+  const list = [];
+  for (const [tgId, data] of onlineUsers.entries()) {
+    list.push({
+      tgId,
+      socketId: data.socketId,
+      name: data.user?.firstName,
+      username: data.user?.username,
+      isSocketAlive: io.sockets.sockets.has(data.socketId)
+    });
+  }
+  res.json({ success: true, online: list, count: list.length });
+});
+
+// Tranzaksiyalar (so'nggi)
+app.get('/api/admin/transactions', requireAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(100, parseInt(req.query.limit) || 50);
+    const type = req.query.type || null;
+
+    const filter = type ? { type } : {};
+    const txs = await Transaction.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    res.json({ success: true, transactions: txs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Foydalanuvchini to'liq o'chirish (ixtiyoriy, ehtiyotkorlik bilan)
+app.delete('/api/admin/user/:tgId', requireAdmin, async (req, res) => {
+  try {
+    const { tgId } = req.params;
+    await User.deleteOne({ tgId });
+    await Transaction.deleteMany({ tgId });
+    onlineUsers.delete(tgId);
+    res.json({ success: true, message: 'Foydalanuvchi o\'chirildi' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 // 1. USER AUTH
