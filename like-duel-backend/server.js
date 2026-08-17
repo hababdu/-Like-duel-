@@ -102,7 +102,7 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Admin-Token', 'X-Telegram-Init-Data']
 };
 
-app.use(cors(corsOptions));
+app.use(cors());
 app.options('*', cors(corsOptions));
 
 app.use(express.json());
