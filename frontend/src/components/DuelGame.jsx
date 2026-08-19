@@ -122,6 +122,8 @@ function DuelGame({
 
   }, [user, socket, onNotification]);
 
+  useEffect(() => { startSearchRef.current = startSearch; }, [startSearch]);
+
   // ======================
   // LEAVE DUEL (YANGI) - "Chiqish" tugmasi
   // ======================
@@ -287,7 +289,7 @@ function DuelGame({
       setSocketError(null);
       onNotification?.('✅ Serverga qayta ulandi!', 'success');
       if (gameStateRef.current === 'searching' && isSearchingRef.current) {
-        startSearch();
+        startSearchRef.current?.();
       }
     };
 
@@ -332,8 +334,14 @@ function DuelGame({
       socket.off('search_cancelled', onSearchCancelled);
       if (nextRoundTimeoutRef.current) clearTimeout(nextRoundTimeoutRef.current);
     };
+    // Diqqat: bu ro'yxatda ataylab faqat "socket" qoldirilgan. `user`, `startSearch`
+    // kabi har raundda o'zgaradigan qiymatlarni bu yerga qo'shish har safar bu
+    // effect'ni qayta ishga tushirib (socket.off/on), o'zimiz qo'ygan
+    // nextRoundTimeoutRef'ni bekor qilib yuborardi - shu sabab 2-raundda
+    // tanlov tugmalari hech qachon qaytmasdi. `user`ga muhtoj joylar
+    // (startSearch, sendChatMessage) alohida ref/useCallback orqali ishlaydi.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, triggerHaptic, onNotification, setUser, user, startSearch]);
+  }, [socket]);
 
   // Xavfsizlik to'ri: komponent faol duel davomida ekrandan chiqib ketsa
   // (masalan boshqa ekranga o'tilsa), xonani ham tark etamiz - aks holda
@@ -377,6 +385,10 @@ function DuelGame({
   // ======================
   // SEND CHAT MESSAGE
   // ======================
+  // MUHIM: bu yerda xabar LOKAL ravishda qo'shilmaydi. Backend
+  // `io.to(roomId).emit('chat_message', ...)` orqali xabarni xona ichidagi
+  // HAMMAGA (jumladan yuboruvchining o'ziga ham) qaytarib yuboradi.
+  // Agar shu yerda ham lokal qo'shsak, yuboruvchi xabarni ikki marta ko'rardi.
   const sendChatMessage = useCallback(() => {
     if (!chatInput.trim() || !roomId || !socket) return;
 
@@ -384,16 +396,7 @@ function DuelGame({
     setChatInput('');
 
     socket.emit('chat_message', { roomId, message });
-
-    setChatMessages(prev => [...prev, {
-      tgId: user?.tgId,
-      name: user?.firstName || "Siz",
-      photoUrl: user?.photoUrl || '',
-      message,
-      timestamp: new Date().toISOString()
-    }]);
-
-  }, [chatInput, roomId, socket, user]);
+  }, [chatInput, roomId, socket]);
 
   // ======================
   // TOGGLE CHAT
