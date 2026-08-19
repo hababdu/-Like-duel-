@@ -1,20 +1,29 @@
 // ============================================================
-// 5. Leaderboard.js - QAYTA YOZILGAN
+// Leaderboard.js - SERVERGA MOSLASHTIRILGAN VERSIYA
 // ============================================================
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './Leaderboard.css';
 
-function Leaderboard({ onBack }) {
+function Leaderboard({ API_URL, onBack }) {
   const [leaders, setLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const BACKEND_URL = process.env.NODE_ENV === 'production'
+  // Agar App.js API_URL bermasa ham ishlab tursin - lekin har doim
+  // App.js'dan kelgan qiymat ustunlik qiladi, shu bilan backend manzili
+  // faqat BITTA joyda (App.js) boshqariladi.
+  const BASE_URL = API_URL || (process.env.NODE_ENV === 'production'
     ? 'https://telegram-bot-server-2-matj.onrender.com'
-    : 'http://localhost:10000';
+    : 'http://localhost:10000');
 
-  useEffect(() => {
-    fetch(`${BACKEND_URL}/api/user/leaderboard`)
+  const fetchLeaderboard = useCallback(() => {
+    setLoading(true);
+    setError(null);
+
+    // TUZATISH: backend'dagi haqiqiy endpoint /api/leaderboard (server.js'da
+    // shunday e'lon qilingan), /api/user/leaderboard emas - shu sabab avval
+    // doim 404 qaytarib, oflayn (soxta) ma'lumot ko'rsatilardi.
+    fetch(`${BASE_URL}/api/leaderboard`)
       .then((res) => {
         if (!res.ok) throw new Error("Reyting ma'lumotlarini yuklab bo'lmadi");
         return res.json();
@@ -23,28 +32,28 @@ function Leaderboard({ onBack }) {
         if (data.success) {
           setLeaders(data.leaders || []);
         } else {
-          throw new Error("Server noto'g'ri ma'lumot qaytardi");
+          throw new Error(data.message || "Server noto'g'ri ma'lumot qaytardi");
         }
       })
       .catch((err) => {
-        console.error("Leaderboard error:", err);
-        setError(err.message);
-        // Fallback data
-        setLeaders([
-          { tgId: "1", firstName: "Alijon", username: "ali_pro", rating: 450, coins: 1200 },
-          { tgId: "2", firstName: "Madina", username: "madina_game", rating: 380, coins: 950 },
-          { tgId: "3", firstName: "Sardor", username: "sardor_99", rating: 310, coins: 800 },
-          { tgId: "4", firstName: "Shaxzod", username: "", rating: 280, coins: 650 },
-          { tgId: "5", firstName: "Zilola", username: "zee_lola", rating: 210, coins: 500 }
-        ]);
+        console.error('Leaderboard error:', err);
+        setError(err.message || 'Xatolik yuz berdi');
+        // MUHIM: bu yerda soxta/o'ylab topilgan o'yinchilar ko'rsatilmaydi -
+        // bu foydalanuvchini haqiqiy reyting deb chalg'itardi. Buning o'rniga
+        // halol xato holati va qayta urinish imkoni beriladi.
+        setLeaders([]);
       })
       .finally(() => setLoading(false));
-  }, [BACKEND_URL]);
+  }, [BASE_URL]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
 
   const getRankBadge = (index) => {
-    if (index === 0) return "🥇";
-    if (index === 1) return "🥈";
-    if (index === 2) return "🥉";
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
     return `#${index + 1}`;
   };
 
@@ -67,15 +76,18 @@ function Leaderboard({ onBack }) {
 
       {error && !loading && (
         <div className="leaderboard-warning">
-          ⚠️ Serverga ulanib bo'lmadi, oflayn reyting ko'rsatilmoqda.
+          <p>⚠️ Serverga ulanib bo'lmadi: {error}</p>
+          <button className="leaderboard-retry-btn" onClick={fetchLeaderboard}>
+            🔄 Qayta urinish
+          </button>
         </div>
       )}
 
-      {!loading && (
+      {!loading && !error && (
         <div className="leaderboard-list">
           {leaders.map((player, index) => (
-            <div 
-              key={player.tgId || index} 
+            <div
+              key={player.tgId || index}
               className={`leader-card rank-${index + 1}`}
             >
               <div className="leader-left">
@@ -96,7 +108,11 @@ function Leaderboard({ onBack }) {
               <div className="leader-right">
                 <div className="leader-stat">
                   <span className="stat-icon">🏆</span>
-                  <span className="stat-val">{player.rating} XP</span>
+                  <span className="stat-val">{player.rating}</span>
+                </div>
+                <div className="leader-stat">
+                  <span className="stat-icon">📊</span>
+                  <span className="stat-val">Lv.{player.level ?? 1}</span>
                 </div>
                 <div className="leader-stat">
                   <span className="stat-icon">🪙</span>
@@ -111,6 +127,28 @@ function Leaderboard({ onBack }) {
           )}
         </div>
       )}
+
+      <style>{`
+        .leaderboard-warning {
+          text-align: center;
+          padding: 20px;
+        }
+        .leaderboard-warning p {
+          color: #ffaa00;
+          font-size: 13px;
+          margin-bottom: 12px;
+        }
+        .leaderboard-retry-btn {
+          padding: 10px 20px;
+          border-radius: 12px;
+          border: none;
+          background: linear-gradient(135deg, #43e97b, #38f9d7);
+          color: #0f0c29;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+      `}</style>
     </div>
   );
 }
