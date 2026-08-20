@@ -1,0 +1,317 @@
+/* ============================================================
+   Profile.css - FOYDALANUVCHI PROFILI STILLARI
+   ============================================================ */
+
+.profile-page {
+  min-height: 100vh;
+  padding: 16px;
+  background: linear-gradient(160deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  box-sizing: border-box;
+}
+
+/* Orqaga tugmasi */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e0e0e0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateX(-2px);
+}
+
+.back-btn:active {
+  transform: scale(0.97);
+}
+
+/* Asosiy profil kartasi */
+.profile-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 28px 20px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* Avatar */
+.profile-avatar {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.premium-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(135deg, #ffd700, #ffaa00);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border: 2px solid #1a1a2e;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.5);
+}
+
+/* Ism va username */
+.profile-name {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.profile-name h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+}
+
+.profile-name p {
+  margin: 0;
+  color: #a0a0b8;
+  font-size: 14px;
+}
+
+.profile-id {
+  margin-top: 6px !important;
+  font-size: 12px !important;
+  color: #6b6b80 !important;
+  font-family: monospace;
+}
+
+/* Asosiy statistikalar (tanga, reyting, level) */
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-box {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 14px 8px;
+  text-align: center;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.stat-box:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.stat-label {
+  display: block;
+  font-size: 12px;
+  color: #a0a0b8;
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* XP progress */
+.profile-xp {
+  margin-bottom: 24px;
+}
+
+.xp-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #b0b0c8;
+  margin-bottom: 8px;
+}
+
+.xp-bar {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00c9ff, #92fe9d);
+  border-radius: 20px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 12px rgba(0, 201, 255, 0.5);
+}
+
+/* O'yin statistikasi */
+.profile-game-stats {
+  margin-bottom: 24px;
+}
+
+.profile-game-stats h3 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.game-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.game-stat {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 14px 10px;
+  text-align: center;
+  transition: background 0.2s ease;
+}
+
+.game-stat:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.stat-number {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.stat-name {
+  display: block;
+  font-size: 12px;
+  color: #8a8aa0;
+}
+
+/* Referal bo'limi */
+.profile-ref {
+  margin-bottom: 24px;
+}
+
+.profile-ref h3 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.ref-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ref-stat {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  border-radius: 14px;
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.ref-stat .stat-number {
+  font-size: 22px;
+  color: #a5b4fc;
+}
+
+.ref-stat .stat-name {
+  color: #9ca3af;
+}
+
+/* Yangilash tugmasi */
+.btn-refresh {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none;
+  border-radius: 14px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35);
+}
+
+.btn-refresh:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.btn-refresh:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-refresh:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive */
+@media (max-width: 400px) {
+  .profile-card {
+    padding: 22px 16px;
+  }
+
+  .profile-stats-grid {
+    gap: 8px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+
+  .game-stats-grid {
+    gap: 8px;
+  }
+
+  .stat-number {
+    font-size: 18px;
+  }
+}

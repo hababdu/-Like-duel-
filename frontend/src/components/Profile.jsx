@@ -2,6 +2,7 @@
 // Profile.js - FOYDALANUVCHI PROFILI
 // ============================================================
 import React, { useState, useEffect } from 'react';
+import './Profile.css'
 
 function Profile({ user, onBack, updateUser, API_URL }) {
   const [loading, setLoading] = useState(false);
