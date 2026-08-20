@@ -1,7 +1,13 @@
 // ============================================================
-// Referrals.js - DO'STLARNI TAKLIF QILISH
+// Referrals.js - SERVERGA MOSLASHTIRILGAN VERSIYA
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
+import './Referrals.css';
+
+// TUZATISH: bu qiymat endi faqat serverdan javob kelmaguncha ko'rsatiladigan
+// BOSHLANG'ICH taxmin. Haqiqiy qiymat har doim backend javobidagi
+// `bonusPerReferral`dan olinadi (server.js'dagi REFERRAL_BONUS = 50).
+const DEFAULT_BONUS_GUESS = 50;
 
 function Referrals({ user, API_URL, onBack, onNotification }) {
   // ======================
@@ -10,11 +16,18 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
   const [referrals, setReferrals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refCount, setRefCount] = useState(0);
-  const [refBonus, setRefBonus] = useState(0);
+  const [bonusPerReferral, setBonusPerReferral] = useState(DEFAULT_BONUS_GUESS);
   const [copied, setCopied] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
 
-  const BOT_USERNAME = 'like_duel_bot'; // O'zingizning bot username
+  // TUZATISH: bu yerni o'zingizning haqiqiy Telegram bot username'ingizga
+  // almashtiring - aks holda taklif havolasi ishlamaydi.
+  const BOT_USERNAME = 'like_duel_bot';
+
+  // Umumiy olingan bonus - serverdagi User hujjatida saqlanadigan haqiqiy
+  // (ledger bilan tasdiqlangan) qiymat. Frontendda qayta hisoblanmaydi,
+  // shu bilan har doim server bilan sinxron bo'ladi.
+  const totalRefBonus = user?.refBonus ?? (refCount * bonusPerReferral);
 
   // ======================
   // REFERRAL LINK
@@ -28,17 +41,22 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
   // FETCH REFERRALS
   // ======================
   const fetchReferrals = useCallback(async () => {
-    if (!user?.tgId) return;
+    if (!user?.tgId || !API_URL) return;
 
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/user/${user.tgId}/referrals`);
       const data = await response.json();
-      
+
       if (data.success) {
         setReferrals(data.referrals || []);
         setRefCount(data.count || 0);
-        setRefBonus(data.referrals?.reduce((sum, r) => sum + 100, 0) || 0);
+        // Backend har doim aniq bonus miqdorini qaytaradi - hardcode qilmaymiz
+        if (typeof data.bonusPerReferral === 'number') {
+          setBonusPerReferral(data.bonusPerReferral);
+        }
+      } else {
+        throw new Error(data.message || "Server noto'g'ri ma'lumot qaytardi");
       }
     } catch (error) {
       console.error('❌ Referrals fetch error:', error);
@@ -59,25 +77,22 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
     }
 
     try {
-      // Telegram WebApp clipboard API
-      if (window.Telegram?.WebApp) {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(link);
+        setCopied(true);
+        onNotification?.('✅ Havola nusxalandi!', 'success');
+      } else if (window.Telegram?.WebApp) {
+        // Telegram WebApp'da to'g'ridan-to'g'ri clipboard yozish API'si
+        // barcha versiyalarda mavjud emas - shu sabab havolani popup orqali
+        // ko'rsatamiz, foydalanuvchi qo'lda nusxalay oladi.
         window.Telegram.WebApp.showPopup({
           title: '📋 Taklif havolasi',
           message: link,
           buttons: [{ type: 'ok' }]
         });
         setCopied(true);
-        onNotification?.('✅ Havola nusxalandi!', 'success');
-      } 
-      // Browser clipboard API
-      else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(link);
-        setCopied(true);
-        onNotification?.('✅ Havola nusxalandi!', 'success');
-      } 
-      // Fallback
-      else {
-        // Linkni ko'rsatish
+        onNotification?.('📋 Havolani qo\'lda nusxalang', 'info');
+      } else {
         const textArea = document.createElement('textarea');
         textArea.value = link;
         document.body.appendChild(textArea);
@@ -107,35 +122,27 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
 
     setShareLoading(true);
     try {
-      const shareText = `🎮 Men Like-Duel o'yinida! 
+      const shareText = `🎮 Men Like-Duel o'yinida!
 ⚔️ Tosh, Qog'oz, Qaychi o'ynaymiz!
-💥 Qo'shil va 100 tanga bonus ol!
+💥 Qo'shil va ${bonusPerReferral} tanga bonus ol!
 
 🔗 ${link}`;
 
-      // Telegram WebApp share
       if (window.Telegram?.WebApp) {
         window.Telegram.WebApp.showPopup({
           title: '👥 Do\'stlarni taklif qilish',
           message: shareText,
           buttons: [
-            { 
-              id: 'share',
-              type: 'default',
-              text: '📤 Ulashish'
-            },
+            { id: 'share', type: 'default', text: '📤 Ulashish' },
             { type: 'cancel' }
           ]
         }, (buttonId) => {
           if (buttonId === 'share') {
-            // Telegram orqali ulashish
             const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(shareText)}`;
             window.open(shareUrl, '_blank');
           }
         });
-      } 
-      // Browser share
-      else if (navigator.share) {
+      } else if (navigator.share) {
         navigator.share({
           title: 'Like-Duel o\'yiniga qo\'shiling!',
           text: shareText,
@@ -143,11 +150,9 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
         }).then(() => {
           onNotification?.('✅ Ulashildi!', 'success');
         }).catch(() => {
-          // User cancel qilgan bo'lishi mumkin
+          // Foydalanuvchi bekor qilgan bo'lishi mumkin - xato emas
         });
-      } 
-      // Fallback
-      else {
+      } else {
         copyReferralLink();
       }
     } catch (error) {
@@ -156,7 +161,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
     } finally {
       setShareLoading(false);
     }
-  }, [getReferralLink, onNotification, copyReferralLink]);
+  }, [getReferralLink, onNotification, copyReferralLink, bonusPerReferral]);
 
   // ======================
   // INITIALIZE
@@ -198,7 +203,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
         {/* Header */}
         <div className="referrals-header">
           <h2>👥 Do'stlarni Taklif Qilish</h2>
-          <p>Har bir taklif qilgan do'stingiz uchun <strong>100 tanga</strong> bonus!</p>
+          <p>Har bir taklif qilgan do'stingiz uchun <strong>{bonusPerReferral} tanga</strong> bonus!</p>
         </div>
 
         {/* Stats */}
@@ -210,7 +215,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
           </div>
           <div className="referrals-stat">
             <span className="stat-icon">🪙</span>
-            <span className="stat-number">+{refBonus}</span>
+            <span className="stat-number">+{totalRefBonus}</span>
             <span className="stat-label">Bonus tanga</span>
           </div>
           <div className="referrals-stat">
@@ -232,7 +237,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
           </div>
 
           <div className="referrals-buttons">
-            <button 
+            <button
               className={`referrals-btn-copy ${copied ? 'copied' : ''}`}
               onClick={copyReferralLink}
               disabled={copied}
@@ -240,7 +245,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
               {copied ? '✅ Nusxalandi!' : '📋 Nusxalash'}
             </button>
 
-            <button 
+            <button
               className="referrals-btn-share"
               onClick={shareViaTelegram}
               disabled={shareLoading}
@@ -272,7 +277,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
               <span className="info-number">3</span>
               <div className="info-content">
                 <span className="info-title">Bonus oling!</span>
-                <span className="info-desc">Siz va do'stingiz 100 tangadan bonus olasiz!</span>
+                <span className="info-desc">Siz {bonusPerReferral} tanga bonus olasiz!</span>
               </div>
             </div>
           </div>
@@ -281,7 +286,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
         {/* Referrals List */}
         <div className="referrals-list-section">
           <h3>📋 Taklif qilingan do'stlar</h3>
-          
+
           {loading ? (
             <div className="referrals-loading">
               <div className="spinner"></div>
@@ -316,7 +321,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
                     {formatDate(ref.createdAt)}
                   </div>
                   <div className="referrals-item-bonus">
-                    +100 🪙
+                    +{bonusPerReferral} 🪙
                   </div>
                 </div>
               ))}
@@ -325,20 +330,13 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
         </div>
 
         {/* Refresh Button */}
-        <button 
+        <button
           className="referrals-refresh-btn"
           onClick={fetchReferrals}
           disabled={loading}
         >
           {loading ? '⏳ Yangilanmoqda...' : '🔄 Yangilash'}
         </button>
-
-        {/* Premium Tip */}
-        {user?.isPremium && (
-          <div className="referrals-premium-tip">
-            ⭐ Premium foydalanuvchi sifatida har bir taklifdan <strong>200 tanga</strong> bonus olasiz!
-          </div>
-        )}
       </div>
 
       <style>{`
