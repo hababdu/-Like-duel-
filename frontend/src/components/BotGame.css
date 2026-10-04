@@ -6,7 +6,7 @@
   max-width: 420px;
   margin: 0 auto;
   padding: 16px;
-  background: linear-gradient(160deg, #0a0a0a 0%, #111111 50%, #0d0d0d 100%);
+  background: linear-gradient(160deg, #0c0c0e 0%, #16161a 50%, #0c0c0e 100%);
   display: flex;
   flex-direction: column;
   min-height: 100%;
@@ -24,7 +24,7 @@
 }
 
 .back-arrow {
-  background: #111111;
+  background: #16161a;
   border: 1px solid rgba(99, 102, 241, 0.2);
   color: #818cf8;
   font-size: 20px;
@@ -69,14 +69,14 @@
 
 .diff-hard {
   background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
+  color: #fb7185;
   border: 1px solid rgba(248, 113, 113, 0.25);
 }
 
 .combo-indicator {
   font-size: 14px;
   font-weight: 700;
-  color: #f87171;
+  color: #fb7185;
   animation: pulse 0.5s ease-in-out infinite;
 }
 
@@ -84,7 +84,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #111111;
+  background: #16161a;
   padding: 6px 14px;
   border-radius: 20px;
   border: 1px solid rgba(99, 102, 241, 0.18);
@@ -120,7 +120,7 @@
 }
 
 .progress-bar.critical {
-  background: linear-gradient(90deg, #f87171, #ef4444);
+  background: linear-gradient(90deg, #fb7185, #fb7185);
   animation: pulse 0.5s ease-in-out infinite;
 }
 
@@ -169,7 +169,7 @@
   flex: 1;
   max-width: 120px;
   min-height: 140px;
-  background: #111111;
+  background: #16161a;
   border-radius: 18px;
   border: 1px solid rgba(99, 102, 241, 0.15);
   display: flex;
@@ -199,7 +199,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #888;
+  color: #8d8d99;
   font-weight: 600;
 }
 
@@ -214,7 +214,7 @@
 .selected-name {
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: #f8f7f4;
   background: rgba(99, 102, 241, 0.12);
   padding: 4px 10px;
   border-radius: 8px;
@@ -248,12 +248,12 @@
   justify-content: center;
   font-weight: 700;
   font-size: 18px;
-  color: #fff;
+  color: #f8f7f4;
   box-shadow: 0 0 24px rgba(99, 102, 241, 0.4);
 }
 
 .timer-number-box {
-  background: #111111;
+  background: #16161a;
   padding: 4px 12px;
   border-radius: 12px;
   border: 1px solid rgba(99, 102, 241, 0.2);
@@ -267,7 +267,7 @@
 }
 
 .timer-text.pulse {
-  color: #f87171;
+  color: #fb7185;
   animation: pulse 0.5s ease-in-out infinite;
 }
 
@@ -302,7 +302,7 @@
 .banner-lose {
   background: rgba(248, 113, 113, 0.12);
   border: 1px solid rgba(248, 113, 113, 0.35);
-  color: #f87171;
+  color: #fb7185;
 }
 
 .banner-draw {
@@ -339,8 +339,8 @@
   padding: 14px 8px;
   border-radius: 16px;
   border: 1px solid rgba(99, 102, 241, 0.18);
-  background: #111111;
-  color: #fff;
+  background: #16161a;
+  color: #f8f7f4;
   cursor: pointer;
   transition: all 0.25s ease;
   display: flex;
@@ -375,7 +375,7 @@
   top: -8px;
   right: -8px;
   background: #6366f1;
-  color: #fff;
+  color: #f8f7f4;
   font-size: 9px;
   font-weight: 700;
   padding: 2px 8px;
@@ -390,7 +390,7 @@
 .action-label {
   font-size: 12px;
   font-weight: 500;
-  color: #888;
+  color: #8d8d99;
 }
 
 .action-btn.chosen .action-label {

@@ -10,8 +10,8 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0a0a0a;
-  color: #ffffff;
+  background: #0c0c0e;
+  color: #f8f7f4;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -21,7 +21,8 @@ body {
    ============================================================ */
 .app {
   min-height: 100vh;
-  background: linear-gradient(160deg, #0a0a0a 0%, #111111 50%, #0d0d0d 100%);
+  background: transparent; /* fonni .app-bg beradi */
+  position: relative;
   padding: 16px;
   padding-bottom: calc(80px + env(safe-area-inset-bottom));
   max-width: 520px;
@@ -37,7 +38,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #0a0a0a;
+  background: #0c0c0e;
   gap: 16px;
 }
 
@@ -63,7 +64,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #111111;
+  background: #16161a;
   border-radius: 14px;
   margin-bottom: 16px;
   border: 1px solid rgba(99, 102, 241, 0.12);
@@ -106,7 +107,7 @@ body {
   border-radius: 20px;
   font-size: 14px;
   font-weight: 600;
-  color: #ffffff;
+  color: #f8f7f4;
   white-space: nowrap;
 }
 
@@ -115,7 +116,7 @@ body {
   height: 40px;
   border-radius: 50%;
   border: 2px solid #6366f1;
-  background: #1a1a1a;
+  background: #202026;
   cursor: pointer;
   overflow: hidden;
   padding: 0;
@@ -170,7 +171,7 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: #111111;
+  background: #16161a;
   padding: 16px;
   border-radius: 16px;
   margin-bottom: 18px;
@@ -188,7 +189,7 @@ body {
   justify-content: center;
   flex-shrink: 0;
   position: relative;
-  background: #1a1a1a;
+  background: #202026;
 }
 
 .menu-profile-avatar img {
@@ -215,8 +216,8 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  border: 2px solid #0a0a0a;
-  color: #fff;
+  border: 2px solid #0c0c0e;
+  color: #f8f7f4;
 }
 
 .menu-profile-info {
@@ -230,11 +231,11 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #fff;
+  color: #f8f7f4;
 }
 
 .menu-profile-info p {
-  color: #888;
+  color: #8d8d99;
   font-size: 14px;
   margin-bottom: 8px;
   white-space: nowrap;
@@ -282,9 +283,9 @@ body {
   transition: all 0.25s ease;
   min-height: 90px;
   width: 100%;
-  color: #ffffff;
+  color: #f8f7f4;
   overflow: hidden;
-  background: #111111;
+  background: #16161a;
   border: 1px solid rgba(99, 102, 241, 0.18);
   text-align: center;
 }
@@ -330,7 +331,7 @@ body {
 .btn-wallet,
 .btn-shop,
 .btn-referrals {
-  background: #111111;
+  background: #16161a;
   border: 1px solid rgba(99, 102, 241, 0.25);
 }
 
@@ -358,7 +359,7 @@ body {
 
 .btn-play .badge {
   background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  color: #f8f7f4;
   border: none;
 }
 
@@ -384,25 +385,25 @@ body {
 }
 
 .notification.info {
-  background: #1a1a1a;
-  color: #fff;
+  background: #202026;
+  color: #f8f7f4;
   border: 1px solid rgba(99, 102, 241, 0.4);
 }
 
 .notification.success {
-  background: #111111;
+  background: #16161a;
   color: #34d399;
   border: 1px solid rgba(52, 211, 153, 0.3);
 }
 
 .notification.error {
-  background: #1a1a1a;
-  color: #f87171;
+  background: #202026;
+  color: #fb7185;
   border: 1px solid rgba(248, 113, 113, 0.4);
 }
 
 .notification.warning {
-  background: #1a1a1a;
+  background: #202026;
   color: #a5b4fc;
   border: 1px solid rgba(99, 102, 241, 0.5);
 }
@@ -432,7 +433,7 @@ body {
    BACK BUTTON
    ============================================================ */
 .back-btn {
-  background: #111111;
+  background: #16161a;
   border: 1px solid rgba(99, 102, 241, 0.2);
   color: #818cf8;
   padding: 10px 16px;
@@ -593,4 +594,28 @@ body {
   .btn-text {
     font-size: 11px;
   }
+}
+/* ============================================================
+   FON RASMLARI (ekranga qarab almashadi)
+   ============================================================ */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #0c0c0e center / cover no-repeat;
+  pointer-events: none;
+}
+/* matn o'qilishi uchun yengil qoraytirish */
+.app-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10,10,10,0.35) 0%, rgba(10,10,10,0.1) 40%, rgba(10,10,10,0.55) 100%);
+}
+.app-bg--menu  { background-image: url('./assets/bg/bg-menu.svg'); }
+.app-bg--duel  { background-image: url('./assets/bg/bg-duel.svg'); }
+.app-bg--coins { background-image: url('./assets/bg/bg-coins.svg'); }
+.app-bg--rank  { background-image: url('./assets/bg/bg-rank.svg'); }
+@media (prefers-reduced-motion: no-preference) {
+  .app-bg { transition: background-image 0.3s ease; }
 }

@@ -1,0 +1,45 @@
+/* ============================================================
+   THEME.CSS – Tactical Dark dizayn tizimi (Like Duel Arena)
+   Boshqa CSS fayllardan KEYIN import qilinadi.
+   ============================================================ */
+:root {
+  --bg: #0c0c0e;  --s1: #16161a;  --s2: #202026;  --s3: #2e2e36;
+  --ink: #f8f7f4; --dim: #8d8d99;
+  --ac: #6366f1;  --ac-2: #4f46e5;
+  --win: #34d399; --lose: #fb7185; --gold: #fbbf24;
+  --hd: 'Syne', system-ui, sans-serif;
+  --bd: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mo: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --r-card: 18px; --r-btn: 15px;
+}
+body { font-family: var(--bd); background: var(--bg); color: var(--ink); -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { font-family: var(--bd); }
+
+/* Tipografiya: sarlavha - Syne, raqamlar - JetBrains Mono */
+h1, h2, h3, .header-left h1, .duel-vs, .duel-result-vs, .btn-play .btn-text { font-family: var(--hd); letter-spacing: -0.01em; }
+.header-coins, .header-rating, .duel-timer, .duel-player-rating, .item-coins, .item-rating,
+.shop-package-coins, [class*="score"], [class*="countdown"] {
+  font-family: var(--mo); font-weight: 700; font-variant-numeric: tabular-nums;
+}
+
+/* Fokus (klaviatura) va bosish */
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+button:not(:disabled):active { transform: scale(0.97); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Sarlavha paneli */
+.header { background: var(--s1); border: 1px solid var(--s2); border-radius: var(--r-card); }
+.header-coins { color: var(--gold); }
+
+/* Bosh menyu */
+.menu-buttons button { background: var(--s1); border: 1px solid var(--s2); border-radius: var(--r-card); }
+.menu-buttons button:hover { border-color: var(--ac); box-shadow: 0 10px 28px rgba(99,102,241,.22); }
+.menu-buttons .btn-play { min-height: 84px; background: linear-gradient(135deg, var(--ac) 0%, var(--ac-2) 100%); border: 0; }
+.menu-buttons .btn-play .btn-text { font-size: 17px; font-weight: 800; }
+.btn-text { font-weight: 600; }
+.badge { font-family: var(--mo); }
+
+/* Kamroq harakat so'ralsa animatsiyalar o'chadi */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

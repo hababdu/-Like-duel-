@@ -4,9 +4,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const CHOICES = {
-  rock: { emoji: '🪨', color: '#ff6b6b', label: 'Tosh' },
+  rock: { emoji: '🪨', color: '#fb7185', label: 'Tosh' },
   paper: { emoji: '📄', color: '#4ecdc4', label: 'Qog\'oz' },
-  scissors: { emoji: '✂️', color: '#ffe66d', label: 'Qaychi' }
+  scissors: { emoji: '✂️', color: '#fbbf24', label: 'Qaychi' }
 };
 
 function BotGame({ 
@@ -477,8 +477,8 @@ const styles = {
     maxWidth: '400px',
     margin: '0 auto',
     padding: '12px 16px',
-    minHeight: '700vh',
-    background: 'linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
+    minHeight: '70vh',
+    background: 'linear-gradient(180deg, rgba(15,12,41,0.78) 0%, rgba(48,43,99,0.55) 50%, rgba(36,36,62,0.78) 100%)',
     display: 'flex',
     flexDirection: 'column',
     fontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif'
@@ -495,7 +495,7 @@ const styles = {
   backBtn: {
     background: 'rgba(255,255,255,0.06)',
     border: '1px solid rgba(255,255,255,0.08)',
-    color: '#fff',
+    color: '#f8f7f4',
     fontSize: '18px',
     width: '36px',
     height: '36px',
@@ -520,23 +520,23 @@ const styles = {
   },
   easy: {
     background: 'rgba(0,255,136,0.15)',
-    color: '#00ff88',
+    color: '#34d399',
     border: '1px solid rgba(0,255,136,0.2)'
   },
   medium: {
     background: 'rgba(255,170,0,0.15)',
-    color: '#ffaa00',
+    color: '#fbbf24',
     border: '1px solid rgba(255,170,0,0.2)'
   },
   hard: {
     background: 'rgba(255,68,68,0.15)',
-    color: '#ff4444',
+    color: '#fb7185',
     border: '1px solid rgba(255,68,68,0.2)'
   },
   combo: {
     fontSize: '13px',
     fontWeight: '700',
-    color: '#ff6b6b',
+    color: '#fb7185',
     animation: 'pulse 0.6s ease-in-out infinite'
   },
   coins: {
@@ -553,7 +553,7 @@ const styles = {
   coinsCount: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#00ff88'
+    color: '#34d399'
   },
   loading: {
     fontSize: '12px',
@@ -580,11 +580,11 @@ const styles = {
   statValue: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#fff'
+    color: '#f8f7f4'
   },
   statLabel: {
     fontSize: '9px',
-    color: '#666',
+    color: '#6b6b78',
     textTransform: 'uppercase',
     letterSpacing: '0.5px'
   },
@@ -598,7 +598,7 @@ const styles = {
   warning: {
     background: 'rgba(255,170,0,0.1)',
     border: '1px solid rgba(255,170,0,0.2)',
-    color: '#ffaa00',
+    color: '#fbbf24',
     padding: '8px 12px',
     borderRadius: '10px',
     fontSize: '12px',
@@ -610,7 +610,7 @@ const styles = {
   warningBtn: {
     background: 'rgba(255,170,0,0.15)',
     border: '1px solid rgba(255,170,0,0.2)',
-    color: '#ffaa00',
+    color: '#fbbf24',
     padding: '2px 12px',
     borderRadius: '8px',
     cursor: 'pointer',
@@ -628,12 +628,12 @@ const styles = {
   },
   progressBar: {
     height: '100%',
-    background: 'linear-gradient(90deg, #667eea, #764ba2)',
+    background: 'linear-gradient(90deg, #6366f1, #4f46e5)',
     borderRadius: '2px',
     transition: 'width 0.3s ease'
   },
   progressCritical: {
-    background: 'linear-gradient(90deg, #ff4444, #ff6b6b)',
+    background: 'linear-gradient(90deg, #fb7185, #fb7185)',
     animation: 'pulse 0.5s ease-in-out infinite'
   },
 
@@ -683,7 +683,7 @@ const styles = {
     padding: '12px 8px'
   },
   cardActive: {
-    borderColor: '#667eea',
+    borderColor: '#6366f1',
     background: 'rgba(102,126,234,0.08)',
     boxShadow: '0 0 30px rgba(102,126,234,0.06)'
   },
@@ -698,7 +698,7 @@ const styles = {
     fontSize: '9px',
     textTransform: 'uppercase',
     letterSpacing: '1px',
-    color: '#666',
+    color: '#6b6b78',
     fontWeight: '600'
   },
   cardEmoji: {
@@ -711,7 +711,7 @@ const styles = {
   cardName: {
     fontSize: '11px',
     fontWeight: '500',
-    color: '#fff',
+    color: '#f8f7f4',
     background: 'rgba(255,255,255,0.04)',
     padding: '2px 10px',
     borderRadius: '6px'
@@ -734,13 +734,13 @@ const styles = {
     width: '38px',
     height: '38px',
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontWeight: '700',
     fontSize: '13px',
-    color: '#fff',
+    color: '#f8f7f4',
     boxShadow: '0 0 20px rgba(102,126,234,0.2)'
   },
   timerBox: {
@@ -752,11 +752,11 @@ const styles = {
   timerText: {
     fontSize: '18px',
     fontWeight: '700',
-    color: '#00ff88',
+    color: '#34d399',
     fontVariantNumeric: 'tabular-nums'
   },
   timerCritical: {
-    color: '#ff4444',
+    color: '#fb7185',
     animation: 'pulse 0.5s ease-in-out infinite'
   },
 
@@ -772,17 +772,17 @@ const styles = {
   resultWin: {
     background: 'rgba(0,255,136,0.1)',
     border: '1px solid rgba(0,255,136,0.2)',
-    color: '#00ff88'
+    color: '#34d399'
   },
   resultLose: {
     background: 'rgba(255,68,68,0.1)',
     border: '1px solid rgba(255,68,68,0.2)',
-    color: '#ff4444'
+    color: '#fb7185'
   },
   resultDraw: {
     background: 'rgba(255,170,0,0.1)',
     border: '1px solid rgba(255,170,0,0.2)',
-    color: '#ffaa00'
+    color: '#fbbf24'
   },
 
   // Choices
@@ -804,7 +804,7 @@ const styles = {
     borderRadius: '14px',
     border: '2px solid rgba(255,255,255,0.06)',
     background: 'rgba(255,255,255,0.03)',
-    color: '#fff',
+    color: '#f8f7f4',
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     display: 'flex',
@@ -825,8 +825,8 @@ const styles = {
     position: 'absolute',
     top: '-6px',
     right: '-6px',
-    background: '#00ff88',
-    color: '#0f0c29',
+    background: '#34d399',
+    color: '#0c0c0e',
     fontSize: '8px',
     fontWeight: '700',
     padding: '1px 6px',
@@ -838,7 +838,7 @@ const styles = {
   choiceLabel: {
     fontSize: '10px',
     fontWeight: '500',
-    color: '#666'
+    color: '#6b6b78'
   }
 };
 

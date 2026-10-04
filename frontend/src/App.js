@@ -12,6 +12,18 @@ import Wallet from './components/Wallet';
 import Shop from './components/Shop';
 import './App.css';
 
+// Ekran nomiga qarab fon rasmi (CSS: .app-bg--...)
+const BG_BY_SCREEN = {
+  menu: 'menu',
+  game: 'duel',
+  bot: 'duel',
+  wallet: 'coins',
+  shop: 'coins',
+  referrals: 'coins',
+  leaderboard: 'rank',
+  profile: 'rank',
+};
+
 // Backend /api/user/auth uchun XOM Telegram initData satrini talab qiladi
 // va uni bot tokeni bilan imzo (hash) orqali tekshiradi. Bu tufayli:
 //  - firstName/username/photoUrl kabi maydonlarni client bermaydi,
@@ -293,6 +305,7 @@ function App() {
 
   return (
     <div className="app">
+      <div className={`app-bg app-bg--${BG_BY_SCREEN[currentScreen] || 'menu'}`} aria-hidden="true" />
       {/* Notification */}
       {notification && (
         <div className={`notification ${notification.type}`}>
@@ -501,7 +514,7 @@ function App() {
         .dev-mode-banner {
           background: rgba(255,170,0,0.1);
           border: 1px solid rgba(255,170,0,0.3);
-          color: #ffaa00;
+          color: #fbbf24;
           border-radius: 8px;
           padding: 8px 12px;
           margin: 8px 0;
@@ -512,7 +525,7 @@ function App() {
           position: absolute;
           bottom: -2px;
           right: -2px;
-          background: #ffaa00;
+          background: #fbbf24;
           border-radius: 50%;
           width: 20px;
           height: 20px;
@@ -520,7 +533,7 @@ function App() {
           align-items: center;
           justify-content: center;
           font-size: 12px;
-          border: 2px solid #0f0c29;
+          border: 2px solid #0c0c0e;
         }
         .menu-profile-avatar {
           position: relative;

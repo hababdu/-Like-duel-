@@ -191,7 +191,7 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
         .shop-back-btn {
           background: rgba(255,255,255,0.06);
           border: 1px solid rgba(255,255,255,0.1);
-          color: #ccc;
+          color: #d6d5d1;
           padding: 8px 14px;
           border-radius: 10px;
           font-size: 13px;
@@ -209,7 +209,7 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
         .shop-header p {
           margin: 0;
           font-size: 13px;
-          color: #888;
+          color: #8d8d99;
         }
         .shop-balance {
           display: flex;
@@ -221,17 +221,17 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
           padding: 14px 18px;
           margin-bottom: 16px;
           font-size: 14px;
-          color: #aaa;
+          color: #8d8d99;
         }
         .shop-balance-value {
           font-size: 20px;
           font-weight: 700;
-          color: #fff;
+          color: #f8f7f4;
         }
         .shop-warning {
           background: rgba(255,170,0,0.1);
           border: 1px solid rgba(255,170,0,0.3);
-          color: #ffaa00;
+          color: #fbbf24;
           border-radius: 12px;
           padding: 10px 14px;
           font-size: 12px;
@@ -241,13 +241,13 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
         .shop-loading, .shop-error {
           text-align: center;
           padding: 30px 0;
-          color: #888;
+          color: #8d8d99;
         }
         .shop-spinner {
           width: 28px;
           height: 28px;
           border: 3px solid rgba(255,255,255,0.1);
-          border-top-color: #667eea;
+          border-top-color: #6366f1;
           border-radius: 50%;
           margin: 0 auto 10px;
           animation: shopSpin 0.8s linear infinite;
@@ -280,7 +280,7 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
         }
         .shop-package-title {
           font-size: 11px;
-          color: #888;
+          color: #8d8d99;
           text-align: center;
           min-height: 28px;
         }
@@ -289,8 +289,8 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
           padding: 10px;
           border-radius: 12px;
           border: none;
-          background: linear-gradient(135deg, #ffaa00, #ff7a00);
-          color: #1a1a1a;
+          background: linear-gradient(135deg, #fbbf24, #fbbf24);
+          color: #202026;
           font-weight: 700;
           font-size: 13px;
           cursor: pointer;
@@ -305,7 +305,7 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
         }
         .shop-footer-note {
           font-size: 11px;
-          color: #666;
+          color: #6b6b78;
           text-align: center;
           margin-top: 20px;
           line-height: 1.6;

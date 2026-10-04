@@ -642,12 +642,12 @@ function DuelGame({
               <div className="duel-player-rating">🏆 {opponent?.rating || 0}</div>
               <div className="duel-player-level">📊 Lv.{opponent?.level || 1}</div>
               {opponentChoiceMade && !showResult && (
-                <div className="duel-player-choice" style={{ color: '#ffaa00' }}>
+                <div className="duel-player-choice" style={{ color: '#fbbf24' }}>
                   ⏳ Tanlov qildi
                 </div>
               )}
               {!opponentChoiceMade && myChoice && !showResult && (
-                <div className="duel-player-choice" style={{ color: '#888' }}>
+                <div className="duel-player-choice" style={{ color: '#8d8d99' }}>
                   ⏳ Kutilmoqda...
                 </div>
               )}
@@ -888,7 +888,7 @@ function DuelGame({
         .duel-round-badge {
           text-align: center;
           font-size: 12px;
-          color: #888;
+          color: #8d8d99;
           background: rgba(255,255,255,0.05);
           border-radius: 12px;
           padding: 4px 10px;
@@ -917,7 +917,7 @@ function DuelGame({
           justify-content: center;
           gap: 10px;
           font-size: 14px;
-          color: #ccc;
+          color: #d6d5d1;
           margin-bottom: 8px;
         }
         .duel-round-overlay-reward {
@@ -927,7 +927,7 @@ function DuelGame({
         }
         .duel-round-overlay-hint {
           font-size: 12px;
-          color: #888;
+          color: #8d8d99;
           margin: 0;
         }
         .duel-leave-btn {
@@ -937,7 +937,7 @@ function DuelGame({
           border-radius: 12px;
           border: 1px solid rgba(255,68,68,0.3);
           background: rgba(255,68,68,0.08);
-          color: #ff6b6b;
+          color: #fb7185;
           font-size: 13px;
           font-weight: 600;
           cursor: pointer;
@@ -949,7 +949,7 @@ function DuelGame({
         .duel-end-reason {
           text-align: center;
           font-size: 13px;
-          color: #ffaa00;
+          color: #fbbf24;
           background: rgba(255,170,0,0.08);
           border: 1px solid rgba(255,170,0,0.2);
           border-radius: 10px;
@@ -974,8 +974,8 @@ function DuelGame({
           padding: 12px 24px;
           border-radius: 12px;
           border: none;
-          background: linear-gradient(135deg, #43e97b, #38f9d7);
-          color: #0f0c29;
+          background: linear-gradient(135deg, #34d399, #34d399);
+          color: #0c0c0e;
           font-size: 15px;
           font-weight: 600;
           cursor: pointer;
@@ -990,7 +990,7 @@ function DuelGame({
           cursor: not-allowed;
         }
         .duel-searching-error {
-          color: #ff4444;
+          color: #fb7185;
           font-size: 13px;
           margin-top: 12px;
           animation: blink 1s ease-in-out infinite;
@@ -1003,8 +1003,8 @@ function DuelGame({
           height: 56px;
           border-radius: 50%;
           border: none;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: #fff;
+          background: linear-gradient(135deg, #6366f1, #4f46e5);
+          color: #f8f7f4;
           font-size: 24px;
           cursor: pointer;
           box-shadow: 0 4px 20px rgba(102,126,234,0.4);
@@ -1018,8 +1018,8 @@ function DuelGame({
           position: absolute;
           top: -4px;
           right: -4px;
-          background: #ff4444;
-          color: #fff;
+          background: #fb7185;
+          color: #f8f7f4;
           font-size: 11px;
           font-weight: 700;
           min-width: 20px;
@@ -1058,12 +1058,12 @@ function DuelGame({
         .duel-chat-header span {
           font-weight: 600;
           font-size: 14px;
-          color: #888;
+          color: #8d8d99;
         }
         .duel-chat-header button {
           background: none;
           border: none;
-          color: #888;
+          color: #8d8d99;
           font-size: 18px;
           cursor: pointer;
           padding: 0 4px;
@@ -1083,13 +1083,13 @@ function DuelGame({
           border-radius: 2px;
         }
         .duel-chat-messages::-webkit-scrollbar-thumb {
-          background: #667eea;
+          background: #6366f1;
           border-radius: 2px;
         }
         .duel-chat-empty {
           text-align: center;
           padding: 20px 0;
-          color: #666;
+          color: #6b6b78;
         }
         .duel-chat-empty p {
           margin: 0;
@@ -1097,7 +1097,7 @@ function DuelGame({
         }
         .duel-chat-hint {
           font-size: 12px !important;
-          color: #444 !important;
+          color: #6b6b78 !important;
           margin-top: 4px !important;
         }
         .duel-chat-message {
@@ -1113,8 +1113,8 @@ function DuelGame({
           align-items: flex-end;
         }
         .duel-chat-message.mine .duel-chat-text {
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: #fff;
+          background: linear-gradient(135deg, #6366f1, #4f46e5);
+          color: #f8f7f4;
           border-radius: 12px 4px 12px 12px;
         }
         .duel-chat-message .duel-chat-avatar {
@@ -1136,8 +1136,8 @@ function DuelGame({
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: #fff;
+          background: linear-gradient(135deg, #6366f1, #4f46e5);
+          color: #f8f7f4;
           font-size: 14px;
           font-weight: 600;
         }
@@ -1148,7 +1148,7 @@ function DuelGame({
         }
         .duel-chat-message .duel-chat-name {
           font-size: 11px;
-          color: #888;
+          color: #8d8d99;
           margin-bottom: 2px;
           display: flex;
           gap: 8px;
@@ -1156,13 +1156,13 @@ function DuelGame({
         }
         .duel-chat-message .duel-chat-time {
           font-size: 9px;
-          color: #555;
+          color: #6b6b78;
         }
         .duel-chat-message .duel-chat-text {
           padding: 8px 12px;
           border-radius: 4px 12px 12px 12px;
           background: rgba(255,255,255,0.05);
-          color: #fff;
+          color: #f8f7f4;
           font-size: 13px;
           word-wrap: break-word;
           line-height: 1.4;
@@ -1180,22 +1180,22 @@ function DuelGame({
           border-radius: 20px;
           border: 1px solid rgba(255,255,255,0.1);
           background: rgba(255,255,255,0.05);
-          color: #fff;
+          color: #f8f7f4;
           font-size: 13px;
           outline: none;
         }
         .duel-chat-input input:focus {
-          border-color: #667eea;
+          border-color: #6366f1;
         }
         .duel-chat-input input::placeholder {
-          color: #555;
+          color: #6b6b78;
         }
         .duel-chat-input button {
           padding: 8px 14px;
           border-radius: 20px;
           border: none;
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: #fff;
+          background: linear-gradient(135deg, #6366f1, #4f46e5);
+          color: #f8f7f4;
           font-size: 16px;
           cursor: pointer;
         }

@@ -5,15 +5,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 // Har bir tranzaksiya turi uchun ikonka, o'zbekcha nom va rang
 const TX_META = {
-  signup_bonus:      { icon: '🎁', label: "Ro'yxatdan o'tish bonusi", color: '#43e97b' },
-  referral_bonus:    { icon: '👥', label: "Do'st taklif qilingani uchun", color: '#43e97b' },
-  game_stake_hold:   { icon: '🔒', label: 'Duel stavkasi ushlab turildi', color: '#ffaa00' },
-  game_stake_refund: { icon: '↩️', label: 'Stavka qaytarildi', color: '#43e97b' },
-  game_win:          { icon: '🏆', label: 'Duelda g\'alaba', color: '#43e97b' },
-  game_lose:         { icon: '💥', label: 'Duelda mag\'lubiyat', color: '#ff4444' },
-  game_draw_refund:  { icon: '🤝', label: 'Durang - stavka qaytarildi', color: '#43e97b' },
-  purchase:          { icon: '⭐', label: 'Telegram Stars orqali xarid', color: '#43e97b' },
-  admin_adjust:      { icon: '🛠️', label: 'Admin tuzatishi', color: '#888' }
+  signup_bonus:      { icon: '🎁', label: "Ro'yxatdan o'tish bonusi", color: '#34d399' },
+  referral_bonus:    { icon: '👥', label: "Do'st taklif qilingani uchun", color: '#34d399' },
+  game_stake_hold:   { icon: '🔒', label: 'Duel stavkasi ushlab turildi', color: '#fbbf24' },
+  game_stake_refund: { icon: '↩️', label: 'Stavka qaytarildi', color: '#34d399' },
+  game_win:          { icon: '🏆', label: 'Duelda g\'alaba', color: '#34d399' },
+  game_lose:         { icon: '💥', label: 'Duelda mag\'lubiyat', color: '#fb7185' },
+  game_draw_refund:  { icon: '🤝', label: 'Durang - stavka qaytarildi', color: '#34d399' },
+  purchase:          { icon: '⭐', label: 'Telegram Stars orqali xarid', color: '#34d399' },
+  admin_adjust:      { icon: '🛠️', label: 'Admin tuzatishi', color: '#8d8d99' }
 };
 
 function formatDateTime(iso) {
@@ -117,7 +117,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
         {!loading && !error && transactions.length > 0 && (
           <div className="wallet-tx-list">
             {transactions.map((tx) => {
-              const meta = TX_META[tx.type] || { icon: '💠', label: tx.type, color: '#888' };
+              const meta = TX_META[tx.type] || { icon: '💠', label: tx.type, color: '#8d8d99' };
               const isPositive = tx.amount > 0;
               const isZero = tx.amount === 0;
               return (
@@ -135,7 +135,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
                   <div className="wallet-tx-amounts">
                     <span
                       className="wallet-tx-amount"
-                      style={{ color: isZero ? '#888' : isPositive ? '#43e97b' : '#ff4444' }}
+                      style={{ color: isZero ? '#8d8d99' : isPositive ? '#34d399' : '#fb7185' }}
                     >
                       {isZero ? '±0' : isPositive ? `+${tx.amount}` : tx.amount}
                     </span>
@@ -160,7 +160,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
         .wallet-back-btn {
           background: rgba(255,255,255,0.06);
           border: 1px solid rgba(255,255,255,0.1);
-          color: #ccc;
+          color: #d6d5d1;
           padding: 8px 14px;
           border-radius: 10px;
           font-size: 13px;
@@ -180,7 +180,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
         .wallet-refresh-btn {
           background: rgba(255,255,255,0.06);
           border: 1px solid rgba(255,255,255,0.1);
-          color: #fff;
+          color: #f8f7f4;
           width: 36px;
           height: 36px;
           border-radius: 10px;
@@ -191,7 +191,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
           opacity: 0.5;
         }
         .wallet-balance-card {
-          background: linear-gradient(135deg, #667eea, #764ba2);
+          background: linear-gradient(135deg, #6366f1, #4f46e5);
           border-radius: 18px;
           padding: 22px;
           display: flex;
@@ -207,23 +207,23 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
         .wallet-balance-value {
           font-size: 32px;
           font-weight: 700;
-          color: #fff;
+          color: #f8f7f4;
         }
         .wallet-history h3 {
           font-size: 15px;
-          color: #aaa;
+          color: #8d8d99;
           margin: 0 0 12px 4px;
         }
         .wallet-loading, .wallet-error, .wallet-empty {
           text-align: center;
           padding: 30px 0;
-          color: #888;
+          color: #8d8d99;
         }
         .wallet-spinner {
           width: 28px;
           height: 28px;
           border: 3px solid rgba(255,255,255,0.1);
-          border-top-color: #667eea;
+          border-top-color: #6366f1;
           border-radius: 50%;
           margin: 0 auto 10px;
           animation: spin 0.8s linear infinite;
@@ -236,8 +236,8 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
           padding: 8px 16px;
           border-radius: 10px;
           border: none;
-          background: #667eea;
-          color: #fff;
+          background: #6366f1;
+          color: #f8f7f4;
           cursor: pointer;
         }
         .wallet-tx-list {
@@ -270,12 +270,12 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
         }
         .wallet-tx-label {
           font-size: 13px;
-          color: #eee;
+          color: #d6d5d1;
           font-weight: 600;
         }
         .wallet-tx-description {
           font-size: 11px;
-          color: #888;
+          color: #8d8d99;
           margin-top: 1px;
           white-space: nowrap;
           overflow: hidden;
@@ -283,7 +283,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
         }
         .wallet-tx-time {
           font-size: 10px;
-          color: #555;
+          color: #6b6b78;
           margin-top: 2px;
         }
         .wallet-tx-amounts {
@@ -298,7 +298,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
         }
         .wallet-tx-balance-after {
           font-size: 10px;
-          color: #666;
+          color: #6b6b78;
           margin-top: 2px;
         }
       `}</style>

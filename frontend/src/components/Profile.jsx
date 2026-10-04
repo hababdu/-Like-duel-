@@ -94,19 +94,19 @@ function Profile({ user, onBack, updateUser, API_URL }) {
                   <span className="stat-name">Jami o'yin</span>
                 </div>
                 <div className="game-stat">
-                  <span className="stat-number" style={{ color: '#00ff88' }}>
+                  <span className="stat-number" style={{ color: '#34d399' }}>
                     {stats.wins}
                   </span>
                   <span className="stat-name">G'alaba</span>
                 </div>
                 <div className="game-stat">
-                  <span className="stat-number" style={{ color: '#ff4444' }}>
+                  <span className="stat-number" style={{ color: '#fb7185' }}>
                     {stats.losses}
                   </span>
                   <span className="stat-name">Mag'lubiyat</span>
                 </div>
                 <div className="game-stat">
-                  <span className="stat-number" style={{ color: '#ffaa00' }}>
+                  <span className="stat-number" style={{ color: '#fbbf24' }}>
                     {stats.draws}
                   </span>
                   <span className="stat-name">Durang</span>

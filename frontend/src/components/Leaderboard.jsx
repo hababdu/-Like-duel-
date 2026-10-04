@@ -134,7 +134,7 @@ function Leaderboard({ API_URL, onBack }) {
           padding: 20px;
         }
         .leaderboard-warning p {
-          color: #ffaa00;
+          color: #fbbf24;
           font-size: 13px;
           margin-bottom: 12px;
         }
@@ -142,8 +142,8 @@ function Leaderboard({ API_URL, onBack }) {
           padding: 10px 20px;
           border-radius: 12px;
           border: none;
-          background: linear-gradient(135deg, #43e97b, #38f9d7);
-          color: #0f0c29;
+          background: linear-gradient(135deg, #34d399, #34d399);
+          color: #0c0c0e;
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
