@@ -2,6 +2,7 @@
 // DuelGame.js - TO'LIQ VERSION (UZLUKSIZ RAUNDLAR + CHIQISH TUGMASI)
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Icon from '../Icon';
 import './DuelGame.css'
 
 function DuelGame({
@@ -447,20 +448,20 @@ function DuelGame({
   // FORMAT FUNCTIONS
   // ======================
   const formatChoice = (str) => {
-    if (str === 'rock') return '🪨 Tosh';
-    if (str === 'paper') return '📄 Qog\'oz';
-    if (str === 'scissors') return '✂️ Qaychi';
-    if (str === 'timeout') return '⏳ Kechikdi';
-    if (str === 'disconnected') return '🔌 Chiqib ketdi';
-    if (str === 'left') return '🚪 Chiqdi';
-    return '❓ Noma\'lum';
+    if (str === 'rock') return <><Icon name="rock" /> Tosh</>;
+    if (str === 'paper') return <><Icon name="paper" /> Qog'oz</>;
+    if (str === 'scissors') return <><Icon name="scissors" /> Qaychi</>;
+    if (str === 'timeout') return <><Icon name="hourglass" /> Kechikdi</>;
+    if (str === 'disconnected') return <><Icon name="plug" /> Chiqib ketdi</>;
+    if (str === 'left') return <><Icon name="door" /> Chiqdi</>;
+    return <><Icon name="help" /> Noma'lum</>;
   };
 
   const getChoiceEmoji = (str) => {
-    if (str === 'rock') return '🪨';
-    if (str === 'paper') return '📄';
-    if (str === 'scissors') return '✂️';
-    return '❓';
+    if (str === 'rock') return <Icon name="rock" />;
+    if (str === 'paper') return <Icon name="paper" />;
+    if (str === 'scissors') return <Icon name="scissors" />;
+    return <Icon name="help" />;
   };
 
   const getChoiceName = (str) => {
@@ -499,7 +500,7 @@ function DuelGame({
       {socketError && (
         <div className="duel-error">
           ⚠️ {socketError}
-          <button onClick={() => setSocketError(null)}>✕</button>
+          <button onClick={() => setSocketError(null)}><Icon name="x" /></button>
         </div>
       )}
 
@@ -507,27 +508,27 @@ function DuelGame({
       {gameState === 'idle' && (
         <div className="duel-idle">
           <div className="duel-idle-header">
-            <h2>⚔️ Onlayn Duel</h2>
+            <h2><Icon name="swords" /> Onlayn Duel</h2>
             <p>Jonli raqib bilan tosh-qog'oz-qaychi o'ynang!</p>
           </div>
 
           <div className="duel-balance">
             <div className="duel-balance-item">
-              <span>🪙 Balans</span>
+              <span><Icon name="coin" /> Balans</span>
               <span className="duel-balance-value">{user?.coins || 0}</span>
             </div>
             <div className="duel-balance-item">
-              <span>🏆 Reyting</span>
+              <span><Icon name="trophy" /> Reyting</span>
               <span className="duel-balance-value">{user?.rating || 0}</span>
             </div>
             <div className="duel-balance-item">
-              <span>📊 Level</span>
+              <span><Icon name="chart" /> Level</span>
               <span className="duel-balance-value">{user?.level || 1}</span>
             </div>
           </div>
 
           <div className="duel-stake-section">
-            <p className="duel-stake-label">💰 Stavka tanlang:</p>
+            <p className="duel-stake-label"><Icon name="wallet" /> Stavka tanlang:</p>
             <div className="duel-stake-grid">
               {[10, 20, 50, 100].map(value => (
                 <button
@@ -536,10 +537,10 @@ function DuelGame({
                   onClick={() => setStake(value)}
                   disabled={(user?.coins || 0) < value}
                 >
-                  <span className="duel-stake-icon">🪙</span>
+                  <span className="duel-stake-icon"><Icon name="coin" /></span>
                   <span className="duel-stake-value">{value}</span>
                   {(user?.coins || 0) < value && (
-                    <span className="duel-stake-insufficient">❌</span>
+                    <span className="duel-stake-insufficient"><Icon name="xcircle" /></span>
                   )}
                 </button>
               ))}
@@ -570,10 +571,10 @@ function DuelGame({
             <div className="duel-ring"></div>
             <div className="duel-ring delay-1"></div>
             <div className="duel-ring delay-2"></div>
-            <div className="duel-radar-icon">🔍</div>
+            <div className="duel-radar-icon"><Icon name="search" /></div>
           </div>
           <h3>Raqib qidirilmoqda...</h3>
-          <p className="duel-searching-stake">Stavka: 🪙 {stake}</p>
+          <p className="duel-searching-stake">Stavka: <Icon name="coin" /> {stake}</p>
           <p className="duel-searching-queue">Navbatda: {queueLength} o'yinchi</p>
           <div className="duel-searching-progress">
             <div className="duel-progress-bar">
@@ -595,7 +596,7 @@ function DuelGame({
             </button>
           </div>
           {!socket?.connected && (
-            <p className="duel-searching-error">🔴 Serverga ulanish yo'q, qayta ulanish kutilmoqda...</p>
+            <p className="duel-searching-error"><Icon name="dot" color="#fb7185" /> Serverga ulanish yo'q, qayta ulanish kutilmoqda...</p>
           )}
         </div>
       )}
@@ -614,11 +615,11 @@ function DuelGame({
                   <span>{user?.firstName?.charAt(0) || 'S'}</span>
                 )}
               </div>
-              <div className="duel-player-name">🥊 {user?.firstName || 'Siz'}</div>
-              <div className="duel-player-rating">🏆 {user?.rating || 0}</div>
-              <div className="duel-player-level">📊 Lv.{user?.level || 1}</div>
+              <div className="duel-player-name"><Icon name="user" /> {user?.firstName || 'Siz'}</div>
+              <div className="duel-player-rating"><Icon name="trophy" /> {user?.rating || 0}</div>
+              <div className="duel-player-level"><Icon name="chart" /> Lv.{user?.level || 1}</div>
               {myChoice && !showResult && (
-                <div className="duel-player-choice">✅ {formatChoice(myChoice)}</div>
+                <div className="duel-player-choice"><Icon name="check" /> {formatChoice(myChoice)}</div>
               )}
             </div>
 
@@ -627,7 +628,7 @@ function DuelGame({
                 {timer}
               </span>
               <span className="duel-timer-label">s</span>
-              <div className="duel-vs">⚔️</div>
+              <div className="duel-vs"><Icon name="swords" /></div>
             </div>
 
             <div className="duel-player">
@@ -638,9 +639,9 @@ function DuelGame({
                   <span>{opponent?.name?.charAt(0) || 'R'}</span>
                 )}
               </div>
-              <div className="duel-player-name">🥷 {opponent?.name || 'Raqib'}</div>
-              <div className="duel-player-rating">🏆 {opponent?.rating || 0}</div>
-              <div className="duel-player-level">📊 Lv.{opponent?.level || 1}</div>
+              <div className="duel-player-name"><Icon name="user" /> {opponent?.name || 'Raqib'}</div>
+              <div className="duel-player-rating"><Icon name="trophy" /> {opponent?.rating || 0}</div>
+              <div className="duel-player-level"><Icon name="chart" /> Lv.{opponent?.level || 1}</div>
               {opponentChoiceMade && !showResult && (
                 <div className="duel-player-choice" style={{ color: '#fbbf24' }}>
                   ⏳ Tanlov qildi
@@ -673,14 +674,14 @@ function DuelGame({
               {roundResult.sessionContinues ? (
                 <p className="duel-round-overlay-hint">⏳ Keyingi raund boshlanmoqda...</p>
               ) : (
-                <p className="duel-round-overlay-hint">🏁 Duel yakunlanmoqda...</p>
+                <p className="duel-round-overlay-hint"><Icon name="flag" /> Duel yakunlanmoqda...</p>
               )}
             </div>
           )}
 
           {!showResult && (
             <>
-              <p className="duel-choice-label">🎯 Tanlovingizni qiling:</p>
+              <p className="duel-choice-label"><Icon name="target" /> Tanlovingizni qiling:</p>
 
               <div className="duel-choices">
                 <button
@@ -688,7 +689,7 @@ function DuelGame({
                   onClick={() => submitChoice('rock')}
                   disabled={!!myChoice}
                 >
-                  <span className="duel-choice-emoji">🪨</span>
+                  <span className="duel-choice-emoji"><Icon name="rock" /></span>
                   <span className="duel-choice-name">Tosh</span>
                 </button>
                 <button
@@ -696,7 +697,7 @@ function DuelGame({
                   onClick={() => submitChoice('paper')}
                   disabled={!!myChoice}
                 >
-                  <span className="duel-choice-emoji">📄</span>
+                  <span className="duel-choice-emoji"><Icon name="paper" /></span>
                   <span className="duel-choice-name">Qog'oz</span>
                 </button>
                 <button
@@ -704,7 +705,7 @@ function DuelGame({
                   onClick={() => submitChoice('scissors')}
                   disabled={!!myChoice}
                 >
-                  <span className="duel-choice-emoji">✂️</span>
+                  <span className="duel-choice-emoji"><Icon name="scissors" /></span>
                   <span className="duel-choice-name">Qaychi</span>
                 </button>
               </div>
@@ -728,20 +729,20 @@ function DuelGame({
 
           {/* Chat Toggle */}
           <button className="duel-chat-toggle" onClick={toggleChat}>
-            💬 {unreadCount > 0 && <span className="chat-unread">{unreadCount}</span>}
+            <Icon name="chat" /> {unreadCount > 0 && <span className="chat-unread">{unreadCount}</span>}
           </button>
 
           {/* Chat Window */}
           {showChat && (
             <div className="duel-chat-window">
               <div className="duel-chat-header">
-                <span>💬 Chat</span>
-                <button onClick={toggleChat}>✕</button>
+                <span><Icon name="chat" /> Chat</span>
+                <button onClick={toggleChat}><Icon name="x" /></button>
               </div>
               <div className="duel-chat-messages">
                 {chatMessages.length === 0 ? (
                   <div className="duel-chat-empty">
-                    <p>💭 Xabarlar yo'q</p>
+                    <p><Icon name="chat" /> Xabarlar yo'q</p>
                     <p className="duel-chat-hint">Raqib bilan suhbatlashing!</p>
                   </div>
                 ) : (
@@ -810,7 +811,7 @@ function DuelGame({
                   <span className="duel-result-choice-name">{getChoiceName(roundResult.myChoice)}</span>
                 </div>
               </div>
-              <div className="duel-result-vs">⚡</div>
+              <div className="duel-result-vs"><Icon name="zap" /></div>
               <div className="duel-result-choice">
                 <span className="duel-result-label">Raqib</span>
                 <div className="duel-result-choice-display">
@@ -822,14 +823,14 @@ function DuelGame({
 
             <div className="duel-result-rewards">
               <div className={`duel-result-reward ${roundResult.rewardCoins >= 0 ? 'positive' : 'negative'}`}>
-                <span className="reward-icon">{roundResult.rewardCoins >= 0 ? '🪙' : '💸'}</span>
+                <span className="reward-icon">{roundResult.rewardCoins >= 0 ? <Icon name="coin" /> : <Icon name="trendDown" />}</span>
                 <span className="reward-value">
                   {roundResult.rewardCoins >= 0 ? '+' : ''}{roundResult.rewardCoins}
                 </span>
                 <span className="reward-label">Tanga</span>
               </div>
               <div className={`duel-result-reward ${roundResult.rewardXP >= 0 ? 'positive' : 'negative'}`}>
-                <span className="reward-icon">{roundResult.rewardXP >= 0 ? '🏆' : '📉'}</span>
+                <span className="reward-icon">{roundResult.rewardXP >= 0 ? <Icon name="trophy" /> : <Icon name="trendDown" />}</span>
                 <span className="reward-value">
                   {roundResult.rewardXP >= 0 ? '+' : ''}{roundResult.rewardXP}
                 </span>
@@ -839,19 +840,19 @@ function DuelGame({
 
             <div className="duel-result-stats">
               <div className="duel-result-stat">
-                <span>🪙 Yangi balans</span>
+                <span><Icon name="coin" /> Yangi balans</span>
                 <span className="stat-value">{roundResult.newCoins ?? user?.coins ?? 0}</span>
               </div>
               <div className="duel-result-stat">
-                <span>🏆 Yangi reyting</span>
+                <span><Icon name="trophy" /> Yangi reyting</span>
                 <span className="stat-value">{roundResult.newRating ?? user?.rating ?? 0}</span>
               </div>
               <div className="duel-result-stat">
-                <span>📊 Yangi level</span>
+                <span><Icon name="chart" /> Yangi level</span>
                 <span className="stat-value">{roundResult.newLevel ?? user?.level ?? 1}</span>
               </div>
               <div className="duel-result-stat">
-                <span>🔁 Jami raundlar</span>
+                <span><Icon name="repeat" /> Jami raundlar</span>
                 <span className="stat-value">{roundNumber}</span>
               </div>
             </div>

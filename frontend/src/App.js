@@ -2,6 +2,7 @@
 // App.js - TO'LIQ VERSION (TOZALANGAN - ortiqcha debug panel olib tashlandi)
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Icon from './Icon';
 import socket from './socket';
 import Profile from './components/Profile';
 import DuelGame from './components/DuelGame';
@@ -289,7 +290,7 @@ function App() {
   if (!user && authError && !isDevMode) {
     return (
       <div className="loading-screen">
-        <p>❌ Kirishda xatolik: {authError}</p>
+        <p><Icon name="xcircle" /> Kirishda xatolik: {authError}</p>
         <button
           onClick={async () => {
             setLoading(true);
@@ -310,14 +311,14 @@ function App() {
       {notification && (
         <div className={`notification ${notification.type}`}>
           <span>{notification.message}</span>
-          <button onClick={() => setNotification(null)}>✕</button>
+          <button onClick={() => setNotification(null)}><Icon name="x" /></button>
         </div>
       )}
 
       {/* Header */}
       <div className="header">
         <div className="header-left">
-          <h1>💥 LIKE-DUEL</h1>
+          <h1><Icon name="zap" /> LIKE-DUEL</h1>
         </div>
         <div className="header-right">
           <div className="header-status">
@@ -360,16 +361,16 @@ function App() {
                   <span>{user?.firstName?.charAt(0) || '?'}</span>
                 )}
                 {user?.isPremium && (
-                  <div className="premium-badge">⭐</div>
+                  <div className="premium-badge"><Icon name="star" /></div>
                 )}
               </div>
               <div className="menu-profile-info">
                 <h2>{user?.firstName || 'User'}</h2>
                 <p>@{user?.username || 'username'}</p>
                 <div className="menu-profile-stats">
-                  <span>🪙 {user?.coins || 0}</span>
-                  <span>🏆 {user?.rating || 0}</span>
-                  <span>📊 Level {user?.level || 1}</span>
+                  <span><Icon name="coin" /> {user?.coins || 0}</span>
+                  <span><Icon name="trophy" /> {user?.rating || 0}</span>
+                  <span><Icon name="chart" /> Level {user?.level || 1}</span>
                 </div>
               </div>
             </div>
@@ -389,7 +390,7 @@ function App() {
       setCurrentScreen('game');
     }}
   >
-    <span className="btn-icon">⚔️</span>
+    <span className="btn-icon"><Icon name="swords" /></span>
     <span className="btn-text">Onlayn Duel</span>
     <span className="badge">Jonli</span>
   </button>
@@ -398,7 +399,7 @@ function App() {
     className="btn-bot"
     onClick={() => setCurrentScreen('bot')}
   >
-    <span className="btn-icon">🤖</span>
+    <span className="btn-icon"><Icon name="bot" /></span>
     <span className="btn-text">Bot bilan</span>
     <span className="badge">AI</span>
   </button>
@@ -407,7 +408,7 @@ function App() {
     className="btn-leaderboard"
     onClick={() => setCurrentScreen('leaderboard')}
   >
-    <span className="btn-icon">🏆</span>
+    <span className="btn-icon"><Icon name="trophy" /></span>
     <span className="btn-text">Peshqadamlar</span>
   </button>
 
@@ -415,7 +416,7 @@ function App() {
     className="btn-wallet"
     onClick={() => setCurrentScreen('wallet')}
   >
-    <span className="btn-icon">💰</span>
+    <span className="btn-icon"><Icon name="wallet" /></span>
     <span className="btn-text">Hamyonim</span>
   </button>
 
@@ -423,18 +424,18 @@ function App() {
     className="btn-shop"
     onClick={() => setCurrentScreen('shop')}
   >
-    <span className="btn-icon">🛒</span>
+    <span className="btn-icon"><Icon name="cart" /></span>
     <span className="btn-text">Tanga Do'koni</span>
-    <span className="badge">⭐ Stars</span>
+    <span className="badge"><Icon name="star" /> Stars</span>
   </button>
 
   <button
     className="btn-referrals"
     onClick={() => setCurrentScreen('referrals')}
   >
-    <span className="btn-icon">👥</span>
+    <span className="btn-icon"><Icon name="users" /></span>
     <span className="btn-text">Do'stlarni taklif qilish</span>
-    <span className="badge">+50 🪙</span>
+    <span className="badge">+50 <Icon name="coin" /></span>
   </button>
 </div>
           </div>

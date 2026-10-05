@@ -2,6 +2,7 @@
 // Referrals.js - SERVERGA MOSLASHTIRILGAN VERSIYA
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
+import Icon from '../Icon';
 import { authHeaders } from '../api';
 import './Referrals.css';
 
@@ -203,24 +204,24 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
       <div className="referrals-container">
         {/* Header */}
         <div className="referrals-header">
-          <h2>👥 Do'stlarni Taklif Qilish</h2>
+          <h2><Icon name="users" /> Do'stlarni Taklif Qilish</h2>
           <p>Har bir taklif qilgan do'stingiz uchun <strong>{bonusPerReferral} tanga</strong> bonus!</p>
         </div>
 
         {/* Stats */}
         <div className="referrals-stats">
           <div className="referrals-stat">
-            <span className="stat-icon">👥</span>
+            <span className="stat-icon"><Icon name="users" /></span>
             <span className="stat-number">{refCount}</span>
             <span className="stat-label">Taklif qilinganlar</span>
           </div>
           <div className="referrals-stat">
-            <span className="stat-icon">🪙</span>
+            <span className="stat-icon"><Icon name="coin" /></span>
             <span className="stat-number">+{totalRefBonus}</span>
             <span className="stat-label">Bonus tanga</span>
           </div>
           <div className="referrals-stat">
-            <span className="stat-icon">💰</span>
+            <span className="stat-icon"><Icon name="wallet" /></span>
             <span className="stat-number">{user?.coins || 0}</span>
             <span className="stat-label">Jami tanga</span>
           </div>
@@ -258,7 +259,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
 
         {/* Info Section */}
         <div className="referrals-info">
-          <h3>💡 Qanday ishlaydi?</h3>
+          <h3><Icon name="bulb" /> Qanday ishlaydi?</h3>
           <div className="referrals-info-list">
             <div className="referrals-info-item">
               <span className="info-number">1</span>
@@ -286,7 +287,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
 
         {/* Referrals List */}
         <div className="referrals-list-section">
-          <h3>📋 Taklif qilingan do'stlar</h3>
+          <h3><Icon name="clipboard" /> Taklif qilingan do'stlar</h3>
 
           {loading ? (
             <div className="referrals-loading">
@@ -295,7 +296,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
             </div>
           ) : referrals.length === 0 ? (
             <div className="referrals-empty">
-              <span className="empty-icon">📭</span>
+              <span className="empty-icon"><Icon name="inbox" /></span>
               <p>Hali hech kim taklif qilinmagan</p>
               <p className="empty-hint">Do'stlaringizni taklif qilishni boshlang!</p>
             </div>
@@ -315,8 +316,8 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
                     <span className="item-username">@{ref.username || 'username'}</span>
                   </div>
                   <div className="referrals-item-stats">
-                    <span className="item-coins">🪙 {ref.coins || 0}</span>
-                    <span className="item-rating">🏆 {ref.rating || 0}</span>
+                    <span className="item-coins"><Icon name="coin" /> {ref.coins || 0}</span>
+                    <span className="item-rating"><Icon name="trophy" /> {ref.rating || 0}</span>
                   </div>
                   <div className="referrals-item-date">
                     {formatDate(ref.createdAt)}

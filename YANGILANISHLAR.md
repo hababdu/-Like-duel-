@@ -32,3 +32,9 @@
 - `ErrorBoundary`: kutilmagan xatoda oq ekran o'rniga "Qayta yuklash" ekrani.
 - Viewport: kattalashtirish (zoom) taqiqi olib tashlandi (qulaylik).
 - `package.json` dagi ishlamaydigan `"dev": "vite"` skripti o'chirildi.
+
+# 5-qadam: Dizayn tizimi yakunlandi
+- `src/Icon.jsx` – 45 ta yagona SVG ikonka (emoji o'rniga): menyu, sarlavha, o'yin tanlovlari (tosh/qog'oz/qaychi), reyting medallari, hamyon tarixi va hokazo. Hamma qurilmada bir xil ko'rinadi, rangi matndan olinadi (tanga/kubok/yulduz standart oltin). Ishlatish: `<Icon name="coin" />`.
+- Bildirishnoma (toast) matnlaridagi emoji ataylab qoldirildi – ular oddiy matn.
+- `BotGame.jsx` inline stillari CSS o'zgaruvchilariga (`var(--ac)`, `var(--s1)` ...) o'tkazildi, endi ranglar `theme.css` dan boshqariladi. Bot kartasi rangi (teal) palitraga moslandi.
+- Yangi ikonka qo'shish: `Icon.jsx` dagi `P` obyektiga 24x24 SVG yo'l qo'shing.

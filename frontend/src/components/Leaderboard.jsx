@@ -2,6 +2,7 @@
 // Leaderboard.js - SERVERGA MOSLASHTIRILGAN VERSIYA
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
+import Icon from '../Icon';
 import './Leaderboard.css';
 
 function Leaderboard({ API_URL, onBack }) {
@@ -51,9 +52,9 @@ function Leaderboard({ API_URL, onBack }) {
   }, [fetchLeaderboard]);
 
   const getRankBadge = (index) => {
-    if (index === 0) return '🥇';
-    if (index === 1) return '🥈';
-    if (index === 2) return '🥉';
+    if (index === 0) return <Icon name="medal" color="#fbbf24" />;
+    if (index === 1) return <Icon name="medal" color="#cbd5e1" />;
+    if (index === 2) return <Icon name="medal" color="#d97706" />;
     return `#${index + 1}`;
   };
 
@@ -61,7 +62,7 @@ function Leaderboard({ API_URL, onBack }) {
     <div className="leaderboard-screen">
       <div className="leaderboard-header">
         <button className="back-btn-small" onClick={onBack}>⬅️</button>
-        <h2>🏆 Peshqadamlar</h2>
+        <h2><Icon name="trophy" /> Peshqadamlar</h2>
         <div style={{ width: '32px' }}></div>
       </div>
 
@@ -76,7 +77,7 @@ function Leaderboard({ API_URL, onBack }) {
 
       {error && !loading && (
         <div className="leaderboard-warning">
-          <p>⚠️ Serverga ulanib bo'lmadi: {error}</p>
+          <p><Icon name="alert" /> Serverga ulanib bo'lmadi: {error}</p>
           <button className="leaderboard-retry-btn" onClick={fetchLeaderboard}>
             🔄 Qayta urinish
           </button>
@@ -95,7 +96,7 @@ function Leaderboard({ API_URL, onBack }) {
                 {player.photoUrl ? (
                   <img src={player.photoUrl} alt="avatar" className="leader-avatar" />
                 ) : (
-                  <div className="leader-avatar-placeholder">🕹️</div>
+                  <div className="leader-avatar-placeholder"><Icon name="gamepad" /></div>
                 )}
                 <div className="leader-name-block">
                   <span className="leader-name">{player.firstName}</span>
@@ -107,15 +108,15 @@ function Leaderboard({ API_URL, onBack }) {
 
               <div className="leader-right">
                 <div className="leader-stat">
-                  <span className="stat-icon">🏆</span>
+                  <span className="stat-icon"><Icon name="trophy" /></span>
                   <span className="stat-val">{player.rating}</span>
                 </div>
                 <div className="leader-stat">
-                  <span className="stat-icon">📊</span>
+                  <span className="stat-icon"><Icon name="chart" /></span>
                   <span className="stat-val">Lv.{player.level ?? 1}</span>
                 </div>
                 <div className="leader-stat">
-                  <span className="stat-icon">🪙</span>
+                  <span className="stat-icon"><Icon name="coin" /></span>
                   <span className="stat-val">{player.coins}</span>
                 </div>
               </div>

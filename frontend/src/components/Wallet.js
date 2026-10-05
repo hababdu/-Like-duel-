@@ -2,20 +2,21 @@
 // Wallet.js - HAMYON: balans va tranzaksiyalar tarixi
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
+import Icon from '../Icon';
 import { authHeaders } from '../api';
 
 // Har bir tranzaksiya turi uchun ikonka, o'zbekcha nom va rang
 const TX_META = {
-  signup_bonus:      { icon: '🎁', label: "Ro'yxatdan o'tish bonusi", color: '#34d399' },
-  referral_bonus:    { icon: '👥', label: "Do'st taklif qilingani uchun", color: '#34d399' },
-  game_stake_hold:   { icon: '🔒', label: 'Duel stavkasi ushlab turildi', color: '#fbbf24' },
-  game_stake_refund: { icon: '↩️', label: 'Stavka qaytarildi', color: '#34d399' },
-  game_win:          { icon: '🏆', label: 'Duelda g\'alaba', color: '#34d399' },
-  game_lose:         { icon: '💥', label: 'Duelda mag\'lubiyat', color: '#fb7185' },
-  game_draw_refund:  { icon: '🤝', label: 'Durang - stavka qaytarildi', color: '#34d399' },
-  bot_game:          { icon: '🤖', label: 'Bot bilan o\'yin', color: '#8d8d99' },
-  purchase:          { icon: '⭐', label: 'Telegram Stars orqali xarid', color: '#34d399' },
-  admin_adjust:      { icon: '🛠️', label: 'Admin tuzatishi', color: '#8d8d99' }
+  signup_bonus:      { icon: 'gift', label: "Ro'yxatdan o'tish bonusi", color: '#34d399' },
+  referral_bonus:    { icon: 'users', label: "Do'st taklif qilingani uchun", color: '#34d399' },
+  game_stake_hold:   { icon: 'lock', label: 'Duel stavkasi ushlab turildi', color: '#fbbf24' },
+  game_stake_refund: { icon: 'undo', label: 'Stavka qaytarildi', color: '#34d399' },
+  game_win:          { icon: 'trophy', label: 'Duelda g\'alaba', color: '#34d399' },
+  game_lose:         { icon: 'zap', label: 'Duelda mag\'lubiyat', color: '#fb7185' },
+  game_draw_refund:  { icon: 'equal', label: 'Durang - stavka qaytarildi', color: '#34d399' },
+  bot_game:          { icon: 'bot', label: 'Bot bilan o\'yin', color: '#8d8d99' },
+  purchase:          { icon: 'star', label: 'Telegram Stars orqali xarid', color: '#34d399' },
+  admin_adjust:      { icon: 'wrench', label: 'Admin tuzatishi', color: '#8d8d99' }
 };
 
 function formatDateTime(iso) {
@@ -78,7 +79,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
       </button>
 
       <div className="wallet-header">
-        <h2>💰 Mening Hamyonim</h2>
+        <h2><Icon name="wallet" /> Mening Hamyonim</h2>
         <button
           className="wallet-refresh-btn"
           onClick={handleRefresh}
@@ -90,11 +91,11 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
 
       <div className="wallet-balance-card">
         <span className="wallet-balance-label">Joriy balans</span>
-        <span className="wallet-balance-value">🪙 {balance}</span>
+        <span className="wallet-balance-value"><Icon name="coin" /> {balance}</span>
       </div>
 
       <div className="wallet-history">
-        <h3>📜 Tranzaksiyalar tarixi</h3>
+        <h3><Icon name="history" /> Tranzaksiyalar tarixi</h3>
 
         {loading && (
           <div className="wallet-loading">
@@ -105,14 +106,14 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
 
         {!loading && error && (
           <div className="wallet-error">
-            <p>⚠️ {error}</p>
-            <button onClick={() => loadWallet()}>🔄 Qayta urinish</button>
+            <p><Icon name="alert" /> {error}</p>
+            <button onClick={() => loadWallet()}><Icon name="refresh" /> Qayta urinish</button>
           </div>
         )}
 
         {!loading && !error && transactions.length === 0 && (
           <div className="wallet-empty">
-            <p>📭 Hozircha tranzaksiyalar yo'q</p>
+            <p><Icon name="inbox" /> Hozircha tranzaksiyalar yo'q</p>
           </div>
         )}
 
@@ -125,7 +126,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
               return (
                 <div key={tx._id || `${tx.tgId}-${tx.createdAt}`} className="wallet-tx-item">
                   <div className="wallet-tx-icon" style={{ background: `${meta.color}22`, color: meta.color }}>
-                    {meta.icon}
+                    <Icon name={meta.icon} />
                   </div>
                   <div className="wallet-tx-info">
                     <div className="wallet-tx-label">{meta.label}</div>

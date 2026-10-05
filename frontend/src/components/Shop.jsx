@@ -2,6 +2,7 @@
 // Shop.js - DO'KON: Telegram Stars orqali tanga sotib olish
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
+import Icon from '../Icon';
 import { authHeaders } from '../api';
 
 function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
@@ -131,12 +132,12 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
       </button>
 
       <div className="shop-header">
-        <h2>🛒 Tanga Do'koni</h2>
-        <p>Telegram Stars ⭐ orqali xavfsiz va tezkor to'lov</p>
+        <h2><Icon name="cart" /> Tanga Do'koni</h2>
+        <p>Telegram Stars <Icon name="star" /> orqali xavfsiz va tezkor to'lov</p>
       </div>
 
       <div className="shop-balance">
-        <span>🪙 Joriy balans</span>
+        <span><Icon name="coin" /> Joriy balans</span>
         <span className="shop-balance-value">{user?.coins || 0}</span>
       </div>
 
@@ -154,14 +155,14 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
       )}
 
       {!loading && error && (
-        <div className="shop-error">⚠️ {error}</div>
+        <div className="shop-error"><Icon name="alert" /> {error}</div>
       )}
 
       {!loading && !error && (
         <div className="shop-packages">
           {packages.map((pkg) => (
             <div key={pkg.id} className="shop-package-card">
-              <div className="shop-package-coins">🪙 {pkg.coins}</div>
+              <div className="shop-package-coins"><Icon name="coin" /> {pkg.coins}</div>
               <div className="shop-package-title">{pkg.title}</div>
               <button
                 className="shop-buy-btn"

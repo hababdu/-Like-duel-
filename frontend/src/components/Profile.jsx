@@ -2,6 +2,7 @@
 // Profile.js - FOYDALANUVCHI PROFILI
 // ============================================================
 import React, { useState, useEffect } from 'react';
+import Icon from '../Icon';
 import { authHeaders } from '../api';
 import './Profile.css'
 
@@ -47,7 +48,7 @@ function Profile({ user, onBack, updateUser, API_URL }) {
             <span>{user?.firstName?.charAt(0) || '?'}</span>
           )}
           {user?.isPremium && (
-            <div className="premium-badge">⭐</div>
+            <div className="premium-badge"><Icon name="star" /></div>
           )}
         </div>
 
@@ -59,15 +60,15 @@ function Profile({ user, onBack, updateUser, API_URL }) {
 
         <div className="profile-stats-grid">
           <div className="stat-box">
-            <span className="stat-label">🪙 Tanga</span>
+            <span className="stat-label"><Icon name="coin" /> Tanga</span>
             <span className="stat-value">{user?.coins}</span>
           </div>
           <div className="stat-box">
-            <span className="stat-label">🏆 Reyting</span>
+            <span className="stat-label"><Icon name="trophy" /> Reyting</span>
             <span className="stat-value">{user?.rating}</span>
           </div>
           <div className="stat-box">
-            <span className="stat-label">📊 Level</span>
+            <span className="stat-label"><Icon name="chart" /> Level</span>
             <span className="stat-value">{user?.level || 1}</span>
           </div>
         </div>
@@ -88,7 +89,7 @@ function Profile({ user, onBack, updateUser, API_URL }) {
             </div>
 
             <div className="profile-game-stats">
-              <h3>📊 O'yin statistikasi</h3>
+              <h3><Icon name="chart" /> O'yin statistikasi</h3>
               <div className="game-stats-grid">
                 <div className="game-stat">
                   <span className="stat-number">{stats.totalGames}</span>
@@ -117,25 +118,25 @@ function Profile({ user, onBack, updateUser, API_URL }) {
                   <span className="stat-name">G'alaba %</span>
                 </div>
                 <div className="game-stat">
-                  <span className="stat-number">🔥 {stats.winStreak}</span>
+                  <span className="stat-number"><Icon name="flame" /> {stats.winStreak}</span>
                   <span className="stat-name">G'alaba seriyasi</span>
                 </div>
                 <div className="game-stat">
-                  <span className="stat-number">🏅 {stats.maxWinStreak}</span>
+                  <span className="stat-number"><Icon name="medal" /> {stats.maxWinStreak}</span>
                   <span className="stat-name">Eng yaxshi seriya</span>
                 </div>
               </div>
             </div>
 
             <div className="profile-ref">
-              <h3>👥 Referal</h3>
+              <h3><Icon name="users" /> Referal</h3>
               <div className="ref-stats">
                 <div className="ref-stat">
                   <span className="stat-number">{user?.refCount || 0}</span>
                   <span className="stat-name">Taklif qilinganlar</span>
                 </div>
                 <div className="ref-stat">
-                  <span className="stat-number">+{user?.refBonus || 0} 🪙</span>
+                  <span className="stat-number">+{user?.refBonus || 0} <Icon name="coin" /></span>
                   <span className="stat-name">Bonus</span>
                 </div>
               </div>

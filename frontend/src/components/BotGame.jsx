@@ -2,12 +2,13 @@
 // BotGame.js - TO'LIQ TUZATILGAN + YAXSHI DIZAYN
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Icon from '../Icon';
 import { authHeaders } from '../api';
 
 const CHOICES = {
-  rock: { emoji: '🪨', color: '#fb7185', label: 'Tosh' },
-  paper: { emoji: '📄', color: '#4ecdc4', label: 'Qog\'oz' },
-  scissors: { emoji: '✂️', color: '#fbbf24', label: 'Qaychi' }
+  rock: { icon: 'rock', color: '#fb7185', label: 'Tosh' },
+  paper: { icon: 'paper', color: '#6366f1', label: 'Qog\'oz' },
+  scissors: { icon: 'scissors', color: '#fbbf24', label: 'Qaychi' }
 };
 
 function BotGame({ 
@@ -231,7 +232,7 @@ function BotGame({
   // FORMAT FUNCTIONS
   // ======================
   const formatChoice = (key) => CHOICES[key]?.label || key;
-  const getChoiceEmoji = (key) => CHOICES[key]?.emoji || '❓';
+  const getChoiceEmoji = (key) => <Icon name={CHOICES[key]?.icon || 'help'} />;
 
   // ======================
   // RENDER
@@ -240,7 +241,7 @@ function BotGame({
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <button onClick={onBackToMenu} style={styles.backBtn}>←</button>
+        <button onClick={onBackToMenu} style={styles.backBtn}><Icon name="arrowLeft" /></button>
         <div style={styles.headerCenter}>
           <span style={{
             ...styles.difficultyBadge,
@@ -248,10 +249,10 @@ function BotGame({
           }}>
             {difficulty === 'easy' ? '🟢 Oson' : difficulty === 'medium' ? '🟡 O\'rta' : '🔴 Qiyin'}
           </span>
-          {streak >= 2 && <span style={styles.combo}>🔥 x{streak}</span>}
+          {streak >= 2 && <span style={styles.combo}><Icon name="flame" /> x{streak}</span>}
         </div>
         <div style={styles.coins} onClick={refreshCoins}>
-          <span>🪙</span>
+          <span><Icon name="coin" /></span>
           <span style={styles.coinsCount}>{coins}</span>
           {isLoading && <span style={styles.loading}>⏳</span>}
         </div>
@@ -307,7 +308,7 @@ function BotGame({
           <div style={styles.cardInner}>
             <span style={styles.cardLabel}>SIZ</span>
             <div style={styles.cardEmoji}>
-              {playerChoice ? getChoiceEmoji(playerChoice) : '👤'}
+              {playerChoice ? getChoiceEmoji(playerChoice) : <Icon name="user" />}
             </div>
             {playerChoice && <span style={styles.cardName}>{formatChoice(playerChoice)}</span>}
           </div>
@@ -337,7 +338,7 @@ function BotGame({
               {botChoice ? (
                 getChoiceEmoji(botChoice)
               ) : isBotThinking ? (
-                <span style={styles.thinking}>🤖💭</span>
+                <span style={styles.thinking}><Icon name="bot" /></span>
               ) : (
                 '🤖'
               )}
@@ -381,8 +382,8 @@ function BotGame({
                   ...(gameState !== 'playing' || !!playerChoice || coins < 10 ? styles.choiceDisabled : {})
                 }}
               >
-                {isSelected && <span style={styles.choiceSelectedBadge}>✓</span>}
-                <span style={styles.choiceEmoji}>{item.emoji}</span>
+                {isSelected && <span style={styles.choiceSelectedBadge}><Icon name="check" /></span>}
+                <span style={styles.choiceEmoji}><Icon name={item.icon} /></span>
                 <span style={styles.choiceLabel}>{item.label}</span>
               </button>
             );
@@ -419,7 +420,7 @@ const styles = {
   backBtn: {
     background: 'rgba(255,255,255,0.06)',
     border: '1px solid rgba(255,255,255,0.08)',
-    color: '#f8f7f4',
+    color: 'var(--ink)',
     fontSize: '18px',
     width: '36px',
     height: '36px',
@@ -444,23 +445,23 @@ const styles = {
   },
   easy: {
     background: 'rgba(0,255,136,0.15)',
-    color: '#34d399',
+    color: 'var(--win)',
     border: '1px solid rgba(0,255,136,0.2)'
   },
   medium: {
     background: 'rgba(255,170,0,0.15)',
-    color: '#fbbf24',
+    color: 'var(--gold)',
     border: '1px solid rgba(255,170,0,0.2)'
   },
   hard: {
     background: 'rgba(255,68,68,0.15)',
-    color: '#fb7185',
+    color: 'var(--lose)',
     border: '1px solid rgba(255,68,68,0.2)'
   },
   combo: {
     fontSize: '13px',
     fontWeight: '700',
-    color: '#fb7185',
+    color: 'var(--lose)',
     animation: 'pulse 0.6s ease-in-out infinite'
   },
   coins: {
@@ -477,7 +478,7 @@ const styles = {
   coinsCount: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#34d399'
+    color: 'var(--win)'
   },
   loading: {
     fontSize: '12px',
@@ -504,7 +505,7 @@ const styles = {
   statValue: {
     fontSize: '16px',
     fontWeight: '700',
-    color: '#f8f7f4'
+    color: 'var(--ink)'
   },
   statLabel: {
     fontSize: '9px',
@@ -522,7 +523,7 @@ const styles = {
   warning: {
     background: 'rgba(255,170,0,0.1)',
     border: '1px solid rgba(255,170,0,0.2)',
-    color: '#fbbf24',
+    color: 'var(--gold)',
     padding: '8px 12px',
     borderRadius: '10px',
     fontSize: '12px',
@@ -534,7 +535,7 @@ const styles = {
   warningBtn: {
     background: 'rgba(255,170,0,0.15)',
     border: '1px solid rgba(255,170,0,0.2)',
-    color: '#fbbf24',
+    color: 'var(--gold)',
     padding: '2px 12px',
     borderRadius: '8px',
     cursor: 'pointer',
@@ -552,12 +553,12 @@ const styles = {
   },
   progressBar: {
     height: '100%',
-    background: 'linear-gradient(90deg, #6366f1, #4f46e5)',
+    background: 'linear-gradient(90deg, var(--ac), var(--ac-2))',
     borderRadius: '2px',
     transition: 'width 0.3s ease'
   },
   progressCritical: {
-    background: 'linear-gradient(90deg, #fb7185, #fb7185)',
+    background: 'linear-gradient(90deg, var(--lose), var(--lose))',
     animation: 'pulse 0.5s ease-in-out infinite'
   },
 
@@ -607,7 +608,7 @@ const styles = {
     padding: '12px 8px'
   },
   cardActive: {
-    borderColor: '#6366f1',
+    borderColor: 'var(--ac)',
     background: 'rgba(102,126,234,0.08)',
     boxShadow: '0 0 30px rgba(102,126,234,0.06)'
   },
@@ -635,7 +636,7 @@ const styles = {
   cardName: {
     fontSize: '11px',
     fontWeight: '500',
-    color: '#f8f7f4',
+    color: 'var(--ink)',
     background: 'rgba(255,255,255,0.04)',
     padding: '2px 10px',
     borderRadius: '6px'
@@ -658,13 +659,13 @@ const styles = {
     width: '38px',
     height: '38px',
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+    background: 'linear-gradient(135deg, var(--ac), var(--ac-2))',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontWeight: '700',
     fontSize: '13px',
-    color: '#f8f7f4',
+    color: 'var(--ink)',
     boxShadow: '0 0 20px rgba(102,126,234,0.2)'
   },
   timerBox: {
@@ -676,11 +677,11 @@ const styles = {
   timerText: {
     fontSize: '18px',
     fontWeight: '700',
-    color: '#34d399',
+    color: 'var(--win)',
     fontVariantNumeric: 'tabular-nums'
   },
   timerCritical: {
-    color: '#fb7185',
+    color: 'var(--lose)',
     animation: 'pulse 0.5s ease-in-out infinite'
   },
 
@@ -696,17 +697,17 @@ const styles = {
   resultWin: {
     background: 'rgba(0,255,136,0.1)',
     border: '1px solid rgba(0,255,136,0.2)',
-    color: '#34d399'
+    color: 'var(--win)'
   },
   resultLose: {
     background: 'rgba(255,68,68,0.1)',
     border: '1px solid rgba(255,68,68,0.2)',
-    color: '#fb7185'
+    color: 'var(--lose)'
   },
   resultDraw: {
     background: 'rgba(255,170,0,0.1)',
     border: '1px solid rgba(255,170,0,0.2)',
-    color: '#fbbf24'
+    color: 'var(--gold)'
   },
 
   // Choices
@@ -728,7 +729,7 @@ const styles = {
     borderRadius: '14px',
     border: '2px solid rgba(255,255,255,0.06)',
     background: 'rgba(255,255,255,0.03)',
-    color: '#f8f7f4',
+    color: 'var(--ink)',
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     display: 'flex',
@@ -749,8 +750,8 @@ const styles = {
     position: 'absolute',
     top: '-6px',
     right: '-6px',
-    background: '#34d399',
-    color: '#0c0c0e',
+    background: 'var(--win)',
+    color: 'var(--bg)',
     fontSize: '8px',
     fontWeight: '700',
     padding: '1px 6px',
