@@ -2,6 +2,7 @@
 // Wallet.js - HAMYON: balans va tranzaksiyalar tarixi
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
+import { authHeaders } from '../api';
 
 // Har bir tranzaksiya turi uchun ikonka, o'zbekcha nom va rang
 const TX_META = {
@@ -12,6 +13,7 @@ const TX_META = {
   game_win:          { icon: '🏆', label: 'Duelda g\'alaba', color: '#34d399' },
   game_lose:         { icon: '💥', label: 'Duelda mag\'lubiyat', color: '#fb7185' },
   game_draw_refund:  { icon: '🤝', label: 'Durang - stavka qaytarildi', color: '#34d399' },
+  bot_game:          { icon: '🤖', label: 'Bot bilan o\'yin', color: '#8d8d99' },
   purchase:          { icon: '⭐', label: 'Telegram Stars orqali xarid', color: '#34d399' },
   admin_adjust:      { icon: '🛠️', label: 'Admin tuzatishi', color: '#8d8d99' }
 };
@@ -42,7 +44,7 @@ function Wallet({ user, API_URL, onBack, onNotification }) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/user/${user.tgId}/wallet?limit=50`);
+      const response = await fetch(`${API_URL}/api/user/${user.tgId}/wallet?limit=50`, { headers: authHeaders() });
       const data = await response.json();
 
       if (data.success) {

@@ -2,6 +2,7 @@
 // BotGame.js - TO'LIQ TUZATILGAN + YAXSHI DIZAYN
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { authHeaders } from '../api';
 
 const CHOICES = {
   rock: { emoji: '🪨', color: '#fb7185', label: 'Tosh' },
@@ -35,7 +36,6 @@ function BotGame({
 
   const timerRef = useRef(null);
   const roundRef = useRef(null);
-  const playerHistory = useRef([]);
 
   // ======================
   // UPDATE COINS FROM USER
@@ -47,92 +47,24 @@ function BotGame({
   }, [user]);
 
   // ======================
-  // UPDATE COINS TO SERVER
+  // SERVER: vaqt tugadi (-10 tanga)
   // ======================
-  const updateCoinsOnServer = useCallback(async (newCoins) => {
-    if (!user?.tgId) return;
-
+  const reportTimeout = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/user/update-coins`, {
+      const response = await fetch(`${API_URL}/api/bot/timeout`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          tgId: String(user.tgId),
-          amount: newCoins - coins
-        })
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({})
       });
-
       const data = await response.json();
-      
       if (data.success) {
-        console.log('✅ Coins updated on server:', data.coins);
         setCoins(data.coins);
-        if (setUser) {
-          setUser(prev => ({ ...prev, coins: data.coins }));
-        }
-        return true;
-      } else {
-        console.error('❌ Failed to update coins:', data);
-        return false;
+        if (setUser) setUser(prev => ({ ...prev, coins: data.coins }));
       }
     } catch (error) {
-      console.error('❌ Update coins error:', error);
-      return false;
+      console.error('❌ Timeout report error:', error);
     }
-  }, [user, coins, API_URL, setUser]);
-
-  // ======================
-  // BOT INTELLIGENCE
-  // ======================
-  const predictPlayerChoice = useCallback(() => {
-    const history = playerHistory.current;
-    if (history.length < 2) return null;
-
-    const counts = history.reduce((acc, choice) => {
-      acc[choice] = (acc[choice] || 0) + 1;
-      return acc;
-    }, {});
-    
-    return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-  }, []);
-
-  const getBotChoice = useCallback(() => {
-    const options = Object.keys(CHOICES);
-    
-    if (difficulty === 'easy') {
-      if (Math.random() < 0.6 && playerChoice) {
-        const counter = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
-        return counter[playerChoice];
-      }
-    }
-    
-    if (difficulty === 'hard') {
-      const predicted = predictPlayerChoice() || (playerChoice || 'rock');
-      if (Math.random() < 0.7) {
-        const counter = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
-        return counter[predicted];
-      }
-    }
-    
-    if (difficulty === 'medium' && Math.random() < 0.5 && playerChoice) {
-      const counter = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
-      return counter[playerChoice];
-    }
-    
-    return options[Math.floor(Math.random() * options.length)];
-  }, [difficulty, playerChoice, predictPlayerChoice]);
-
-  // ======================
-  // GAME LOGIC
-  // ======================
-  const determineWinner = useCallback((player, bot) => {
-    if (player === bot) return 'draw';
-    const winConditions = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
-    return winConditions[player] === bot ? 'win' : 'lose';
-  }, []);
+  }, [API_URL, setUser]);
 
   // ======================
   // START ROUND
@@ -167,13 +99,7 @@ function BotGame({
           setResult('lose');
           setStreak(0);
           
-          const lossAmount = 10;
-          const newCoins = Math.max(0, coins - lossAmount);
-          setCoins(newCoins);
-          if (setUser) {
-            setUser(prev => ({ ...prev, coins: newCoins }));
-          }
-          updateCoinsOnServer(newCoins);
+          reportTimeout();
           
           showNotif('⏰ Vaqt tugadi! -10 🪙', 'error');
           return 0;
@@ -181,7 +107,7 @@ function BotGame({
         return prev - 1;
       });
     }, 1000);
-  }, [coins, setUser, showNotif, updateCoinsOnServer]);
+  }, [coins, setUser, showNotif, reportTimeout]);
 
   // ======================
   // PLAYER MAKES CHOICE
@@ -194,39 +120,39 @@ function BotGame({
       return;
     }
 
-    playerHistory.current.push(choice);
-    if (playerHistory.current.length > 10) {
-      playerHistory.current.shift();
-    }
-
     setPlayerChoice(choice);
     triggerHaptic?.('light');
 
-    const botChoice = getBotChoice();
-    setBotChoice(botChoice);
-    
-    const roundResult = determineWinner(choice, botChoice);
-    
-    const rewardTable = {
-      win: difficulty === 'easy' ? 40 : difficulty === 'medium' ? 70 : 110,
-      draw: 10,
-      lose: -20
-    };
-    
-    let change = rewardTable[roundResult] || 0;
-    const comboBonus = roundResult === 'win' && streak >= 2 ? (streak - 1) * 10 : 0;
-    const finalChange = change + comboBonus;
-
-    const newCoins = Math.max(0, coins + finalChange);
-    setCoins(newCoins);
-    if (setUser) {
-      setUser(prev => ({ ...prev, coins: newCoins }));
+    // Natija va mukofot SERVERDA hisoblanadi (mijozga ishonilmaydi)
+    let data = null;
+    try {
+      const response = await fetch(`${API_URL}/api/bot/play`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ choice, difficulty })
+      });
+      data = await response.json();
+    } catch (error) {
+      console.error('❌ Bot play error:', error);
     }
 
-    await updateCoinsOnServer(newCoins);
+    if (!data?.success) {
+      setPlayerChoice(null);
+      showNotif(data?.message || '⚠️ Server bilan aloqa yo\'q', 'error');
+      return;
+    }
+
+    const roundResult = data.result;
+    const finalChange = data.change;
+    const comboBonus = data.combo || 0;
+    setBotChoice(data.botChoice);
+    setCoins(data.coins);
+    if (setUser) {
+      setUser(prev => ({ ...prev, coins: data.coins }));
+    }
 
     if (roundResult === 'win') {
-      setStreak(prev => prev + 1);
+      setStreak(data.streak);
       setWins(prev => prev + 1);
     } else if (roundResult === 'lose') {
       setStreak(0);
@@ -254,9 +180,8 @@ function BotGame({
       startRound();
     }, 2000);
   }, [
-    gameState, playerChoice, coins, getBotChoice, determineWinner, 
-    difficulty, streak, setUser, showNotif, triggerHaptic, 
-    startRound, updateCoinsOnServer
+    gameState, playerChoice, coins, API_URL, difficulty, streak,
+    setUser, showNotif, triggerHaptic, startRound
   ]);
 
   // ======================
@@ -273,7 +198,6 @@ function BotGame({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (roundRef.current) clearTimeout(roundRef.current);
-      playerHistory.current = [];
     };
   }, []);
 
@@ -285,7 +209,7 @@ function BotGame({
     
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/user/${user.tgId}`);
+      const response = await fetch(`${API_URL}/api/user/${user.tgId}`, { headers: authHeaders() });
       const data = await response.json();
       
       if (data.success && data.user) {

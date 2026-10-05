@@ -2,6 +2,7 @@
 // Shop.js - DO'KON: Telegram Stars orqali tanga sotib olish
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
+import { authHeaders } from '../api';
 
 function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
   const [packages, setPackages] = useState([]);
@@ -96,7 +97,7 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
           // yetib kelmasa ham, balans sinxron bo'lib qoladi.
           setTimeout(async () => {
             try {
-              const profileRes = await fetch(`${API_URL}/api/user/${user.tgId}`);
+              const profileRes = await fetch(`${API_URL}/api/user/${user.tgId}`, { headers: authHeaders() });
               const profileData = await profileRes.json();
               if (profileData.success && setUser) {
                 setUser(prev => ({ ...prev, coins: profileData.user.coins }));

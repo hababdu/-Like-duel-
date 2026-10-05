@@ -2,6 +2,7 @@
 // Referrals.js - SERVERGA MOSLASHTIRILGAN VERSIYA
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
+import { authHeaders } from '../api';
 import './Referrals.css';
 
 // TUZATISH: bu qiymat endi faqat serverdan javob kelmaguncha ko'rsatiladigan
@@ -45,7 +46,7 @@ function Referrals({ user, API_URL, onBack, onNotification }) {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/user/${user.tgId}/referrals`);
+      const response = await fetch(`${API_URL}/api/user/${user.tgId}/referrals`, { headers: authHeaders() });
       const data = await response.json();
 
       if (data.success) {

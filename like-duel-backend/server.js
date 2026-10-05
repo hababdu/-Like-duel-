@@ -56,6 +56,9 @@ if (!TELEGRAM_BOT_TOKEN) {
 if (!ADMIN_TOKEN) {
   startupErrors.push('ADMIN_TOKEN o\'rnatilmagan. Xavfsizlik uchun bu MAJBURIY (default qiymat endi yo\'q).');
 }
+if (IS_PRODUCTION && !TELEGRAM_WEBHOOK_SECRET) {
+  startupErrors.push('Production rejimida TELEGRAM_WEBHOOK_SECRET majburiy (soxta to\'lov xabarlaridan himoya).');
+}
 if (IS_PRODUCTION && !ALLOWED_ORIGIN) {
   startupErrors.push('Production rejimida ALLOWED_ORIGIN majburiy (CORS uchun aniq domenlar kerak).');
 }
@@ -102,7 +105,8 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Admin-Token', 'X-Telegram-Init-Data']
 };
 
-app.use(cors());
+app.set('trust proxy', 1); // Render/Proxy orqasida haqiqiy IP olish uchun
+app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
 app.use(express.json());
@@ -114,6 +118,15 @@ app.use(express.urlencoded({ extended: true }));
 const io = new Server(server, {
   cors: corsOptions,
   transports: ['websocket', 'polling']
+});
+
+// Har bir socket ulanishi Telegram initData imzosi bilan tasdiqlanadi.
+// tgId endi mijozdan emas, SERVER tasdiqlagan ma'lumotdan olinadi.
+io.use((socket, next) => {
+  const verified = verifyTelegramInitData(socket.handshake.auth?.initData);
+  if (!verified?.id) return next(new Error('unauthorized'));
+  socket.data.tgId = String(verified.id);
+  next();
 });
 
 // ======================
@@ -153,6 +166,11 @@ const UserSchema = new mongoose.Schema({
   winStreak: { type: Number, default: 0 },
   maxWinStreak: { type: Number, default: 0 },
 
+  // Bot o'yini (server hisoblaydi)
+  botStreak: { type: Number, default: 0 },
+  botDay: { type: String, default: '' },
+  botEarned: { type: Number, default: 0 },
+
   refParent: { type: String, default: null },
   refCount: { type: Number, default: 0 },
   refBonus: { type: Number, default: 0 },
@@ -182,6 +200,7 @@ const TransactionSchema = new mongoose.Schema({
       'game_lose',
       'game_draw_refund',
       'purchase',
+      'bot_game',
       'admin_adjust'
     ]
   },
@@ -467,6 +486,51 @@ function requireAdmin(req, res, next) {
 }
 
 // ======================
+// TEZLIK CHEKLOVI (tashqi paketsiz, xotirada)
+// ======================
+function makeLimiter({ windowMs, max }) {
+  const hits = new Map();
+  setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of hits) if (v.reset <= now) hits.delete(k);
+  }, windowMs).unref();
+  return (key) => {
+    const now = Date.now();
+    let e = hits.get(key);
+    if (!e || e.reset <= now) { e = { count: 0, reset: now + windowMs }; hits.set(key, e); }
+    e.count++;
+    return e.count <= max;
+  };
+}
+const httpLimit = makeLimiter({ windowMs: 60_000, max: 120 });
+const authLimit = makeLimiter({ windowMs: 60_000, max: 20 });
+
+app.use('/api', (req, res, next) => {
+  if (req.path === '/telegram/webhook') return next(); // Telegram serveri cheklanmaydi
+  const allowed = (req.path === '/user/auth' ? authLimit : httpLimit)(req.ip);
+  if (!allowed) return res.status(429).json({ success: false, message: 'Juda ko\'p so\'rov. Biroz kuting.' });
+  next();
+});
+
+// Socket hodisalari uchun cheklov: bitta ulanish, bitta hodisa turi
+function socketAllow(socket, event, max, windowMs) {
+  const rl = (socket.data.rl ||= {});
+  const now = Date.now();
+  let e = rl[event];
+  if (!e || e.reset <= now) e = rl[event] = { count: 0, reset: now + windowMs };
+  e.count++;
+  return e.count <= max;
+}
+
+// Faqat o'z ma'lumotini ko'ra oladi (initData dagi id == URL dagi tgId)
+function requireSelf(req, res, next) {
+  if (String(req.telegramUser?.id) !== String(req.params.tgId)) {
+    return res.status(403).json({ success: false, message: 'Ruxsat berilmagan' });
+  }
+  next();
+}
+
+// ======================
 // API ROUTES
 // ======================
 
@@ -482,6 +546,125 @@ app.get('/api/health', (req, res) => {
 
 // ============================================================
 // ADMIN PANEL - TO'LIQ NAZORAT
+// ======================
+// BOT BILAN O'YIN (mukofot va natija FAQAT serverda hisoblanadi)
+// ======================
+const BOT_REWARDS = { easy: 40, medium: 70, hard: 110 };
+const BOT_DRAW = 10;
+const BOT_LOSE = -20;
+const BOT_TIMEOUT = -10;
+const BOT_MIN_COINS = 10;
+const BOT_DAILY_CAP = Number(process.env.BOT_DAILY_COIN_CAP) || 300; // kuniga ko'pi bilan shuncha tanga YUTILADI
+const BOT_COOLDOWN_MS = 700;
+const COUNTER = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
+const botHistory = new Map(); // tgId -> oxirgi tanlovlar
+const botLast = new Map();    // tgId -> oxirgi so'rov vaqti
+
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000;
+  for (const [id, t] of botLast) if (t < cutoff) { botLast.delete(id); botHistory.delete(id); }
+}, 10 * 60 * 1000).unref();
+
+function pickBotChoice(difficulty, history) {
+  const random = VALID_CHOICES[Math.floor(Math.random() * VALID_CHOICES.length)];
+  if (difficulty === 'easy' || history.length < 3) return random;
+  // o'yinchining eng ko'p tanlagan shaklini topib, unga qarshisini tanlaydi
+  const counts = history.reduce((a, c) => { a[c] = (a[c] || 0) + 1; return a; }, {});
+  const favorite = Object.keys(counts).reduce((a, b) => (counts[a] >= counts[b] ? a : b));
+  const chance = difficulty === 'hard' ? 0.55 : 0.35;
+  return Math.random() < chance ? COUNTER[favorite] : random;
+}
+
+function judgeBot(player, bot) {
+  if (player === bot) return 'draw';
+  return COUNTER[bot] === player ? 'win' : 'lose'; // COUNTER[bot] - botni yutadigan shakl
+}
+
+async function applyBotDelta(user, delta, newStreak, type, description, metadata) {
+  const day = new Date().toISOString().slice(0, 10);
+  let earned = user.botDay === day ? (user.botEarned || 0) : 0;
+  let capReached = false;
+  if (delta > 0) {
+    const room = Math.max(0, BOT_DAILY_CAP - earned);
+    if (delta > room) { delta = room; capReached = true; }
+    earned += delta;
+  }
+  const after = await User.findOneAndUpdate(
+    { tgId: user.tgId },
+    [{ $set: { coins: { $max: [0, { $add: ['$coins', delta] }] }, botStreak: newStreak, botDay: day, botEarned: earned } }],
+    { new: true }
+  );
+  const change = after.coins - user.coins;
+  if (change !== 0) {
+    await Transaction.create({ tgId: user.tgId, type, amount: change, balanceAfter: after.coins, description, metadata });
+  }
+  return { after, change, capReached };
+}
+
+function botCooldown(tgId) {
+  const now = Date.now();
+  if (now - (botLast.get(tgId) || 0) < BOT_COOLDOWN_MS) return false;
+  botLast.set(tgId, now);
+  return true;
+}
+
+app.post('/api/bot/play', requireTelegramAuth, async (req, res) => {
+  try {
+    const tgId = String(req.telegramUser.id);
+    const { choice, difficulty } = req.body || {};
+    if (!VALID_CHOICES.includes(choice) || !BOT_REWARDS[difficulty]) {
+      return res.status(400).json({ success: false, message: 'Noto\'g\'ri so\'rov' });
+    }
+    if (!botCooldown(tgId)) {
+      return res.status(429).json({ success: false, message: 'Biroz kuting' });
+    }
+    const user = await User.findOne({ tgId });
+    if (!user) return res.status(404).json({ success: false, message: 'Foydalanuvchi topilmadi' });
+    if (user.coins < BOT_MIN_COINS) {
+      return res.status(400).json({ success: false, message: `Bot o'ynash uchun ${BOT_MIN_COINS} tanga kerak` });
+    }
+
+    const history = botHistory.get(tgId) || [];
+    const botChoice = pickBotChoice(difficulty, history);
+    history.push(choice);
+    if (history.length > 10) history.shift();
+    botHistory.set(tgId, history);
+
+    const result = judgeBot(choice, botChoice);
+    const prevStreak = user.botStreak || 0;
+    let combo = 0, delta;
+    if (result === 'win') {
+      combo = prevStreak >= 2 ? (prevStreak - 1) * 10 : 0;
+      delta = BOT_REWARDS[difficulty] + combo;
+    } else {
+      delta = result === 'draw' ? BOT_DRAW : BOT_LOSE;
+    }
+    const newStreak = result === 'win' ? prevStreak + 1 : result === 'lose' ? 0 : prevStreak;
+
+    const { after, change, capReached } = await applyBotDelta(
+      user, delta, newStreak, 'bot_game', `Bot (${difficulty}): ${result}`, { difficulty, choice, botChoice, result }
+    );
+    res.json({ success: true, botChoice, result, change, combo, coins: after.coins, streak: after.botStreak, capReached });
+  } catch (error) {
+    console.error('❌ Bot play xatosi:', error);
+    res.status(500).json({ success: false, message: 'Server xatoligi' });
+  }
+});
+
+app.post('/api/bot/timeout', requireTelegramAuth, async (req, res) => {
+  try {
+    const tgId = String(req.telegramUser.id);
+    if (!botCooldown(tgId)) return res.status(429).json({ success: false, message: 'Biroz kuting' });
+    const user = await User.findOne({ tgId });
+    if (!user) return res.status(404).json({ success: false, message: 'Foydalanuvchi topilmadi' });
+    const { after, change } = await applyBotDelta(user, BOT_TIMEOUT, 0, 'bot_game', 'Bot: vaqt tugadi', { result: 'timeout' });
+    res.json({ success: true, change, coins: after.coins, streak: 0 });
+  } catch (error) {
+    console.error('❌ Bot timeout xatosi:', error);
+    res.status(500).json({ success: false, message: 'Server xatoligi' });
+  }
+});
+
 // ============================================================
 
 // Barcha foydalanuvchilar (qidiruv + pagination)
@@ -779,7 +962,7 @@ app.post('/api/user/auth', requireTelegramAuth, async (req, res) => {
 });
 
 // 2. GET USER PROFILE
-app.get('/api/user/:tgId', async (req, res) => {
+app.get('/api/user/:tgId', requireTelegramAuth, requireSelf, async (req, res) => {
   try {
     const user = await User.findOne({ tgId: req.params.tgId });
 
@@ -818,7 +1001,7 @@ app.get('/api/user/:tgId', async (req, res) => {
 });
 
 // 3. WALLET
-app.get('/api/user/:tgId/wallet', async (req, res) => {
+app.get('/api/user/:tgId/wallet', requireTelegramAuth, requireSelf, async (req, res) => {
   try {
     const { tgId } = req.params;
     const limit = Math.min(100, Number(req.query.limit) || 30);
@@ -917,7 +1100,7 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 // 7. REFERRALS
-app.get('/api/user/:tgId/referrals', async (req, res) => {
+app.get('/api/user/:tgId/referrals', requireTelegramAuth, requireSelf, async (req, res) => {
   try {
     const referrals = await User.find({ refParent: req.params.tgId })
       .select('firstName username coins rating createdAt');
@@ -929,7 +1112,7 @@ app.get('/api/user/:tgId/referrals', async (req, res) => {
 });
 
 // 8. GAME STATS
-app.get('/api/user/:tgId/stats', async (req, res) => {
+app.get('/api/user/:tgId/stats', requireTelegramAuth, requireSelf, async (req, res) => {
   try {
     const user = await User.findOne({ tgId: req.params.tgId });
     if (!user) {
@@ -1082,7 +1265,8 @@ io.on('connection', (socket) => {
   // ============================================================
   socket.on('user_connect', async (data) => {
     try {
-      const { tgId } = data;
+      if (!socketAllow(socket, 'user_connect', 10, 10_000)) return;
+      const tgId = socket.data.tgId; // mijoz yuborgan tgId e'tiborga olinmaydi
       if (!tgId) {
         socket.emit('error', { message: 'tgId kerak' });
         return;
@@ -1136,16 +1320,20 @@ io.on('connection', (socket) => {
   // FIND MATCH - stavka xona ochilganda darhol "ushlab turiladi" (escrow)
   // va MongoDB'da Room hujjati yaratiladi.
   // ============================================================
-  socket.on('find_match', async ({ player, stake = 10 }) => {
+  socket.on('find_match', async ({ player = {}, stake = 10 } = {}) => {
     try {
-      if (!player || !player.tgId) {
+      if (!socketAllow(socket, 'find_match', 6, 10_000)) {
+        socket.emit('error', { message: 'Juda tez-tez urinish. Biroz kuting.' });
+        return;
+      }
+      if (!socket.data.tgId) {
         socket.emit('error', { message: 'Player ma\'lumoti noto\'g\'ri' });
         return;
       }
 
       const requestedStake = Math.min(MAX_STAKE, Math.max(MIN_STAKE, Math.floor(Number(stake) || 10)));
 
-      const user = await User.findOne({ tgId: String(player.tgId) });
+      const user = await User.findOne({ tgId: socket.data.tgId });
       if (!user) {
         socket.emit('error', { message: 'Foydalanuvchi topilmadi' });
         return;
@@ -1160,7 +1348,7 @@ io.on('connection', (socket) => {
 
       const newPlayer = {
         socketId: socket.id,
-        tgId: String(player.tgId),
+        tgId: socket.data.tgId,
         name: user.firstName || player.firstName || "O'yinchi",
         username: user.username || player.username || '',
         rating: user.rating || 100,
@@ -1268,7 +1456,8 @@ io.on('connection', (socket) => {
   // ============================================================
   // MAKE CHOICE
   // ============================================================
-  socket.on('make_choice', ({ roomId, choice }) => {
+  socket.on('make_choice', ({ roomId, choice } = {}) => {
+    if (!socketAllow(socket, 'make_choice', 20, 10_000)) return;
     const room = activeRooms[roomId];
     if (!room) {
       socket.emit('error', { message: 'Xona topilmadi' });
@@ -1347,7 +1536,8 @@ io.on('connection', (socket) => {
   // davomida ishlaydi, chunki xona endi raund tugashi bilan
   // o'chirilmaydi.
   // ============================================================
-  socket.on('chat_message', ({ roomId, message }) => {
+  socket.on('chat_message', ({ roomId, message } = {}) => {
+    if (!socketAllow(socket, 'chat_message', 8, 10_000)) return;
     const room = activeRooms[roomId];
     if (!room) {
       socket.emit('error', { message: 'Xona topilmadi' });

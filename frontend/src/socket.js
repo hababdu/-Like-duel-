@@ -19,7 +19,9 @@ const socket = io(SERVER_URL, {
   timeout: 30000,
   autoConnect: true,
   forceNew: true,
-  path: '/socket.io/'
+  path: '/socket.io/',
+  // Har ulanishda (qayta ulanishda ham) yangi initData yuboriladi
+  auth: (cb) => cb({ initData: window.Telegram?.WebApp?.initData || '' })
 });
 
 // Ulanish holati

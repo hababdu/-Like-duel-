@@ -1,7 +1,7 @@
 const { Telegraf } = require('telegraf');
 
-// BotFather bergan tokenni shu yerga qo'ying
-const bot = new Telegraf('8190087923:AAHf41SYoQwBjOpcvPBkjDP9AJYJu6BxJm4');
+// Token endi .env dan olinadi (kodga yozilmaydi). Eski token BotFather'da yangilanishi shart!
+const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
 // Foydalanuvchi /start bosganda ishlaydigan kod
 bot.start((ctx) => ctx.reply('Salom! "Like-duel" botiga xush kelibsiz!'));

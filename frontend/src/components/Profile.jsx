@@ -2,6 +2,7 @@
 // Profile.js - FOYDALANUVCHI PROFILI
 // ============================================================
 import React, { useState, useEffect } from 'react';
+import { authHeaders } from '../api';
 import './Profile.css'
 
 function Profile({ user, onBack, updateUser, API_URL }) {
@@ -15,7 +16,7 @@ function Profile({ user, onBack, updateUser, API_URL }) {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/user/${user.tgId}/stats`);
+      const response = await fetch(`${API_URL}/api/user/${user.tgId}/stats`, { headers: authHeaders() });
       const data = await response.json();
       if (data.success) {
         setStats(data.stats);
