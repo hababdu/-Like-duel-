@@ -1,0 +1,44 @@
+name: Mac desktop (DMG)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Frontend build
+        working-directory: frontend
+        env:
+          CI: 'false'
+          REACT_APP_API_URL: ${{ vars.REACT_APP_API_URL || 'https://telegram-bot-server-2-matj.onrender.com' }}
+          REACT_APP_GOOGLE_WEB_CLIENT_ID: ${{ vars.REACT_APP_GOOGLE_WEB_CLIENT_ID }}
+          REACT_APP_STORE_BUILD: 'false'
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build DMG
+        working-directory: desktop
+        run: |
+          rm -rf web && cp -R ../frontend/build web
+          npm install
+          npm run dist:mac > build.log 2>&1 || {
+            msg=$(tail -60 build.log | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            echo "::error title=DMG xatosi::$msg"
+            exit 1
+          }
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: like-duel-mac-dmg
+          path: desktop/dist/*.dmg

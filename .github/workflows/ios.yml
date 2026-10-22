@@ -1,0 +1,59 @@
+name: iOS (unsigned IPA)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Frontend build + sync
+        working-directory: frontend
+        env:
+          CI: 'false'
+          REACT_APP_API_URL: ${{ vars.REACT_APP_API_URL || 'https://telegram-bot-server-2-matj.onrender.com' }}
+          REACT_APP_GOOGLE_WEB_CLIENT_ID: ${{ vars.REACT_APP_GOOGLE_WEB_CLIENT_ID }}
+          REACT_APP_GOOGLE_IOS_CLIENT_ID: ${{ vars.REACT_APP_GOOGLE_IOS_CLIENT_ID }}
+          REACT_APP_STORE_BUILD: ${{ vars.REACT_APP_STORE_BUILD || 'false' }}
+        run: |
+          npm ci
+          npm run build
+          npx cap sync ios
+
+      - name: Google URL scheme (ixtiyoriy)
+        if: ${{ vars.IOS_REVERSED_CLIENT_ID != '' }}
+        working-directory: frontend/ios/App/App
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" Info.plist || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" Info.plist || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" Info.plist || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string ${{ vars.IOS_REVERSED_CLIENT_ID }}" Info.plist
+
+      - name: Build unsigned IPA
+        working-directory: frontend/ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release \
+            -sdk iphoneos -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > build.log 2>&1 || {
+            msg=$(grep -E "error:|BUILD FAILED|\*\* " build.log | head -30 | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            echo "::error title=Xcode xatosi::$msg"
+            exit 1
+          }
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr Like-Duel-unsigned.ipa Payload
+          ls -la Like-Duel-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: like-duel-ios-unsigned-ipa
+          path: frontend/ios/App/Like-Duel-unsigned.ipa

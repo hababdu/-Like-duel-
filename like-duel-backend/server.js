@@ -94,7 +94,7 @@ const allowedOriginsList = ALLOWED_ORIGIN
 
 // Capacitor (Android/iOS) ilovasining ichki originlari - doim ruxsat etiladi.
 // Xavfsizlik originga emas, token/imzoga tayanadi.
-['https://localhost', 'http://localhost', 'capacitor://localhost', 'ionic://localhost']
+['https://localhost', 'http://localhost', 'http://localhost:38123', 'capacitor://localhost', 'ionic://localhost']
   .forEach((o) => { if (!allowedOriginsList.includes(o)) allowedOriginsList.push(o); });
 
 console.log('🔧 Ruxsat etilgan originlar:', allowedOriginsList);

@@ -1,0 +1,27 @@
+{
+  "name": "like-duel-desktop",
+  "version": "1.0.0",
+  "description": "Like-Duel desktop (Mac) ilovasi",
+  "main": "main.js",
+  "author": "Like-Duel",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dmg --x64 --arm64 --publish never"
+  },
+  "build": {
+    "appId": "uz.likeduel.desktop",
+    "productName": "Like-Duel",
+    "files": ["main.js", "web/**/*"],
+    "mac": {
+      "category": "public.app-category.games",
+      "target": "dmg",
+      "identity": null
+    },
+    "dmg": { "title": "Like-Duel" },
+    "artifactName": "Like-Duel-${version}-${arch}.${ext}"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}
