@@ -40,7 +40,7 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon > build.log 2>&1 || {
-            msg=$(grep -E -B2 -A12 "FAILURE|What went wrong|error:" build.log | head -40 | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            msg=$(grep -E -B2 -A12 "FAILURE|What went wrong|error:" build.log | head -80 | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
             echo "::error title=Gradle xatosi::$msg"
             exit 1
           }
