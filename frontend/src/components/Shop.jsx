@@ -1,9 +1,12 @@
 // ============================================================
-// Shop.js - DO'KON: Telegram Stars orqali tanga sotib olish
+// Shop.jsx - DO'KON: bank kartasi (Click) orqali tanga sotib olish
 // ============================================================
 import React, { useState, useEffect, useCallback } from 'react';
 import Icon from '../Icon';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { authHeaders } from '../api';
+import { getToken } from '../session';
 
 function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
   const [packages, setPackages] = useState([]);
@@ -12,7 +15,7 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
   const [error, setError] = useState(null);
 
   const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
-  const canPurchase = !!tg?.initData; // faqat haqiqiy Telegram muhitida xarid mumkin
+  const canPurchase = !!tg?.initData || !!getToken(); // Telegram yoki tizimga kirgan foydalanuvchi
 
   // ======================
   // PAKETLARNI YUKLASH
@@ -60,70 +63,71 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
   }, [socket, setUser, onNotification]);
 
   // ======================
-  // XARID QILISH
+  // XARID QILISH (Click orqali bank kartasi)
   // ======================
+  const refreshBalance = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_URL}/api/user/${user.tgId}`, { headers: authHeaders() });
+      const d = await r.json();
+      if (d.success && setUser) setUser(prev => ({ ...prev, coins: d.user.coins }));
+    } catch (e) {
+      console.error('❌ Balansni yangilashda xato:', e);
+    }
+  }, [API_URL, user, setUser]);
+
+  const openPayPage = useCallback(async (url) => {
+    if (tg?.initData && tg.openLink) { tg.openLink(url); return; }
+    if (Capacitor.isNativePlatform()) { await Browser.open({ url }); return; }
+    window.open(url, '_blank', 'noopener');
+  }, [tg]);
+
   const handlePurchase = useCallback(async (pkg) => {
     if (!canPurchase) {
-      onNotification?.('⚠️ Xarid faqat Telegram ilovasi ichida mumkin', 'warning');
+      onNotification?.('⚠️ Xarid uchun akkauntga kiring', 'warning');
       return;
     }
-
     setPurchasingId(pkg.id);
-
     try {
-      const response = await fetch(`${API_URL}/api/shop/create-invoice`, {
+      const response = await fetch(`${API_URL}/api/shop/click/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          initData: tg.initData,
-          packageId: pkg.id
-        })
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ initData: tg?.initData, packageId: pkg.id })
       });
-
       const data = await response.json();
+      if (!data.success || !data.payUrl) throw new Error(data.message || "To'lov yaratishda xato");
 
-      if (!data.success || !data.invoiceLink) {
-        throw new Error(data.message || 'Invoys yaratishda xato');
-      }
+      await openPayPage(data.payUrl);
+      onNotification?.("💳 To'lov sahifasi ochildi. To'lagach, tangalar avtomatik qo'shiladi.", 'info');
 
-      // Telegram ichki to'lov oynasini ochamiz (Stars orqali)
-      tg.openInvoice(data.invoiceLink, (status) => {
-        // status: 'paid' | 'cancelled' | 'failed' | 'pending'
-        if (status === 'paid') {
-          onNotification?.('⏳ To\'lov qabul qilindi, tangalar hisoblanmoqda...', 'info');
-          // Yakuniy tasdiq va balans yangilanishi 'wallet_updated' socket
-          // eventi orqali serverdan keladi (Telegram webhook orqali).
-          // Ehtiyot chorasi sifatida bir necha soniyadan keyin profilni
-          // qayta so'raymiz - agar socket voqeasi biror sababga ko'ra
-          // yetib kelmasa ham, balans sinxron bo'lib qoladi.
-          setTimeout(async () => {
-            try {
-              const profileRes = await fetch(`${API_URL}/api/user/${user.tgId}`, { headers: authHeaders() });
-              const profileData = await profileRes.json();
-              if (profileData.success && setUser) {
-                setUser(prev => ({ ...prev, coins: profileData.user.coins }));
-              }
-            } catch (e) {
-              console.error('❌ Xarid tasdig\'idan keyin profil yangilashda xato:', e);
-            } finally {
-              setPurchasingId(null);
-            }
-          }, 3000);
-        } else if (status === 'cancelled') {
-          onNotification?.('❌ Xarid bekor qilindi', 'info');
-          setPurchasingId(null);
-        } else {
-          onNotification?.('⚠️ To\'lov amalga oshmadi', 'error');
-          setPurchasingId(null);
-        }
-      });
-
+      // To'lov holatini kuzatamiz (socket hodisasi kelmasa ham balans yangilanadi)
+      let tries = 0;
+      const timer = setInterval(async () => {
+        tries += 1;
+        try {
+          const r = await fetch(`${API_URL}/api/shop/order/${data.orderId}`, { headers: authHeaders() });
+          const o = await r.json();
+          if (o.status === 'paid') {
+            clearInterval(timer);
+            await refreshBalance();
+            onNotification?.(`✅ +${o.coins} 🪙 hamyoningizga qo'shildi!`, 'success');
+            setPurchasingId(null);
+            return;
+          }
+          if (o.status === 'cancelled') {
+            clearInterval(timer);
+            onNotification?.('❌ To\'lov bekor qilindi', 'info');
+            setPurchasingId(null);
+            return;
+          }
+        } catch { /* keyingi urinishda */ }
+        if (tries >= 45) { clearInterval(timer); setPurchasingId(null); }
+      }, 4000);
     } catch (err) {
       console.error('❌ Purchase error:', err);
       onNotification?.(`⚠️ ${err.message || 'Xaridda xatolik'}`, 'error');
       setPurchasingId(null);
     }
-  }, [API_URL, canPurchase, tg, user, setUser, onNotification]);
+  }, [API_URL, canPurchase, tg, openPayPage, refreshBalance, onNotification]);
 
   return (
     <div className="shop-screen">
@@ -133,7 +137,7 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
 
       <div className="shop-header">
         <h2><Icon name="cart" /> Tanga Do'koni</h2>
-        <p>Telegram Stars <Icon name="star" /> orqali xavfsiz va tezkor to'lov</p>
+        <p>Bank kartasi (Uzcard / Humo / Visa) orqali Click tizimida xavfsiz to'lov</p>
       </div>
 
       <div className="shop-balance">
@@ -143,7 +147,7 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
 
       {!canPurchase && (
         <div className="shop-warning">
-          ⚠️ Xarid qilish faqat Telegram ilovasi ichida ishlaydi (dev rejimida emas).
+          ⚠️ Xarid qilish uchun akkauntga kirish kerak (sinov rejimida ishlamaydi).
         </div>
       )}
 
@@ -169,7 +173,7 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
                 onClick={() => handlePurchase(pkg)}
                 disabled={!canPurchase || purchasingId === pkg.id}
               >
-                {purchasingId === pkg.id ? '⏳ Kutilmoqda...' : `⭐ ${pkg.stars} Stars`}
+                {purchasingId === pkg.id ? '⏳ Kutilmoqda...' : `${Number(pkg.price).toLocaleString('ru-RU')} so'm`}
               </button>
             </div>
           ))}
@@ -177,8 +181,8 @@ function Shop({ user, setUser, API_URL, onBack, onNotification, socket }) {
       )}
 
       <p className="shop-footer-note">
-        💡 To'lovlar Telegram Stars orqali amalga oshiriladi - bank kartasi kerak emas.
-        Tangalar hisobingizga bir necha soniya ichida qo'shiladi.
+        💡 To'lov Click sahifasida bank kartangiz bilan amalga oshiriladi.
+        Tangalar hisobingizga to'lovdan so'ng bir necha soniya ichida qo'shiladi.
       </p>
 
       <style>{`

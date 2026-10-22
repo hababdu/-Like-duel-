@@ -7,6 +7,7 @@ import socket, { reconnectSocket } from './socket';
 import { API_URL } from './config';
 import { authHeaders } from './api';
 import { getToken, clearToken, inTelegram } from './session';
+import { STORE_BUILD } from './config';
 import Login from './components/Login';
 import Profile from './components/Profile';
 import DuelGame from './components/DuelGame';
@@ -214,7 +215,7 @@ function App() {
     }
   }, [showNotification, announceUserConnect]);
 
-  // Email/parol bilan kirgandan keyin
+  // Google/Apple bilan kirgandan keyin
   const handleLoginSuccess = useCallback((userData) => {
     setUser({ ...userData, tgId: String(userData.tgId) });
     setAuthError(null);
@@ -495,18 +496,21 @@ function App() {
     <span className="btn-text">Hamyonim</span>
   </button>
 
-  {/* Stars to'lovi va Telegram taklif havolalari faqat Telegram ichida ishlaydi */}
+  {/* Karta orqali tanga do'koni (do'kon build'ida yashirin) */}
+  {!STORE_BUILD && (
+    <button
+      className="btn-shop"
+      onClick={() => setCurrentScreen('shop')}
+    >
+      <span className="btn-icon"><Icon name="cart" /></span>
+      <span className="btn-text">Tanga Do'koni</span>
+      <span className="badge"><Icon name="coin" /> Karta</span>
+    </button>
+  )}
+
+  {/* Telegram taklif havolalari faqat Telegram ichida ishlaydi */}
   {inTelegram() && (
     <>
-      <button
-        className="btn-shop"
-        onClick={() => setCurrentScreen('shop')}
-      >
-        <span className="btn-icon"><Icon name="cart" /></span>
-        <span className="btn-text">Tanga Do'koni</span>
-        <span className="badge"><Icon name="star" /> Stars</span>
-      </button>
-
       <button
         className="btn-referrals"
         onClick={() => setCurrentScreen('referrals')}

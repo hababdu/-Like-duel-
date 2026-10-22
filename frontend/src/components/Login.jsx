@@ -1,51 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { SocialLogin } from '@capgo/capacitor-social-login';
 import Icon from '../Icon';
-import { API_URL } from '../config';
+import { API_URL, GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, APPLE_CLIENT_ID } from '../config';
 import { setToken } from '../session';
 import './Login.css';
 
-// Ilova uchun kirish / ro'yxatdan o'tish ekrani (Telegram'siz)
+const platform = Capacitor.getPlatform(); // 'android' | 'ios' | 'web'
+
+// Ilova uchun kirish ekrani: Google (hamma joyda) va Apple (iOS'da)
 export default function Login({ onSuccess, onDevMode }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [ready, setReady] = useState(false);
 
-  const isRegister = mode === 'register';
+  useEffect(() => {
+    (async () => {
+      try {
+        await SocialLogin.initialize({
+          google: { webClientId: GOOGLE_WEB_CLIENT_ID, iOSClientId: GOOGLE_IOS_CLIENT_ID, iOSServerClientId: GOOGLE_WEB_CLIENT_ID, mode: 'online' },
+          ...(platform === 'ios' ? { apple: { clientId: APPLE_CLIENT_ID } } : {})
+        });
+        setReady(true);
+      } catch (e) {
+        console.error('SocialLogin init xatosi:', e);
+        setError('Kirish tizimini ishga tushirib bo\'lmadi');
+      }
+    })();
+  }, []);
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const signIn = async (provider) => {
     if (busy) return;
     setError('');
-
-    if (isRegister && password.length < 8) {
-      setError("Parol kamida 8 ta belgidan iborat bo'lsin");
-      return;
-    }
-
-    setBusy(true);
+    setBusy(provider);
     try {
-      const res = await fetch(`${API_URL}/api/auth/${isRegister ? 'register' : 'login'}`, {
+      const res = await SocialLogin.login(
+        provider === 'google'
+          ? { provider: 'google', options: { scopes: ['email', 'profile'] } }
+          : { provider: 'apple', options: { scopes: ['name', 'email'] } }
+      );
+      const r = res.result || {};
+      const idToken = r.idToken;
+      if (!idToken) throw new Error('Kirish tokeni olinmadi');
+
+      // Apple ismni faqat birinchi kirishda beradi
+      const firstName = provider === 'apple' ? (r.profile?.givenName || '') : '';
+
+      const resp = await fetch(`${API_URL}/api/auth/${provider}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ email, password, firstName })
+        body: JSON.stringify({ idToken, firstName })
       });
       let data = null;
-      try { data = await res.json(); } catch { /* javob JSON emas */ }
-
-      if (!res.ok || !data?.success || !data.token) {
-        throw new Error(data?.message || `Server xatosi (${res.status})`);
+      try { data = await resp.json(); } catch { /* JSON emas */ }
+      if (!resp.ok || !data?.success || !data.token) {
+        throw new Error(data?.message || `Server xatosi (${resp.status})`);
       }
       setToken(data.token);
       onSuccess(data.user);
     } catch (err) {
-      setError(err.message === 'Failed to fetch'
-        ? "Serverga ulanib bo'lmadi. Internetni tekshiring."
-        : err.message);
+      const msg = String(err?.message || err);
+      // Foydalanuvchi oynani o'zi yopgan bo'lsa xato ko'rsatmaymiz
+      if (/cancel|dismiss|1001|12501/i.test(msg)) return;
+      setError(msg === 'Failed to fetch' ? "Serverga ulanib bo'lmadi. Internetni tekshiring." : msg);
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   };
 
@@ -53,61 +72,20 @@ export default function Login({ onSuccess, onDevMode }) {
     <div className="login">
       <div className="login-card">
         <h1 className="login-logo"><Icon name="zap" /> LIKE-DUEL</h1>
-        <p className="login-sub">
-          {isRegister ? "Yangi akkaunt yarating va 100 tanga bonus oling" : 'Akkauntingizga kiring'}
-        </p>
+        <p className="login-sub">Kirish uchun akkauntingizni tanlang. Yangi o'yinchilarga 100 tanga bonus!</p>
 
-        <form onSubmit={submit} className="login-form">
-          {isRegister && (
-            <label>
-              <span>Ism</span>
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                autoComplete="given-name"
-                maxLength={32}
-                required
-              />
-            </label>
-          )}
-          <label>
-            <span>Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              inputMode="email"
-              required
-            />
-          </label>
-          <label>
-            <span>Parol</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={isRegister ? 'new-password' : 'current-password'}
-              minLength={isRegister ? 8 : undefined}
-              required
-            />
-          </label>
-
-          {error && <div className="login-error" role="alert">{error}</div>}
-
-          <button type="submit" className="login-submit" disabled={busy}>
-            {busy ? 'Kuting...' : isRegister ? "Ro'yxatdan o'tish" : 'Kirish'}
+        <div className="login-form">
+          <button type="button" className="login-submit login-provider" disabled={!ready || !!busy} onClick={() => signIn('google')}>
+            {busy === 'google' ? 'Kuting...' : 'Google bilan kirish'}
           </button>
-        </form>
+          {platform === 'ios' && (
+            <button type="button" className="login-submit login-provider login-apple" disabled={!ready || !!busy} onClick={() => signIn('apple')}>
+              {busy === 'apple' ? 'Kuting...' : 'Apple bilan kirish'}
+            </button>
+          )}
+        </div>
 
-        <button
-          type="button"
-          className="login-switch"
-          onClick={() => { setMode(isRegister ? 'login' : 'register'); setError(''); }}
-        >
-          {isRegister ? 'Akkauntim bor — kirish' : "Akkauntim yo'q — ro'yxatdan o'tish"}
-        </button>
+        {error && <div className="login-error" role="alert">{error}</div>}
 
         {onDevMode && (
           <button type="button" className="login-switch login-dev" onClick={onDevMode}>

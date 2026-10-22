@@ -1,27 +1,42 @@
 # Like-Duel ilovasi (Android / iOS)
 
-Bot o'yini Capacitor orqali haqiqiy ilovaga aylantirildi. Bitta kod: Telegram Mini App ham, Android/iOS ilova ham.
+Bitta kod: Telegram Mini App ham, Android/iOS ilova ham.
 
-## Qanday ishlaydi
-- Telegram ichida: avvalgidek `initData` bilan kirish.
-- Ilovada: email/parol bilan kirish (`/api/auth/register`, `/api/auth/login`), JWT token telefonda saqlanadi.
-- Telegram Stars do'koni va taklif havolalari faqat Telegram ichida ko'rinadi.
+## Kirish
+- Telegram ichida: avvalgidek `initData`.
+- Ilovada: **Google** (Android, iOS) va **Apple** (iOS). Parol yo'q. Server provayder tokenini tekshiradi (`POST /api/auth/google`, `/api/auth/apple`) va o'z sessiya tokenini beradi.
 
-## Backend (Render) da kerak
-- `JWT_SECRET` — uzun tasodifiy satr (bo'lmasa email-kirish o'chiq turadi).
-- CORS: Capacitor originlari (`https://localhost`, `capacitor://localhost`) kodda avtomatik ruxsat etilgan.
+## To'lov
+- Tangalar **Click** orqali bank kartasi bilan sotib olinadi (Telegram Stars olib tashlangan).
+- Narxlar so'mda: `like-duel-backend/server.js` dagi `COIN_PACKAGES`.
+- Do'konlar (Google Play / App Store) tanga sotuvini faqat ichki xarid orqali ruxsat beradi. Shuning uchun do'kon build'ida `REACT_APP_STORE_BUILD=true` qilinadi va "Tanga Do'koni" yashiriladi. Ichki xarid (IAP) hali yozilmagan.
 
-## Build
+## 1) Backend sozlash (Render > Environment)
+`like-duel-backend/.env.example` dagi hamma qiymatlarni kiriting. Eng muhimlari: `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_ID`, `CLICK_*`.
+
+**Click:** merchant.click.uz kabinetida xizmat oching, Prepare URL = `https://<server>/api/click/prepare`, Complete URL = `https://<server>/api/click/complete`. `service_id`, `merchant_id`, `secret_key` ni env ga yozing.
+
+## 2) Google kirishni sozlash
+Google Cloud Console > APIs & Services > Credentials:
+1. **Web** OAuth client yarating → `GOOGLE_CLIENT_IDS` (backend) va `REACT_APP_GOOGLE_WEB_CLIENT_ID` (frontend).
+2. **Android** OAuth client: paket `uz.likeduel.app` + imzo SHA-1 (debug va release uchun alohida).
+3. **iOS** OAuth client: bundle ID `uz.likeduel.app` → `REACT_APP_GOOGLE_IOS_CLIENT_ID`. Xcode'da `Info.plist` ga URL Type qo'shing: URL scheme = iOS client'ning "reversed client ID" (`com.googleusercontent.apps.XXXX`).
+
+## 3) Apple kirishni sozlash (faqat iOS)
+Apple Developer'da App ID `uz.likeduel.app` uchun **Sign in with Apple** yoqing; Xcode > Signing & Capabilities > + Capability > Sign in with Apple.
+
+## 4) Build
 ```bash
 cd frontend
-cp .env.example .env        # REACT_APP_API_URL ni tekshiring
+cp .env.example .env     # qiymatlarni to'ldiring
 npm install
-npm run android             # build + sync + Android Studio'ni ochadi (JDK 17+, Android Studio kerak)
-npm run ios                 # faqat macOS + Xcode + CocoaPods (sudo gem install cocoapods; cd ios/App && pod install)
+npm run android          # build + sync + Android Studio (JDK 17+)
+npm run ios              # macOS + Xcode + CocoaPods
 ```
-Android Studio'da: Build > Generate Signed Bundle/APK. Paket nomi: `uz.likeduel.app` (`capacitor.config.json`).
+- To'g'ridan-to'g'ri APK (karta to'lovi bilan): `REACT_APP_STORE_BUILD=false`.
+- Do'kon uchun: `REACT_APP_STORE_BUILD=true`.
 
-## Do'konga chiqarishdan oldin
-1. Ikonka va splash: `npx @capacitor/assets generate` (`resources/icon.png` 1024x1024 va `splash.png` 2732x2732 qo'ying).
-2. App Store/Google Play talablari: maxfiylik siyosati URL, akkauntni o'chirish (`DELETE /api/auth/account` tayyor, ilovaga tugma qo'shish kerak).
-3. Ilova ichida haqiqiy pul/Stars sotuvi uchun Apple/Google ichki xarid qoidalariga amal qiling (hozir ilovada do'kon yashirin).
+## 5) Do'konga chiqarishdan oldin
+- Ikonka/splash: `npx @capacitor/assets generate` (`resources/icon.png` 1024x1024, `splash.png` 2732x2732).
+- Maxfiylik siyosati URL, ilova skrinshotlari.
+- Akkauntni o'chirish tugmasi menyuda bor (Apple talabi).

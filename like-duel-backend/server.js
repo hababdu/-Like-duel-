@@ -22,6 +22,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 dotenv.config();
 
@@ -37,9 +38,14 @@ const {
   MONGODB_URI,
   ADMIN_TOKEN,                  // MAJBURIY - default yo'q (xavfsizlik uchun)
   TELEGRAM_BOT_TOKEN,           // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
-  TELEGRAM_WEBHOOK_SECRET = '', // setWebhook chaqirilganda secret_token sifatida bering
   ALLOWED_ORIGIN = '',
-  JWT_SECRET = ''               // Ilova (email/parol) kirishi uchun. Bo'sh bo'lsa email-auth o'chiq, Telegram ishlayveradi
+  JWT_SECRET = '',              // Ilova (Google/Apple) kirishi uchun sessiya tokeni imzosi
+  GOOGLE_CLIENT_IDS = '',       // Google OAuth client ID'lar (vergul bilan): web client ID majburiy
+  APPLE_CLIENT_ID = '',         // Apple: iOS bundle ID (uz.likeduel.app)
+  CLICK_SERVICE_ID = '',        // Click Shop API
+  CLICK_MERCHANT_ID = '',
+  CLICK_SECRET_KEY = '',
+  CLICK_RETURN_URL = ''         // To'lovdan keyin qaytish manzili (ixtiyoriy)
 } = process.env;
 
 const IS_PRODUCTION = NODE_ENV === 'production';
@@ -53,13 +59,13 @@ if (!MONGODB_URI) {
   startupErrors.push('MONGODB_URI o\'rnatilmagan.');
 }
 if (!TELEGRAM_BOT_TOKEN) {
-  startupErrors.push('TELEGRAM_BOT_TOKEN o\'rnatilmagan. Auth va to\'lovlar ishlamaydi.');
+  startupErrors.push('TELEGRAM_BOT_TOKEN o\'rnatilmagan. Telegram auth ishlamaydi.');
 }
 if (!ADMIN_TOKEN) {
   startupErrors.push('ADMIN_TOKEN o\'rnatilmagan. Xavfsizlik uchun bu MAJBURIY (default qiymat endi yo\'q).');
 }
-if (IS_PRODUCTION && !TELEGRAM_WEBHOOK_SECRET) {
-  startupErrors.push('Production rejimida TELEGRAM_WEBHOOK_SECRET majburiy (soxta to\'lov xabarlaridan himoya).');
+if (IS_PRODUCTION && !JWT_SECRET) {
+  startupErrors.push('Production rejimida JWT_SECRET majburiy (ilova sessiyalari uchun).');
 }
 if (IS_PRODUCTION && !ALLOWED_ORIGIN) {
   startupErrors.push('Production rejimida ALLOWED_ORIGIN majburiy (CORS uchun aniq domenlar kerak).');
@@ -70,8 +76,6 @@ if (startupErrors.length > 0) {
   startupErrors.forEach(err => console.error('   - ' + err));
   process.exit(1);
 }
-
-const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
 // ======================
 // CORS
@@ -192,16 +196,32 @@ const UserSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 
 // ======================
-// CREDENTIAL SCHEMA (ilova uchun email/parol; Telegram foydalanuvchilariga tegmaydi)
+// IDENTITY SCHEMA (Google/Apple akkauntlari -> User.tgId ("app_..." ko'rinishida))
 // ======================
-const CredentialSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true },
-  passwordHash: { type: String, required: true },
-  tgId: { type: String, required: true, unique: true }, // User.tgId ga bog'langan ("app_..." ko'rinishida)
+const IdentitySchema = new mongoose.Schema({
+  provider: { type: String, enum: ['google', 'apple'], required: true },
+  subject: { type: String, required: true },   // provayderdagi doimiy foydalanuvchi ID (sub)
+  email: { type: String, default: '' },
+  tgId: { type: String, required: true, index: true },
   createdAt: { type: Date, default: Date.now }
 });
+IdentitySchema.index({ provider: 1, subject: 1 }, { unique: true });
+const Identity = mongoose.model('Identity', IdentitySchema);
 
-const Credential = mongoose.model('Credential', CredentialSchema);
+// ======================
+// ORDER SCHEMA (Click orqali tanga sotib olish buyurtmalari)
+// ======================
+const OrderSchema = new mongoose.Schema({
+  tgId: { type: String, required: true, index: true },
+  packageId: { type: String, required: true },
+  coins: { type: Number, required: true },
+  amount: { type: Number, required: true },    // so'mda
+  status: { type: String, enum: ['created', 'prepared', 'paid', 'cancelled'], default: 'created' },
+  clickTransId: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now },
+  paidAt: { type: Date, default: null }
+});
+const Order = mongoose.model('Order', OrderSchema);
 
 // ======================
 // TRANSACTION SCHEMA (HAMYON TARIXI / LEDGER)
@@ -232,20 +252,6 @@ const TransactionSchema = new mongoose.Schema({
 });
 
 const Transaction = mongoose.model('Transaction', TransactionSchema);
-
-// ======================
-// PAYMENT SCHEMA
-// ======================
-const PaymentSchema = new mongoose.Schema({
-  telegramPaymentChargeId: { type: String, required: true, unique: true },
-  tgId: { type: String, required: true },
-  packageId: { type: String, required: true },
-  starsAmount: { type: Number, required: true },
-  coinsAwarded: { type: Number, required: true },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const Payment = mongoose.model('Payment', PaymentSchema);
 
 // ======================
 // ROOM SCHEMA
@@ -287,11 +293,12 @@ const MIN_STAKE = 1;
 const MAX_STAKE = 100000;
 const ABSENT_STATES = ['timeout', 'disconnected', 'left'];
 
+// Narxlar so'mda (UZS). Xohlagancha o'zgartiring.
 const COIN_PACKAGES = [
-  { id: 'pack_100', coins: 100, stars: 50, title: '100 🪙 Tanga' },
-  { id: 'pack_500', coins: 500, stars: 200, title: '500 🪙 Tanga' },
-  { id: 'pack_1200', coins: 1200, stars: 400, title: '1200 🪙 Tanga (+200 bonus)' },
-  { id: 'pack_3000', coins: 3000, stars: 900, title: '3000 🪙 Tanga (+600 bonus)' }
+  { id: 'pack_100', coins: 100, price: 10000, title: '100 🪙 Tanga' },
+  { id: 'pack_500', coins: 500, price: 40000, title: '500 🪙 Tanga' },
+  { id: 'pack_1200', coins: 1200, price: 80000, title: '1200 🪙 Tanga (+200 bonus)' },
+  { id: 'pack_3000', coins: 3000, price: 180000, title: '3000 🪙 Tanga (+600 bonus)' }
 ];
 
 // ============================================================
@@ -421,20 +428,6 @@ async function recoverStaleRooms() {
 }
 
 // ============================================================
-// TELEGRAM API YORDAMCHISI
-// ============================================================
-async function callTelegramApi(method, payload) {
-  const res = await fetch(`${TELEGRAM_API}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const data = await res.json();
-  if (!data.ok) throw new Error(`Telegram API xato (${method}): ${data.description}`);
-  return data.result;
-}
-
-// ============================================================
 // TELEGRAM initData TEKSHIRUVI
 // ============================================================
 function verifyTelegramInitData(initData) {
@@ -515,21 +508,6 @@ function requireTelegramAuth(req, res, next) {
   next();
 }
 
-// Parol xeshlash (scrypt - Node ichida, tashqi paketsiz)
-function hashPassword(password) {
-  const salt = crypto.randomBytes(16);
-  const hash = crypto.scryptSync(password, salt, 64);
-  return `${salt.toString('hex')}:${hash.toString('hex')}`;
-}
-
-function checkPassword(password, stored) {
-  const [saltHex, hashHex] = String(stored).split(':');
-  if (!saltHex || !hashHex) return false;
-  const expected = Buffer.from(hashHex, 'hex');
-  const actual = crypto.scryptSync(password, Buffer.from(saltHex, 'hex'), expected.length);
-  return crypto.timingSafeEqual(actual, expected);
-}
-
 function requireAdmin(req, res, next) {
   const token = req.headers['x-admin-token'];
   const tokenBuf = Buffer.from(String(token || ''));
@@ -564,8 +542,8 @@ const httpLimit = makeLimiter({ windowMs: 60_000, max: 120 });
 const authLimit = makeLimiter({ windowMs: 60_000, max: 20 });
 
 app.use('/api', (req, res, next) => {
-  if (req.path === '/telegram/webhook') return next(); // Telegram serveri cheklanmaydi
-  const isAuthPath = req.path === '/user/auth' || req.path === '/auth/register' || req.path === '/auth/login';
+  if (req.path.startsWith('/click/')) return next(); // Click serveri cheklanmaydi
+  const isAuthPath = req.path === '/user/auth' || req.path === '/auth/google' || req.path === '/auth/apple';
   const allowed = (isAuthPath ? authLimit : httpLimit)(req.ip);
   if (!allowed) return res.status(429).json({ success: false, message: 'Juda ko\'p so\'rov. Biroz kuting.' });
   next();
@@ -904,7 +882,7 @@ app.delete('/api/admin/user/:tgId', requireAdmin, async (req, res) => {
   try {
     const { tgId } = req.params;
     await User.deleteOne({ tgId });
-    await Credential.deleteOne({ tgId });
+    await Identity.deleteMany({ tgId });
     await Transaction.deleteMany({ tgId });
     onlineUsers.delete(tgId);
     res.json({ success: true, message: 'Foydalanuvchi o\'chirildi' });
@@ -913,8 +891,7 @@ app.delete('/api/admin/user/:tgId', requireAdmin, async (req, res) => {
   }
 });
 
-// 0. ILOVA AUTH (email/parol)
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// 0. ILOVA AUTH (Google / Apple)
 
 function appUserPayload(user) {
   return {
@@ -949,63 +926,91 @@ function requireAppAuthEnabled(req, res, next) {
   next();
 }
 
-app.post('/api/auth/register', requireAppAuthEnabled, async (req, res) => {
-  try {
-    const email = String(req.body?.email || '').trim().toLowerCase();
-    const password = String(req.body?.password || '');
-    const firstName = String(req.body?.firstName || '').trim().slice(0, 32);
+const googleJWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
+const appleJWKS = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
 
-    if (!EMAIL_RE.test(email) || email.length > 254) {
-      return res.status(400).json({ success: false, message: "Email noto'g'ri" });
-    }
-    if (password.length < 8 || password.length > 128) {
-      return res.status(400).json({ success: false, message: "Parol kamida 8 ta belgidan iborat bo'lsin" });
-    }
-    if (!firstName) {
-      return res.status(400).json({ success: false, message: 'Ismingizni kiriting' });
-    }
-    if (await Credential.findOne({ email })) {
-      return res.status(409).json({ success: false, message: "Bu email allaqachon ro'yxatdan o'tgan" });
-    }
-
-    const tgId = `app_${crypto.randomBytes(8).toString('hex')}`;
-    await Credential.create({ email, passwordHash: hashPassword(password), tgId });
-    await User.create({ tgId, firstName });
-    await applyCoinTransaction(tgId, SIGNUP_BONUS, 'signup_bonus', "Ro'yxatdan o'tish bonusi");
-
-    const user = await User.findOne({ tgId });
-    res.json({ success: true, token: signAppToken(tgId), user: appUserPayload(user) });
-  } catch (error) {
-    if (error?.code === 11000) {
-      return res.status(409).json({ success: false, message: "Bu email allaqachon ro'yxatdan o'tgan" });
-    }
-    console.error('❌ Register error:', error);
-    res.status(500).json({ success: false, message: 'Server xatoligi' });
+async function verifyProviderToken(provider, idToken) {
+  if (provider === 'google') {
+    const audience = GOOGLE_CLIENT_IDS.split(',').map(x => x.trim()).filter(Boolean);
+    if (!audience.length) throw new Error('GOOGLE_CLIENT_IDS sozlanmagan');
+    const { payload } = await jwtVerify(idToken, googleJWKS, {
+      issuer: ['https://accounts.google.com', 'accounts.google.com'],
+      audience
+    });
+    return payload;
   }
-});
-
-app.post('/api/auth/login', requireAppAuthEnabled, async (req, res) => {
-  try {
-    const email = String(req.body?.email || '').trim().toLowerCase();
-    const password = String(req.body?.password || '');
-
-    const cred = await Credential.findOne({ email });
-    // Email bor-yo'qligini bildirmaslik uchun xabar bir xil
-    if (!cred || !checkPassword(password, cred.passwordHash)) {
-      return res.status(401).json({ success: false, message: "Email yoki parol noto'g'ri" });
-    }
-
-    const user = await User.findOne({ tgId: cred.tgId });
-    if (!user) return res.status(401).json({ success: false, message: "Email yoki parol noto'g'ri" });
-
-    user.lastLogin = new Date();
-    await user.save();
-    res.json({ success: true, token: signAppToken(cred.tgId), user: appUserPayload(user) });
-  } catch (error) {
-    console.error('❌ Login error:', error);
-    res.status(500).json({ success: false, message: 'Server xatoligi' });
+  if (provider === 'apple') {
+    if (!APPLE_CLIENT_ID) throw new Error('APPLE_CLIENT_ID sozlanmagan');
+    const { payload } = await jwtVerify(idToken, appleJWKS, {
+      issuer: 'https://appleid.apple.com',
+      audience: APPLE_CLIENT_ID
+    });
+    return payload;
   }
-});
+  throw new Error('Noma\'lum provayder');
+}
+
+function socialLoginHandler(provider) {
+  return async (req, res) => {
+    try {
+      const idToken = String(req.body?.idToken || '');
+      if (!idToken) return res.status(400).json({ success: false, message: 'idToken kerak' });
+
+      let claims;
+      try {
+        claims = await verifyProviderToken(provider, idToken);
+      } catch (err) {
+        console.warn(`⚠️ ${provider} token rad etildi:`, err.message);
+        return res.status(401).json({ success: false, message: 'Kirish tasdiqlanmadi' });
+      }
+      const subject = String(claims.sub || '');
+      if (!subject) return res.status(401).json({ success: false, message: 'Kirish tasdiqlanmadi' });
+
+      let identity = await Identity.findOne({ provider, subject });
+      let tgId;
+      if (identity) {
+        tgId = identity.tgId;
+        const existing = await User.findOne({ tgId });
+        if (!existing) { // akkaunt o'chirilgan - qayta ro'yxatdan o'tkazamiz
+          await Identity.deleteOne({ _id: identity._id });
+          identity = null;
+        }
+      }
+      if (!identity) {
+        const firstName = String(req.body?.firstName || claims.given_name || claims.name || '').trim().slice(0, 32)
+          || String(claims.email || '').split('@')[0].slice(0, 32) || 'Player';
+        tgId = `app_${crypto.randomBytes(8).toString('hex')}`;
+        try {
+          await Identity.create({ provider, subject, email: String(claims.email || ''), tgId });
+        } catch (e) {
+          if (e?.code === 11000) { // parallel so'rov yaratib bo'ldi
+            identity = await Identity.findOne({ provider, subject });
+            tgId = identity.tgId;
+          } else throw e;
+        }
+        if (!identity) {
+          await User.create({
+            tgId,
+            firstName,
+            photoUrl: provider === 'google' ? String(claims.picture || '') : ''
+          });
+          await applyCoinTransaction(tgId, SIGNUP_BONUS, 'signup_bonus', "Ro'yxatdan o'tish bonusi");
+        }
+      }
+
+      const user = await User.findOne({ tgId });
+      user.lastLogin = new Date();
+      await user.save();
+      res.json({ success: true, token: signAppToken(tgId), user: appUserPayload(user) });
+    } catch (error) {
+      console.error(`❌ ${provider} login error:`, error);
+      res.status(500).json({ success: false, message: 'Server xatoligi' });
+    }
+  };
+}
+
+app.post('/api/auth/google', requireAppAuthEnabled, socialLoginHandler('google'));
+app.post('/api/auth/apple', requireAppAuthEnabled, socialLoginHandler('apple'));
 
 // Akkauntni o'chirish (App Store talabi). Faqat ilova akkauntlari uchun.
 app.delete('/api/auth/account', requireAppAuthEnabled, requireTelegramAuth, async (req, res) => {
@@ -1014,7 +1019,7 @@ app.delete('/api/auth/account', requireAppAuthEnabled, requireTelegramAuth, asyn
     if (!tgId.startsWith('app_')) {
       return res.status(400).json({ success: false, message: "Telegram akkauntini bu yerdan o'chirib bo'lmaydi" });
     }
-    await Credential.deleteOne({ tgId });
+    await Identity.deleteMany({ tgId });
     await User.deleteOne({ tgId });
     await Transaction.deleteMany({ tgId });
     onlineUsers.delete(tgId);
@@ -1321,114 +1326,144 @@ app.get('/api/user/:tgId/stats', requireTelegramAuth, requireSelf, async (req, r
   }
 });
 
-// 9. SHOP
+// 9. SHOP (Click orqali karta to'lovi)
+const clickEnabled = () => !!(CLICK_SERVICE_ID && CLICK_MERCHANT_ID && CLICK_SECRET_KEY);
+const md5 = (str) => crypto.createHash('md5').update(str).digest('hex');
+
 app.get('/api/shop/packages', (req, res) => {
-  res.json({ success: true, packages: COIN_PACKAGES });
+  res.json({ success: true, packages: COIN_PACKAGES, paymentsEnabled: clickEnabled() });
 });
 
-app.post('/api/shop/create-invoice', requireTelegramAuth, async (req, res) => {
+// Buyurtma yaratadi va Click to'lov sahifasi havolasini qaytaradi
+app.post('/api/shop/click/create', requireTelegramAuth, async (req, res) => {
   try {
+    if (!clickEnabled()) {
+      return res.status(503).json({ success: false, message: "To'lov tizimi hozircha yoqilmagan" });
+    }
     const tgId = String(req.telegramUser.id);
-    const { packageId } = req.body;
+    const pkg = COIN_PACKAGES.find(p => p.id === req.body?.packageId);
+    if (!pkg) return res.status(400).json({ success: false, message: 'Nomalum paket' });
 
-    const pkg = COIN_PACKAGES.find(p => p.id === packageId);
-    if (!pkg) {
-      return res.status(400).json({ success: false, message: 'Nomalum paket' });
-    }
-
-    const invoiceLink = await callTelegramApi('createInvoiceLink', {
-      title: pkg.title,
-      description: `${pkg.coins} tanga hamyoningizga qo'shiladi`,
-      payload: JSON.stringify({ tgId, packageId: pkg.id }),
-      currency: 'XTR',
-      prices: [{ label: pkg.title, amount: pkg.stars }]
+    const order = await Order.create({ tgId, packageId: pkg.id, coins: pkg.coins, amount: pkg.price });
+    const params = new URLSearchParams({
+      service_id: CLICK_SERVICE_ID,
+      merchant_id: CLICK_MERCHANT_ID,
+      amount: String(pkg.price),
+      transaction_param: String(order._id)
     });
+    if (CLICK_RETURN_URL) params.set('return_url', CLICK_RETURN_URL);
 
-    res.json({ success: true, invoiceLink, package: pkg });
+    res.json({
+      success: true,
+      orderId: String(order._id),
+      payUrl: `https://my.click.uz/services/pay?${params.toString()}`,
+      package: pkg
+    });
   } catch (error) {
-    console.error('❌ Create invoice error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('❌ Click create error:', error);
+    res.status(500).json({ success: false, message: 'Server xatoligi' });
   }
 });
 
-// 10. TELEGRAM WEBHOOK
-app.post('/api/telegram/webhook', async (req, res) => {
-  if (TELEGRAM_WEBHOOK_SECRET) {
-    const incomingSecret = req.headers['x-telegram-bot-api-secret-token'];
-    if (incomingSecret !== TELEGRAM_WEBHOOK_SECRET) {
-      return res.status(401).end();
-    }
-  }
-
-  const update = req.body;
-
+// Buyurtma holati (mijoz to'lovdan qaytgach tekshiradi)
+app.get('/api/shop/order/:id', requireTelegramAuth, async (req, res) => {
   try {
-    if (update.pre_checkout_query) {
-      const query = update.pre_checkout_query;
-      let payload = null;
-      try { payload = JSON.parse(query.invoice_payload); } catch {}
-
-      const pkg = payload ? COIN_PACKAGES.find(p => p.id === payload.packageId) : null;
-
-      const answerPayload = {
-        pre_checkout_query_id: query.id,
-        ok: !!pkg
-      };
-      if (!pkg) answerPayload.error_message = 'Paket topilmadi';
-
-      await callTelegramApi('answerPreCheckoutQuery', answerPayload);
-
-    } else if (update.message?.successful_payment) {
-      const payment = update.message.successful_payment;
-      const chargeId = payment.telegram_payment_charge_id;
-
-      const existing = await Payment.findOne({ telegramPaymentChargeId: chargeId });
-      if (!existing) {
-        const payload = JSON.parse(payment.invoice_payload);
-        const pkg = COIN_PACKAGES.find(p => p.id === payload.packageId);
-
-        if (pkg) {
-          try {
-            await Payment.create({
-              telegramPaymentChargeId: chargeId,
-              tgId: payload.tgId,
-              packageId: pkg.id,
-              starsAmount: payment.total_amount,
-              coinsAwarded: pkg.coins
-            });
-          } catch (dupErr) {
-            if (dupErr.code === 11000) {
-              res.status(200).end();
-              return;
-            }
-            throw dupErr;
-          }
-
-          const user = await applyCoinTransaction(
-            payload.tgId,
-            pkg.coins,
-            'purchase',
-            `${pkg.title} sotib olindi (${payment.total_amount} ⭐)`,
-            { telegramPaymentChargeId: chargeId, starsAmount: payment.total_amount }
-          );
-
-          const socketInfo = onlineUsers.get(payload.tgId);
-          if (socketInfo && io.sockets.sockets.has(socketInfo.socketId)) {
-            io.to(socketInfo.socketId).emit('wallet_updated', {
-              reason: 'purchase',
-              coinsAwarded: pkg.coins,
-              newBalance: user.coins
-            });
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error('❌ Telegram webhook xatosi:', error);
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ success: false });
+    const order = await Order.findOne({ _id: req.params.id, tgId: String(req.telegramUser.id) });
+    if (!order) return res.status(404).json({ success: false });
+    res.json({ success: true, status: order.status, coins: order.coins });
+  } catch {
+    res.status(500).json({ success: false, message: 'Server xatoligi' });
   }
-
-  res.status(200).end();
 });
+
+// --- Click Shop API (server-to-server): prepare va complete ---
+function clickReply(res, body, error, note) {
+  res.json({ ...body, error, error_note: note });
+}
+
+async function clickHandler(req, res, isComplete) {
+  const b = req.body || {};
+  const base = {
+    click_trans_id: b.click_trans_id,
+    merchant_trans_id: b.merchant_trans_id
+  };
+  try {
+    if (!clickEnabled()) return clickReply(res, base, -8, 'Service disabled');
+
+    const signString = isComplete
+      ? `${b.click_trans_id}${b.service_id}${CLICK_SECRET_KEY}${b.merchant_trans_id}${b.merchant_prepare_id}${b.amount}${b.action}${b.sign_time}`
+      : `${b.click_trans_id}${b.service_id}${CLICK_SECRET_KEY}${b.merchant_trans_id}${b.amount}${b.action}${b.sign_time}`;
+    const given = String(b.sign_string || '');
+    const expected = md5(signString);
+    const okSign = given.length === expected.length &&
+      crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+    if (!okSign || String(b.service_id) !== String(CLICK_SERVICE_ID)) {
+      return clickReply(res, base, -1, 'SIGN CHECK FAILED!');
+    }
+    if (String(b.action) !== (isComplete ? '1' : '0')) {
+      return clickReply(res, base, -3, 'Action not found');
+    }
+    if (!mongoose.isValidObjectId(b.merchant_trans_id)) {
+      return clickReply(res, base, -5, 'Order not found');
+    }
+
+    const order = await Order.findById(b.merchant_trans_id);
+    if (!order) return clickReply(res, base, -5, 'Order not found');
+    if (Number(b.amount) !== order.amount) return clickReply(res, base, -2, 'Incorrect parameter amount');
+    if (order.status === 'paid') return clickReply(res, base, -4, 'Already paid');
+    if (order.status === 'cancelled') return clickReply(res, base, -9, 'Transaction cancelled');
+
+    if (!isComplete) {
+      order.status = 'prepared';
+      order.clickTransId = String(b.click_trans_id);
+      await order.save();
+      return clickReply(res, { ...base, merchant_prepare_id: String(order._id) }, 0, 'Success');
+    }
+
+    // COMPLETE
+    if (order.status !== 'prepared' || String(b.merchant_prepare_id) !== String(order._id)) {
+      return clickReply(res, base, -6, 'Transaction not found');
+    }
+    if (Number(b.error) < 0) {
+      await Order.updateOne({ _id: order._id, status: 'prepared' }, { status: 'cancelled' });
+      return clickReply(res, { ...base, merchant_confirm_id: String(order._id) }, -9, 'Transaction cancelled');
+    }
+
+    // Atomik: faqat bir marta "paid" ga o'tadi (takroriy so'rovda tanga ikki marta berilmaydi)
+    const paid = await Order.findOneAndUpdate(
+      { _id: order._id, status: 'prepared' },
+      { status: 'paid', paidAt: new Date() }
+    );
+    if (!paid) return clickReply(res, base, -4, 'Already paid');
+
+    let user;
+    try {
+      user = await applyCoinTransaction(
+        order.tgId, order.coins, 'purchase',
+        `${order.coins} tanga sotib olindi (${order.amount} so'm)`,
+        { orderId: String(order._id), clickTransId: String(b.click_trans_id), amount: order.amount }
+      );
+    } catch (e) {
+      // Tanga berilmadi - buyurtmani qaytaramiz, Click qayta urinadi
+      await Order.updateOne({ _id: order._id }, { status: 'prepared', paidAt: null });
+      throw e;
+    }
+    const socketInfo = onlineUsers.get(order.tgId);
+    if (socketInfo && io.sockets.sockets.has(socketInfo.socketId)) {
+      io.to(socketInfo.socketId).emit('wallet_updated', {
+        reason: 'purchase', coinsAwarded: order.coins, newBalance: user.coins
+      });
+    }
+    return clickReply(res, { ...base, merchant_confirm_id: String(order._id) }, 0, 'Success');
+  } catch (error) {
+    console.error('❌ Click xatosi:', error);
+    return clickReply(res, base, -7, 'Failed to update user');
+  }
+}
+
+app.post('/api/click/prepare', (req, res) => clickHandler(req, res, false));
+app.post('/api/click/complete', (req, res) => clickHandler(req, res, true));
 
 // ============================================================
 // SOCKET.IO - GAME EVENTS

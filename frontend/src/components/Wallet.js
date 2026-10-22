@@ -15,7 +15,7 @@ const TX_META = {
   game_lose:         { icon: 'zap', label: 'Duelda mag\'lubiyat', color: '#fb7185' },
   game_draw_refund:  { icon: 'equal', label: 'Durang - stavka qaytarildi', color: '#34d399' },
   bot_game:          { icon: 'bot', label: 'Bot bilan o\'yin', color: '#8d8d99' },
-  purchase:          { icon: 'star', label: 'Telegram Stars orqali xarid', color: '#34d399' },
+  purchase:          { icon: 'coin', label: 'Karta orqali xarid', color: '#34d399' },
   admin_adjust:      { icon: 'wrench', label: 'Admin tuzatishi', color: '#8d8d99' }
 };
 
