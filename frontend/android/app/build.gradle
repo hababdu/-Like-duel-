@@ -62,3 +62,8 @@ try {
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
+
+// androidx.browser 1.9 yangi AGP/compileSdk 36 talab qiladi; Capacitor 7 (AGP 8.7) bilan 1.8.0 mos
+configurations.all {
+    resolutionStrategy.force 'androidx.browser:browser:1.8.0'
+}
