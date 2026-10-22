@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Like-Duel</string>
+    <string name="title_activity_main">Like-Duel</string>
+    <string name="package_name">uz.likeduel.app</string>
+    <string name="custom_url_scheme">uz.likeduel.app</string>
+</resources>

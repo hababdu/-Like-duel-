@@ -4,6 +4,9 @@ import './index.css';
 import App from './App';
 import './theme.css';
 import ErrorBoundary from './ErrorBoundary';
+import { initNative } from './native';
+
+initNative();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

@@ -1,0 +1,61 @@
+.login {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: var(--bg);
+}
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--s1);
+  border: 1px solid var(--s2);
+  border-radius: var(--r-card);
+  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.login-logo { margin: 0; text-align: center; font-size: 26px; font-weight: 800; }
+.login-sub { margin: 0 0 6px; text-align: center; color: var(--dim); font-size: 14px; }
+.login-form { display: flex; flex-direction: column; gap: 12px; }
+.login-form label { display: flex; flex-direction: column; gap: 6px; }
+.login-form label span { font-size: 12px; color: var(--dim); }
+.login-form input {
+  background: var(--s2);
+  border: 1px solid var(--s3);
+  border-radius: 12px;
+  color: var(--ink);
+  font-size: 16px; /* iOS'da avtomatik kattalashtirishni oldini oladi */
+  padding: 13px 14px;
+}
+.login-form input:focus { border-color: var(--ac); outline: none; }
+.login-error {
+  background: rgba(251, 113, 133, 0.1);
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  color: var(--lose);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.login-submit {
+  background: linear-gradient(135deg, var(--ac) 0%, var(--ac-2) 100%);
+  border: 0;
+  border-radius: var(--r-btn);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 14px;
+  cursor: pointer;
+}
+.login-switch {
+  background: none;
+  border: 0;
+  color: var(--ac);
+  font-size: 14px;
+  padding: 8px;
+  cursor: pointer;
+}
+.login-dev { color: var(--gold); font-size: 12px; }

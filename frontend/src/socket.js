@@ -2,10 +2,8 @@
 // socket.js - TO'G'RILANGAN
 // ============================================================
 import { io } from 'socket.io-client';
-
-const SERVER_URL = process.env.NODE_ENV === 'production'
-  ? 'https://telegram-bot-server-2-matj.onrender.com'
-  : 'http://localhost:10000';
+import { API_URL as SERVER_URL } from './config';
+import { getToken } from './session';
 
 console.log('🔌 Connecting to server:', SERVER_URL);
 
@@ -20,8 +18,11 @@ const socket = io(SERVER_URL, {
   autoConnect: true,
   forceNew: true,
   path: '/socket.io/',
-  // Har ulanishda (qayta ulanishda ham) yangi initData yuboriladi
-  auth: (cb) => cb({ initData: window.Telegram?.WebApp?.initData || '' })
+  // Har ulanishda (qayta ulanishda ham) yangi initData yoki ilova tokeni yuboriladi
+  auth: (cb) => cb({
+    initData: window.Telegram?.WebApp?.initData || '',
+    token: getToken()
+  })
 });
 
 // Ulanish holati
@@ -61,8 +62,16 @@ socket.on('error', (error) => {
 });
 
 // Barcha eventlarni log qilish
-socket.onAny((event, ...args) => {
-  console.log(`📨 Socket event: ${event}`, args);
-});
+if (process.env.NODE_ENV !== 'production') {
+  socket.onAny((event, ...args) => {
+    console.log(`📨 Socket event: ${event}`, args);
+  });
+}
+
+// Login/logout'dan keyin yangi hisob bilan qayta ulanish
+export const reconnectSocket = () => {
+  socket.disconnect();
+  socket.connect();
+};
 
 export default socket;

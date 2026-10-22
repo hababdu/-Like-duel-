@@ -1,4 +1,10 @@
-// Backend'ga so'rovlar uchun Telegram imzosini (initData) sarlavhaga qo'shadi.
-export const authHeaders = () => ({
-  'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || '',
-});
+import { getToken } from './session';
+
+// Backend'ga so'rovlar uchun autentifikatsiya sarlavhalari:
+// Telegram ichida - initData imzosi, ilovada - Bearer token.
+export const authHeaders = () => {
+  const initData = window.Telegram?.WebApp?.initData;
+  if (initData) return { 'X-Telegram-Init-Data': initData };
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};

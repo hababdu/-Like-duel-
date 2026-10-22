@@ -21,6 +21,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 dotenv.config();
 
@@ -37,7 +38,8 @@ const {
   ADMIN_TOKEN,                  // MAJBURIY - default yo'q (xavfsizlik uchun)
   TELEGRAM_BOT_TOKEN,           // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
   TELEGRAM_WEBHOOK_SECRET = '', // setWebhook chaqirilganda secret_token sifatida bering
-  ALLOWED_ORIGIN = ''
+  ALLOWED_ORIGIN = '',
+  JWT_SECRET = ''               // Ilova (email/parol) kirishi uchun. Bo'sh bo'lsa email-auth o'chiq, Telegram ishlayveradi
 } = process.env;
 
 const IS_PRODUCTION = NODE_ENV === 'production';
@@ -86,6 +88,11 @@ const allowedOriginsList = ALLOWED_ORIGIN
   ? ALLOWED_ORIGIN.split(',').map(normalizeOrigin).filter(Boolean)
   : ['http://localhost:3000', 'http://127.0.0.1:3000'].map(normalizeOrigin);
 
+// Capacitor (Android/iOS) ilovasining ichki originlari - doim ruxsat etiladi.
+// Xavfsizlik originga emas, token/imzoga tayanadi.
+['https://localhost', 'http://localhost', 'capacitor://localhost', 'ionic://localhost']
+  .forEach((o) => { if (!allowedOriginsList.includes(o)) allowedOriginsList.push(o); });
+
 console.log('🔧 Ruxsat etilgan originlar:', allowedOriginsList);
 
 const corsOptions = {
@@ -123,7 +130,8 @@ const io = new Server(server, {
 // Har bir socket ulanishi Telegram initData imzosi bilan tasdiqlanadi.
 // tgId endi mijozdan emas, SERVER tasdiqlagan ma'lumotdan olinadi.
 io.use((socket, next) => {
-  const verified = verifyTelegramInitData(socket.handshake.auth?.initData);
+  const auth = socket.handshake.auth || {};
+  const verified = verifyTelegramInitData(auth.initData) || verifyAppToken(auth.token);
   if (!verified?.id) return next(new Error('unauthorized'));
   socket.data.tgId = String(verified.id);
   next();
@@ -182,6 +190,18 @@ const UserSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', UserSchema);
+
+// ======================
+// CREDENTIAL SCHEMA (ilova uchun email/parol; Telegram foydalanuvchilariga tegmaydi)
+// ======================
+const CredentialSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  passwordHash: { type: String, required: true },
+  tgId: { type: String, required: true, unique: true }, // User.tgId ga bog'langan ("app_..." ko'rinishida)
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Credential = mongoose.model('Credential', CredentialSchema);
 
 // ======================
 // TRANSACTION SCHEMA (HAMYON TARIXI / LEDGER)
@@ -457,19 +477,57 @@ function verifyTelegramInitData(initData) {
   }
 }
 
+// ============================================================
+// ILOVA TOKENI (email/parol bilan kirgan foydalanuvchilar uchun JWT)
+// ============================================================
+function verifyAppToken(token) {
+  if (!JWT_SECRET || !token) return null;
+  try {
+    const payload = jwt.verify(String(token), JWT_SECRET, { algorithms: ['HS256'] });
+    return payload?.sub ? { id: String(payload.sub) } : null;
+  } catch {
+    return null;
+  }
+}
+
+function signAppToken(tgId) {
+  return jwt.sign({ sub: String(tgId) }, JWT_SECRET, { algorithm: 'HS256', expiresIn: '30d' });
+}
+
+function bearerToken(req) {
+  const h = String(req.headers.authorization || '');
+  return h.startsWith('Bearer ') ? h.slice(7).trim() : '';
+}
+
+// Telegram initData YOKI ilova tokeni - ikkalasi ham req.telegramUser.id ni beradi
 function requireTelegramAuth(req, res, next) {
-  const initData = req.body.initData || req.headers['x-telegram-init-data'];
-  const verifiedUser = verifyTelegramInitData(initData);
+  const initData = req.body?.initData || req.headers['x-telegram-init-data'];
+  const verifiedUser = verifyTelegramInitData(initData) || verifyAppToken(bearerToken(req));
 
   if (!verifiedUser) {
     return res.status(401).json({
       success: false,
-      message: 'Telegram autentifikatsiyasi muvaffaqiyatsiz'
+      message: 'Autentifikatsiya muvaffaqiyatsiz'
     });
   }
 
   req.telegramUser = verifiedUser;
   next();
+}
+
+// Parol xeshlash (scrypt - Node ichida, tashqi paketsiz)
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(password, salt, 64);
+  return `${salt.toString('hex')}:${hash.toString('hex')}`;
+}
+
+function checkPassword(password, stored) {
+  const [saltHex, hashHex] = String(stored).split(':');
+  if (!saltHex || !hashHex) return false;
+  const expected = Buffer.from(hashHex, 'hex');
+  const actual = crypto.scryptSync(password, Buffer.from(saltHex, 'hex'), expected.length);
+  return crypto.timingSafeEqual(actual, expected);
 }
 
 function requireAdmin(req, res, next) {
@@ -507,7 +565,8 @@ const authLimit = makeLimiter({ windowMs: 60_000, max: 20 });
 
 app.use('/api', (req, res, next) => {
   if (req.path === '/telegram/webhook') return next(); // Telegram serveri cheklanmaydi
-  const allowed = (req.path === '/user/auth' ? authLimit : httpLimit)(req.ip);
+  const isAuthPath = req.path === '/user/auth' || req.path === '/auth/register' || req.path === '/auth/login';
+  const allowed = (isAuthPath ? authLimit : httpLimit)(req.ip);
   if (!allowed) return res.status(429).json({ success: false, message: 'Juda ko\'p so\'rov. Biroz kuting.' });
   next();
 });
@@ -845,11 +904,124 @@ app.delete('/api/admin/user/:tgId', requireAdmin, async (req, res) => {
   try {
     const { tgId } = req.params;
     await User.deleteOne({ tgId });
+    await Credential.deleteOne({ tgId });
     await Transaction.deleteMany({ tgId });
     onlineUsers.delete(tgId);
     res.json({ success: true, message: 'Foydalanuvchi o\'chirildi' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 0. ILOVA AUTH (email/parol)
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function appUserPayload(user) {
+  return {
+    tgId: user.tgId,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    photoUrl: user.photoUrl,
+    languageCode: user.languageCode,
+    isPremium: user.isPremium,
+    coins: user.coins,
+    rating: user.rating,
+    level: user.level,
+    xp: user.xp,
+    xpToNextLevel: user.xpToNextLevel,
+    totalGames: user.totalGames,
+    wins: user.wins,
+    losses: user.losses,
+    draws: user.draws,
+    winStreak: user.winStreak,
+    maxWinStreak: user.maxWinStreak,
+    refCount: user.refCount,
+    refBonus: user.refBonus,
+    isRefRewarded: user.isRefRewarded
+  };
+}
+
+function requireAppAuthEnabled(req, res, next) {
+  if (!JWT_SECRET) {
+    return res.status(503).json({ success: false, message: 'Ilova orqali kirish serverda yoqilmagan (JWT_SECRET)' });
+  }
+  next();
+}
+
+app.post('/api/auth/register', requireAppAuthEnabled, async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+    const firstName = String(req.body?.firstName || '').trim().slice(0, 32);
+
+    if (!EMAIL_RE.test(email) || email.length > 254) {
+      return res.status(400).json({ success: false, message: "Email noto'g'ri" });
+    }
+    if (password.length < 8 || password.length > 128) {
+      return res.status(400).json({ success: false, message: "Parol kamida 8 ta belgidan iborat bo'lsin" });
+    }
+    if (!firstName) {
+      return res.status(400).json({ success: false, message: 'Ismingizni kiriting' });
+    }
+    if (await Credential.findOne({ email })) {
+      return res.status(409).json({ success: false, message: "Bu email allaqachon ro'yxatdan o'tgan" });
+    }
+
+    const tgId = `app_${crypto.randomBytes(8).toString('hex')}`;
+    await Credential.create({ email, passwordHash: hashPassword(password), tgId });
+    await User.create({ tgId, firstName });
+    await applyCoinTransaction(tgId, SIGNUP_BONUS, 'signup_bonus', "Ro'yxatdan o'tish bonusi");
+
+    const user = await User.findOne({ tgId });
+    res.json({ success: true, token: signAppToken(tgId), user: appUserPayload(user) });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ success: false, message: "Bu email allaqachon ro'yxatdan o'tgan" });
+    }
+    console.error('❌ Register error:', error);
+    res.status(500).json({ success: false, message: 'Server xatoligi' });
+  }
+});
+
+app.post('/api/auth/login', requireAppAuthEnabled, async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+
+    const cred = await Credential.findOne({ email });
+    // Email bor-yo'qligini bildirmaslik uchun xabar bir xil
+    if (!cred || !checkPassword(password, cred.passwordHash)) {
+      return res.status(401).json({ success: false, message: "Email yoki parol noto'g'ri" });
+    }
+
+    const user = await User.findOne({ tgId: cred.tgId });
+    if (!user) return res.status(401).json({ success: false, message: "Email yoki parol noto'g'ri" });
+
+    user.lastLogin = new Date();
+    await user.save();
+    res.json({ success: true, token: signAppToken(cred.tgId), user: appUserPayload(user) });
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    res.status(500).json({ success: false, message: 'Server xatoligi' });
+  }
+});
+
+// Akkauntni o'chirish (App Store talabi). Faqat ilova akkauntlari uchun.
+app.delete('/api/auth/account', requireAppAuthEnabled, requireTelegramAuth, async (req, res) => {
+  try {
+    const tgId = String(req.telegramUser.id);
+    if (!tgId.startsWith('app_')) {
+      return res.status(400).json({ success: false, message: "Telegram akkauntini bu yerdan o'chirib bo'lmaydi" });
+    }
+    await Credential.deleteOne({ tgId });
+    await User.deleteOne({ tgId });
+    await Transaction.deleteMany({ tgId });
+    onlineUsers.delete(tgId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Delete account error:', error);
+    res.status(500).json({ success: false, message: 'Server xatoligi' });
   }
 });
 
@@ -863,6 +1035,11 @@ app.post('/api/user/auth', requireTelegramAuth, async (req, res) => {
     console.log('📥 Auth request:', { tgId, username: verified.username });
 
     let user = await User.findOne({ tgId });
+
+    // Ilova akkaunti o'chirilgan bo'lsa, eski token bilan qayta yaratilmasin
+    if (!user && tgId.startsWith('app_')) {
+      return res.status(401).json({ success: false, message: 'Akkaunt topilmadi' });
+    }
 
     if (!user) {
       user = new User({

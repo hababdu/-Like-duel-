@@ -3,7 +3,11 @@
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Icon from './Icon';
-import socket from './socket';
+import socket, { reconnectSocket } from './socket';
+import { API_URL } from './config';
+import { authHeaders } from './api';
+import { getToken, clearToken, inTelegram } from './session';
+import Login from './components/Login';
 import Profile from './components/Profile';
 import DuelGame from './components/DuelGame';
 import BotGame from './components/BotGame';
@@ -42,17 +46,28 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [currentScreen, setCurrentScreen] = useState('menu');
+
+  // Android "orqaga" tugmasi: menyuga qaytadi (menyuda bo'lsa ilovadan chiqadi)
+  const screenRef = useRef('menu');
+  useEffect(() => { screenRef.current = currentScreen; }, [currentScreen]);
+  useEffect(() => {
+    const onBack = (e) => {
+      if (screenRef.current !== 'menu') {
+        setCurrentScreen('menu');
+        if (e.detail) e.detail.handled = true;
+      }
+    };
+    window.addEventListener('app:back', onBack);
+    return () => window.removeEventListener('app:back', onBack);
+  }, []);
   const [socketConnected, setSocketConnected] = useState(false);
   const [notification, setNotification] = useState(null);
   const [isDevMode, setIsDevMode] = useState(false);
+  const [needsLogin, setNeedsLogin] = useState(false);
 
   // user state'ni socket eventlar ichida (closure eskirishisiz) o'qish uchun
   const userRef = useRef(null);
   useEffect(() => { userRef.current = user; }, [user]);
-
-  const API_URL = process.env.NODE_ENV === 'production'
-    ? 'https://telegram-bot-server-2-matj.onrender.com'
-    : 'http://localhost:10000';
 
   // ======================
   // NOTIFICATION
@@ -88,44 +103,50 @@ function App() {
   }, []);
 
   // ======================
-  // USER AUTH - xom initData satri bilan
+  // DEV REJIMI (faqat dasturlashda): serverga saqlanmaydigan sinov profili
+  // ======================
+  const startDevMode = useCallback(() => {
+    const devUser = {
+      tgId: 'dev_local_user',
+      firstName: 'Test User',
+      username: 'test_user',
+      photoUrl: '',
+      isPremium: false,
+      coins: 100,
+      rating: 100,
+      level: 1,
+      xp: 0,
+      xpToNextLevel: 100,
+      totalGames: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      winStreak: 0,
+      maxWinStreak: 0,
+      refCount: 0,
+      refBonus: 0
+    };
+    setIsDevMode(true);
+    setNeedsLogin(false);
+    setAuthError(null);
+    setUser(devUser);
+    showNotification('🧪 Dev rejimi: ma\'lumotlar saqlanmaydi.', 'warning');
+    return devUser;
+  }, [showNotification]);
+
+  // ======================
+  // USER AUTH - Telegram initData yoki ilova tokeni bilan
   // ======================
   const authenticateUser = useCallback(async () => {
     const tg = window.Telegram?.WebApp;
     const rawInitData = tg?.initData; // XOM, imzolangan satr (hash tekshiruvi uchun)
 
-    // ----------------------------------------------------------
-    // DEV/TEST REJIMI: Telegram WebApp mavjud emas yoki initData bo'sh.
-    // Bu holatda backend haqiqiy autentifikatsiyani rad etadi (to'g'ri ishlaydi),
-    // shuning uchun serverga so'rov yubormasdan, faqat lokal (saqlanmaydigan)
-    // sinov profili ko'rsatamiz va buni foydalanuvchiga ochiq aytamiz.
-    // ----------------------------------------------------------
-    if (!rawInitData) {
-      setIsDevMode(true);
+    // Telegram ham, saqlangan token ham yo'q -> kirish ekrani (email/parol)
+    if (!rawInitData && !getToken()) {
+      setUser(null);
       setAuthError(null);
-      const devUser = {
-        tgId: 'dev_local_user',
-        firstName: 'Test User',
-        username: 'test_user',
-        photoUrl: '',
-        isPremium: false,
-        coins: 100,
-        rating: 100,
-        level: 1,
-        xp: 0,
-        xpToNextLevel: 100,
-        totalGames: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        winStreak: 0,
-        maxWinStreak: 0,
-        refCount: 0,
-        refBonus: 0
-      };
-      setUser(devUser);
-      showNotification('🧪 Dev rejimi: Telegram orqali kirilmadi, ma\'lumotlar saqlanmaydi.', 'warning');
-      return devUser;
+      setNeedsLogin(true);
+      return null;
     }
 
     // ----------------------------------------------------------
@@ -138,7 +159,8 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          ...authHeaders()
         },
         body: JSON.stringify({
           initData: rawInitData,
@@ -147,6 +169,14 @@ function App() {
       });
 
       if (response.status === 401) {
+        if (!rawInitData) {
+          // Ilova tokeni eskirgan yoki akkaunt o'chirilgan -> qaytadan kirish
+          clearToken();
+          setUser(null);
+          setAuthError(null);
+          setNeedsLogin(true);
+          return null;
+        }
         throw new Error('Telegram autentifikatsiyasi rad etildi (imzo mos kelmadi yoki eskirgan)');
       }
 
@@ -169,6 +199,7 @@ function App() {
       setUser(userData);
       setAuthError(null);
       setIsDevMode(false);
+      setNeedsLogin(false);
       announceUserConnect(userData);
       return userData;
 
@@ -181,7 +212,41 @@ function App() {
       showNotification('❌ Kirish muvaffaqiyatsiz: ' + (error.message || 'nomalum xato'), 'error');
       return null;
     }
-  }, [API_URL, showNotification, announceUserConnect]);
+  }, [showNotification, announceUserConnect]);
+
+  // Email/parol bilan kirgandan keyin
+  const handleLoginSuccess = useCallback((userData) => {
+    setUser({ ...userData, tgId: String(userData.tgId) });
+    setAuthError(null);
+    setIsDevMode(false);
+    setNeedsLogin(false);
+    setCurrentScreen('menu');
+    reconnectSocket(); // yangi token bilan qayta ulanadi
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    clearToken();
+    socket.disconnect();
+    setUser(null);
+    setIsDevMode(false);
+    setCurrentScreen('menu');
+    setNeedsLogin(true);
+  }, []);
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!window.confirm("Akkauntingiz va barcha tangalaringiz butunlay o'chiriladi. Davom etasizmi?")) return;
+    try {
+      const res = await fetch(`${API_URL}/api/auth/account`, {
+        method: 'DELETE',
+        headers: { Accept: 'application/json', ...authHeaders() }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.message || `Xato (${res.status})`);
+      handleLogout();
+    } catch (err) {
+      showNotification("❌ Akkauntni o'chirib bo'lmadi: " + err.message, 'error');
+    }
+  }, [handleLogout, showNotification]);
 
   // URL'dan referal parentni olish (masalan ?start=ref_12345 yoki ?ref=12345)
   function getRefParentFromUrl() {
@@ -283,6 +348,16 @@ function App() {
         <div className="spinner"></div>
         <p>Like-Duel yuklanmoqda...</p>
       </div>
+    );
+  }
+
+  // Telegram ham, token ham yo'q (ilova / oddiy brauzer) -> kirish ekrani
+  if (!user && needsLogin) {
+    return (
+      <Login
+        onSuccess={handleLoginSuccess}
+        onDevMode={process.env.NODE_ENV !== 'production' ? startDevMode : undefined}
+      />
     );
   }
 
@@ -420,23 +495,37 @@ function App() {
     <span className="btn-text">Hamyonim</span>
   </button>
 
-  <button
-    className="btn-shop"
-    onClick={() => setCurrentScreen('shop')}
-  >
-    <span className="btn-icon"><Icon name="cart" /></span>
-    <span className="btn-text">Tanga Do'koni</span>
-    <span className="badge"><Icon name="star" /> Stars</span>
-  </button>
+  {/* Stars to'lovi va Telegram taklif havolalari faqat Telegram ichida ishlaydi */}
+  {inTelegram() && (
+    <>
+      <button
+        className="btn-shop"
+        onClick={() => setCurrentScreen('shop')}
+      >
+        <span className="btn-icon"><Icon name="cart" /></span>
+        <span className="btn-text">Tanga Do'koni</span>
+        <span className="badge"><Icon name="star" /> Stars</span>
+      </button>
 
-  <button
-    className="btn-referrals"
-    onClick={() => setCurrentScreen('referrals')}
-  >
-    <span className="btn-icon"><Icon name="users" /></span>
-    <span className="btn-text">Do'stlarni taklif qilish</span>
-    <span className="badge">+50 <Icon name="coin" /></span>
-  </button>
+      <button
+        className="btn-referrals"
+        onClick={() => setCurrentScreen('referrals')}
+      >
+        <span className="btn-icon"><Icon name="users" /></span>
+        <span className="btn-text">Do'stlarni taklif qilish</span>
+        <span className="badge">+50 <Icon name="coin" /></span>
+      </button>
+    </>
+  )}
+
+  {String(user?.tgId || '').startsWith('app_') && (
+    <div className="account-actions">
+      <button className="account-btn" onClick={handleLogout}>Chiqish</button>
+      <button className="account-btn account-btn--danger" onClick={handleDeleteAccount}>
+        Akkauntni o'chirish
+      </button>
+    </div>
+  )}
 </div>
           </div>
         )}
@@ -538,6 +627,22 @@ function App() {
         }
         .menu-profile-avatar {
           position: relative;
+        }
+        .account-actions {
+          display: flex;
+          gap: 10px;
+          margin-top: 6px;
+        }
+        .menu-buttons .account-actions .account-btn {
+          flex: 1;
+          min-height: 0;
+          justify-content: center;
+          padding: 11px 8px;
+          font-size: 13px;
+          color: var(--dim);
+        }
+        .menu-buttons .account-actions .account-btn--danger {
+          color: var(--lose);
         }
       `}</style>
     </div>
