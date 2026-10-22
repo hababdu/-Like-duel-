@@ -16,6 +16,16 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Barqaror SHA-1 (Google kirish uchun): GitHub'da yig'ilgan test APK doim shu kalit bilan imzolanadi.
+    // Faqat sinov uchun. Do'konga chiqarishda alohida release kalit ishlating.
+    signingConfigs {
+        debug {
+            storeFile file('ci-debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
