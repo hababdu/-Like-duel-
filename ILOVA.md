@@ -11,6 +11,11 @@ Bitta kod: Telegram Mini App ham, Android/iOS ilova ham.
 - Narxlar so'mda: `like-duel-backend/server.js` dagi `COIN_PACKAGES`.
 - Do'konlar (Google Play / App Store) tanga sotuvini faqat ichki xarid orqali ruxsat beradi. Shuning uchun do'kon build'ida `REACT_APP_STORE_BUILD=true` qilinadi va "Tanga Do'koni" yashiriladi. Ichki xarid (IAP) hali yozilmagan.
 
+## APK ni GitHub'dan yuklab olish
+GitHub'da repo > **Actions** > **Android APK** > oxirgi muvaffaqiyatli (yashil) yig'ish > pastdagi **Artifacts** > `like-duel-apk` (zip ichida `app-debug.apk`). Telefonga o'tkazib, "noma'lum manbalardan o'rnatish"ga ruxsat bering. Har `main` ga push'da avtomatik yig'iladi, qo'lda ham ishga tushirish mumkin (Run workflow).
+Qiymatlar: repo > Settings > Secrets and variables > Actions > **Variables**: `REACT_APP_GOOGLE_WEB_CLIENT_ID`, `REACT_APP_GOOGLE_IOS_CLIENT_ID`, `REACT_APP_API_URL`, `REACT_APP_STORE_BUILD`.
+Test APK doim bir xil kalit bilan imzolanadi. Google Android OAuth client uchun SHA-1: `B2:59:91:68:D8:40:EC:70:FF:AA:3F:15:46:18:60:00:9C:6A:0D:C4`.
+
 ## 1) Backend sozlash (Render > Environment)
 `like-duel-backend/.env.example` dagi hamma qiymatlarni kiriting. Eng muhimlari: `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_ID`, `CLICK_*`.
 
