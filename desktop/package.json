@@ -6,7 +6,7 @@
   "author": "Like-Duel",
   "scripts": {
     "start": "electron .",
-    "dist:mac": "electron-builder --mac dmg --x64 --arm64 --publish never"
+    "dist:mac": "electron-builder --mac zip --x64 --arm64 --publish never"
   },
   "build": {
     "appId": "uz.likeduel.desktop",
@@ -14,7 +14,7 @@
     "files": ["main.js", "web/**/*"],
     "mac": {
       "category": "public.app-category.games",
-      "target": "dmg",
+      "target": "zip",
       "identity": null
     },
     "dmg": { "title": "Like-Duel" },

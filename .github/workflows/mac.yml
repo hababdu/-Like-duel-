@@ -47,5 +47,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: like-duel-mac-dmg
-          path: desktop/dist/*.dmg
+          name: like-duel-mac
+          path: desktop/dist/*.zip
