@@ -31,7 +31,14 @@ jobs:
         run: |
           rm -rf web && cp -R ../frontend/build web
           npm install
-          npm run dist:mac > build.log 2>&1 || {
+          # hdiutil GitHub macOS runner'larda vaqti-vaqti bilan xato beradi: 3 marta urinamiz
+          ok=0
+          for i in 1 2 3; do
+            hdiutil info | grep -o '/dev/disk[0-9]*' | sort -u | while read d; do hdiutil detach -force "$d" >/dev/null 2>&1 || true; done
+            rm -rf dist
+            if npm run dist:mac > build.log 2>&1; then ok=1; break; fi
+          done
+          [ "$ok" = 1 ] || {
             msg=$(tail -60 build.log | tr -d '%\r' | awk '{printf "%s%%0A", $0}')
             echo "::error title=DMG xatosi::$msg"
             exit 1
