@@ -18,7 +18,7 @@ Test APK doim bir xil kalit bilan imzolanadi. Google Android OAuth client uchun 
 
 ## Mac va iPhone uchun (GitHub Actions)
 Actions bo'limida uchta workflow bor, hammasi `main` ga push'da avtomatik ishlaydi:
-- **Mac desktop (DMG)** → artefakt `like-duel-mac-dmg` (Intel va Apple Silicon uchun alohida .dmg). Imzolanmagan: birinchi ochishda Finder'da ilovaga o'ng tugma > Open, yoki `xattr -cr /Applications/Like-Duel.app`. Ilova `http://localhost:38123` da ochiladi: Google Cloud'dagi **Web** OAuth client'ga shu manzilni "Authorized JavaScript origins" ga qo'shing.
+- **Mac desktop** → artefakt `like-duel-mac` (Intel `x64` va Apple Silicon `arm64` uchun alohida .zip; ochib, Like-Duel.app ni Applications ga ko'chiring). Imzolanmagan: birinchi ochishda Finder'da ilovaga o'ng tugma > Open, yoki `xattr -cr /Applications/Like-Duel.app`. Ilova `http://localhost:38123` da ochiladi: Google Cloud'dagi **Web** OAuth client'ga shu manzilni "Authorized JavaScript origins" ga qo'shing.
 - **iOS (unsigned IPA)** → artefakt `like-duel-ios-unsigned-ipa`. Imzosiz IPA to'g'ridan-to'g'ri o'rnatilmaydi: Sideloadly yoki AltStore bilan o'z Apple ID'ngiz orqali iPhone'ga o'rnatiladi (bepul hisobda 7 kun amal qiladi). Bunday o'rnatishda "Apple bilan kirish" ishlamaydi, Google ishlaydi. Google uchun repo Variables'ga `IOS_REVERSED_CLIENT_ID` (`com.googleusercontent.apps.XXXX`) qo'shing.
 - **App Store/TestFlight** uchun pullik Apple Developer hisobi (99$/yil), sertifikat va provisioning profile kerak; keyin workflow imzolashga o'tkaziladi.
 
