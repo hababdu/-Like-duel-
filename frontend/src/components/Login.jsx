@@ -36,7 +36,7 @@ export default function Login({ onSuccess, onDevMode }) {
     try {
       const res = await SocialLogin.login(
         provider === 'google'
-          ? { provider: 'google', options: { scopes: ['email', 'profile'] } }
+          ? { provider: 'google', options: {} }
           : { provider: 'apple', options: { scopes: ['name', 'email'] } }
       );
       const r = res.result || {};
