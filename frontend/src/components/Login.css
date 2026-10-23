@@ -61,3 +61,4 @@
 .login-dev { color: var(--gold); font-size: 12px; }
 .login-provider { width: 100%; }
 .login-apple { background: #fff; color: #000; }
+.login-logo-img { width: 70%; max-width: 240px; align-self: center; border-radius: 16px; }

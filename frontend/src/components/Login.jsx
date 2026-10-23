@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { SocialLogin } from '@capgo/capacitor-social-login';
-import Icon from '../Icon';
+import logoImg from '../assets/logo.png';
 import { API_URL, GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, APPLE_CLIENT_ID } from '../config';
 import { setToken } from '../session';
 import './Login.css';
@@ -71,7 +71,7 @@ export default function Login({ onSuccess, onDevMode }) {
   return (
     <div className="login">
       <div className="login-card">
-        <h1 className="login-logo"><Icon name="zap" /> LIKE-DUEL</h1>
+        <img className="login-logo-img" src={logoImg} alt="Like Duel" />
         <p className="login-sub">Kirish uchun akkauntingizni tanlang. Yangi o'yinchilarga 100 tanga bonus!</p>
 
         <div className="login-form">
