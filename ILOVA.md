@@ -16,6 +16,12 @@ GitHub'da repo > **Actions** > **Android APK** > oxirgi muvaffaqiyatli (yashil) 
 Qiymatlar: repo > Settings > Secrets and variables > Actions > **Variables**: `REACT_APP_GOOGLE_WEB_CLIENT_ID`, `REACT_APP_GOOGLE_IOS_CLIENT_ID`, `REACT_APP_API_URL`, `REACT_APP_STORE_BUILD`.
 Test APK doim bir xil kalit bilan imzolanadi. Google Android OAuth client uchun SHA-1: `B2:59:91:68:D8:40:EC:70:FF:AA:3F:15:46:18:60:00:9C:6A:0D:C4`.
 
+## Mac va iPhone uchun (GitHub Actions)
+Actions bo'limida uchta workflow bor, hammasi `main` ga push'da avtomatik ishlaydi:
+- **Mac desktop (DMG)** → artefakt `like-duel-mac-dmg` (Intel va Apple Silicon uchun alohida .dmg). Imzolanmagan: birinchi ochishda Finder'da ilovaga o'ng tugma > Open, yoki `xattr -cr /Applications/Like-Duel.app`. Ilova `http://localhost:38123` da ochiladi: Google Cloud'dagi **Web** OAuth client'ga shu manzilni "Authorized JavaScript origins" ga qo'shing.
+- **iOS (unsigned IPA)** → artefakt `like-duel-ios-unsigned-ipa`. Imzosiz IPA to'g'ridan-to'g'ri o'rnatilmaydi: Sideloadly yoki AltStore bilan o'z Apple ID'ngiz orqali iPhone'ga o'rnatiladi (bepul hisobda 7 kun amal qiladi). Bunday o'rnatishda "Apple bilan kirish" ishlamaydi, Google ishlaydi. Google uchun repo Variables'ga `IOS_REVERSED_CLIENT_ID` (`com.googleusercontent.apps.XXXX`) qo'shing.
+- **App Store/TestFlight** uchun pullik Apple Developer hisobi (99$/yil), sertifikat va provisioning profile kerak; keyin workflow imzolashga o'tkaziladi.
+
 ## 1) Backend sozlash (Render > Environment)
 `like-duel-backend/.env.example` dagi hamma qiymatlarni kiriting. Eng muhimlari: `JWT_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_ID`, `CLICK_*`.
 
