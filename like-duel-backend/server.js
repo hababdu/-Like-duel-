@@ -962,7 +962,9 @@ function socialLoginHandler(provider) {
       try {
         claims = await verifyProviderToken(provider, idToken);
       } catch (err) {
-        console.warn(`⚠️ ${provider} token rad etildi:`, err.message);
+        let aud = '?';
+        try { aud = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString()).aud; } catch {}
+        console.warn(`⚠️ ${provider} token rad etildi: ${err.message} | token aud=${aud} | serverda kutilgan=${provider === 'google' ? GOOGLE_CLIENT_IDS : APPLE_CLIENT_ID}`);
         return res.status(401).json({ success: false, message: 'Kirish tasdiqlanmadi' });
       }
       const subject = String(claims.sub || '');
