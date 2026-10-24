@@ -64,9 +64,11 @@ if (!TELEGRAM_BOT_TOKEN) {
 if (!ADMIN_TOKEN) {
   startupErrors.push('ADMIN_TOKEN o\'rnatilmagan. Xavfsizlik uchun bu MAJBURIY (default qiymat endi yo\'q).');
 }
-if (IS_PRODUCTION && !JWT_SECRET) {
-  startupErrors.push('Production rejimida JWT_SECRET majburiy (ilova sessiyalari uchun).');
+if (!JWT_SECRET) {
+  // Server yiqilmasin (Telegram o'yini ishlayversin); ilova orqali kirish 503 qaytaradi
+  console.warn('⚠️ JWT_SECRET o\'rnatilmagan: Google/Apple orqali kirish o\'chiq.');
 }
+if (!GOOGLE_CLIENT_IDS) console.warn('⚠️ GOOGLE_CLIENT_IDS o\'rnatilmagan: Google kirish ishlamaydi.');
 if (IS_PRODUCTION && !ALLOWED_ORIGIN) {
   startupErrors.push('Production rejimida ALLOWED_ORIGIN majburiy (CORS uchun aniq domenlar kerak).');
 }
