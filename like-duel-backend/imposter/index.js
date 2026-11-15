@@ -77,7 +77,23 @@ function publicRoom(room) {
     playerCount: room.players.length,
     minPlayers: MIN_PLAYERS,
     maxPlayers: MAX_PLAYERS,
-    votesSubmitted: room.votes.length
+    votesSubmitted: room.votes.length,
+    winner: room.status === 'finished' ? room.winner : ''
+  };
+}
+
+function resultFor(room) {
+  if (room.status !== 'finished') return null;
+  const counts = new Map();
+  room.votes.forEach((vote) => counts.set(vote.targetId, (counts.get(vote.targetId) || 0) + 1));
+  const maxVotes = counts.size ? Math.max(...counts.values()) : 0;
+  const leaders = [...counts.entries()].filter(([, count]) => count === maxVotes).map(([id]) => id);
+  const eliminatedId = leaders.length === 1 ? leaders[0] : null;
+  const eliminated = eliminatedId ? room.players.find((player) => player.tgId === eliminatedId) : null;
+  return {
+    winner: room.winner,
+    eliminatedPlayerId: eliminatedId,
+    eliminatedRole: eliminated?.role || 'unknown'
   };
 }
 
@@ -237,7 +253,7 @@ export function registerImposterHandlers(io) {
         const role = privateRole(refreshed, tgId);
         socket.emit('imposter:room_updated', state);
         if (role) socket.emit('imposter:private_role', role);
-        reply(ack, { ok: true, room: state, privateRole: role });
+        reply(ack, { ok: true, room: state, privateRole: role, result: resultFor(refreshed) });
       } catch (error) {
         console.error('[Imposter] get_state:', error.message);
         fail(ack, 'STATE_FAILED', 'Xona ma’lumotini olib bo‘lmadi.');
