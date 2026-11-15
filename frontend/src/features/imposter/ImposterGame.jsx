@@ -9,7 +9,7 @@ const PHASE_LABELS = {
   results: 'Natijalar'
 };
 
-export default function ImposterGame({ socket, onBack, onNotification }) {
+export default function ImposterGame({ socket, user, onBack, onNotification }) {
   const [room, setRoom] = useState(null);
   const [privateRole, setPrivateRole] = useState(null);
   const [result, setResult] = useState(null);
@@ -115,7 +115,7 @@ export default function ImposterGame({ socket, onBack, onNotification }) {
     await run('imposter:vote', { roomCode: room.roomCode, targetId });
   };
 
-  const myId = String(window.Telegram?.WebApp?.initDataUnsafe?.user?.id || '');
+  const myId = String(user?.tgId || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || '');
   const me = room?.players?.find((player) => player.tgId === myId);
   const isHost = Boolean(me?.isHost);
   const myClue = Boolean(me?.clue);
