@@ -107,3 +107,29 @@ Server → client:
 - Clues, discussion and voting are implemented as server-validated phases; no automatic round timer yet.
 - No AI players, Telegram group bot commands, local pass-and-play, full frontend room screens or multilingual word packs yet.
 - The Node test suite includes public-state secrecy checks. It has been authored but not executed in a local runtime yet.
+
+
+## Implementation progress — frontend online flow
+
+The Imposter card now opens a working frontend screen in `frontend/src/features/imposter/`.
+
+### Connected UI
+
+- Create a room and receive its invite code.
+- Join an existing room by six-character code.
+- View lobby participants and readiness.
+- Toggle own ready state; host can start when all players are ready and the minimum player count is met.
+- Receive the private role/word event and show it only in the current player's UI.
+- Submit one clue, view clues in discussion, advance phases as host, vote once and view results.
+- Restore room, private role and completed result after reconnecting.
+
+### Follow-up fixes included
+
+- Current player identity is read from the authenticated app user object (with Telegram identity as fallback), so Capacitor app-token sessions can identify the correct room participant.
+- Completed game result is included in the authenticated state response so a reconnecting player does not lose the result screen.
+- Game Hub now opens Imposter rather than showing the placeholder notice.
+- Replaced the stale Create React App starter test with a Game Hub test and added Imposter entry/socket subscription tests.
+
+### Not yet verified
+
+GitHub source updates have been committed, but no npm install, Jest run, production build, MongoDB-backed integration test, or live Telegram/Capacitor session test has been run in this environment. Do not treat this feature branch as production-ready until those checks pass.
