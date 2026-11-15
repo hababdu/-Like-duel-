@@ -39,11 +39,11 @@ export default function GameHub({ onOnlineDuel, onBotGame, onImposter }) {
           <strong>Imposter</strong>
           <small>Yashirin rolni toping va jamoangizni sinang</small>
         </span>
-        <span className="game-hub__tag game-hub__tag--soon">SOON</span>
+        <span className="game-hub__tag">PLAY</span>
         <span className="game-hub__arrow">→</span>
       </button>
 
-      <p className="game-hub__note">Imposter alohida o'yin moduli sifatida ulanadi. Like Duel funksiyalari o'z holicha saqlanadi.</p>
+      <p className="game-hub__note">Yangi Imposter xonasini yarating yoki do‘stlaringiz yuborgan kod orqali qo‘shiling.</p>
     </section>
   );
 }
