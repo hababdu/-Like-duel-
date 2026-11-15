@@ -66,3 +66,44 @@ Do not replace the current stack with a second backend or rewrite Like Duel as p
 - No removal of the existing Android/iOS Capacitor targets.
 - No automatic migration of Like Duel wallet balances or rankings into Imposter.
 - No production secrets or real bot tokens committed to the repository.
+
+
+## Implementation progress — backend foundation
+
+The first isolated backend module is now present at `like-duel-backend/imposter/index.js` and registered on the existing authenticated Socket.IO server.
+
+### Implemented event contract
+
+Client → server (all events are scoped to the authenticated `socket.data.tgId`):
+
+- `imposter:create_room` — create a six-character invite room.
+- `imposter:join_room` — join an open lobby by code.
+- `imposter:set_ready` — set the current player's ready state.
+- `imposter:start_game` — host starts when at least three players are ready.
+- `imposter:get_state` — restore room state and the requesting player's private role after reconnect.
+- `imposter:submit_clue` — submit one short clue during the clue phase.
+- `imposter:advance_phase` — host advances clue → discussion → voting.
+- `imposter:vote` — one vote per authenticated player during voting.
+- `imposter:leave_room` — leave a lobby; host ownership transfers when needed.
+
+Server → client:
+
+- `imposter:room_updated` — allow-listed public room snapshot.
+- `imposter:private_role` — private role/word for the receiving player only.
+- `imposter:vote_progress` — aggregate vote count only.
+- `imposter:game_result` — final result after all active room players have voted.
+
+### Security properties
+
+- Identity comes from existing verified Socket.IO auth middleware; client-supplied user IDs are not accepted as authority.
+- Public room snapshots never serialize the secret word, role, or per-player secret word.
+- The assigned word/role is emitted directly to the matching player's socket.
+- Room membership, host-only actions, phase, self-voting, target membership and duplicate voting are checked server-side.
+- Imposter data uses its own Mongoose model/collection and does not mutate Like Duel wallet, rating or statistics.
+
+### Current MVP boundaries
+
+- Three to twelve human players; one Imposter; a small built-in Uzbek word/category set.
+- Clues, discussion and voting are implemented as server-validated phases; no automatic round timer yet.
+- No AI players, Telegram group bot commands, local pass-and-play, full frontend room screens or multilingual word packs yet.
+- The Node test suite includes public-state secrecy checks. It has been authored but not executed in a local runtime yet.
