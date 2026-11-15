@@ -619,3 +619,8 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   .app-bg { transition: background-image 0.3s ease; }
 }
+
+/* Shared game hub entry */
+.menu-buttons .btn-gamehub { grid-column: 1 / -1; min-height: 68px; flex-direction: row; justify-content: flex-start; padding: 14px 18px; background: linear-gradient(110deg, rgba(91,78,190,.32), #171720); border-color: rgba(143,130,255,.35); }
+.menu-buttons .btn-gamehub .btn-icon { font-size: 24px; }
+.menu-buttons .btn-gamehub .btn-text { font-size: 14px; }

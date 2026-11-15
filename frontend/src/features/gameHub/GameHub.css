@@ -1,0 +1,20 @@
+.game-hub { display:flex; flex-direction:column; gap:14px; padding:4px 0 24px; }
+.game-hub__intro { display:flex; align-items:flex-start; gap:14px; padding:12px 2px 10px; }
+.game-hub__back { flex:0 0 40px; width:40px; height:40px; border:1px solid rgba(255,255,255,.1); border-radius:13px; color:#fff; background:#1a1a23; font-size:23px; cursor:pointer; }
+.game-hub__eyebrow { color:#9b8cff; font-size:10px; font-weight:800; letter-spacing:2px; margin-bottom:6px; }
+.game-hub__intro h2 { color:#fff; font-size:24px; line-height:1.15; margin:0 0 7px; }
+.game-hub__subtitle { color:#9b9bad; font-size:13px; line-height:1.45; }
+.game-hub__card { position:relative; display:flex; align-items:center; gap:13px; width:100%; min-height:104px; padding:17px 42px 17px 16px; text-align:left; border:1px solid rgba(255,255,255,.09); border-radius:19px; color:#fff; cursor:pointer; transition:transform .18s ease,border-color .18s ease,filter .18s ease; }
+.game-hub__card:active { transform:scale(.985); }
+.game-hub__card--duel { background:linear-gradient(115deg,#4338a8,#24234b 78%); border-color:rgba(143,130,255,.45); }
+.game-hub__card--bot { background:linear-gradient(115deg,#174b55,#1b2939 78%); }
+.game-hub__card--imposter { background:linear-gradient(115deg,#633a78,#2d2547 78%); border-color:rgba(210,153,255,.25); }
+.game-hub__symbol { display:grid; place-items:center; flex:0 0 52px; width:52px; height:52px; border-radius:16px; background:rgba(255,255,255,.12); font-size:26px; }
+.game-hub__copy { display:flex; flex:1; min-width:0; flex-direction:column; gap:6px; }
+.game-hub__copy strong { font-size:16px; font-weight:750; }
+.game-hub__copy small { color:rgba(255,255,255,.72); font-size:11px; line-height:1.4; }
+.game-hub__tag { position:absolute; right:14px; top:13px; color:#d8d2ff; font-size:9px; font-weight:800; letter-spacing:1px; }
+.game-hub__tag--soon { color:#f1c8ff; }
+.game-hub__arrow { position:absolute; right:16px; bottom:13px; font-size:18px; color:rgba(255,255,255,.75); }
+.game-hub__note { color:#77778b; font-size:11px; line-height:1.5; text-align:center; padding:4px 12px; }
+@media (prefers-reduced-motion:reduce) { .game-hub__card { transition:none; } }

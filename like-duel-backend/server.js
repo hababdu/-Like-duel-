@@ -23,6 +23,7 @@ import dotenv from 'dotenv';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { registerImposterHandlers } from './imposter/index.js';
 
 dotenv.config();
 
@@ -156,6 +157,9 @@ io.use((socket, next) => {
   socket.data.tgId = String(verified.id);
   next();
 });
+
+// Register the isolated Imposter event namespace on the existing authenticated Socket.IO server.
+registerImposterHandlers(io);
 
 // ======================
 // MONGODB CONNECTION
