@@ -20,6 +20,7 @@ const PlayerSchema = new mongoose.Schema({
   displayName: { type: String, required: true },
   isHost: { type: Boolean, default: false },
   isReady: { type: Boolean, default: false },
+  clue: { type: String, default: '' },
   socketId: { type: String, default: '' },
   role: { type: String, enum: ['player', 'imposter'], default: 'player' },
   secretWord: { type: String, default: '' },
@@ -70,7 +71,8 @@ function publicRoom(room) {
       tgId: player.tgId,
       displayName: player.displayName,
       isHost: player.isHost,
-      isReady: player.isReady
+      isReady: player.isReady,
+      ...(room.phase !== 'clue' ? { clue: player.clue } : {})
     })),
     playerCount: room.players.length,
     minPlayers: MIN_PLAYERS,
@@ -181,9 +183,6 @@ export function registerImposterHandlers(io) {
           { _id: room._id, status: 'lobby', 'players.tgId': tgId },
           { $set: { 'players.$.isReady': Boolean(payload.isReady), 'players.$.socketId': socket.id } }
         );
-        if (!result.modifiedCount && !room.players.find((p) => p.tgId === tgId)?.isReady === Boolean(payload.isReady)) {
-          return fail(ack, 'UPDATE_FAILED', 'Tayyorlik holatini yangilab bo‘lmadi.');
-        }
         const updated = await ImposterRoom.findById(room._id);
         emitRoom(io, updated);
         reply(ack, { ok: true, room: publicRoom(updated) });
@@ -206,7 +205,8 @@ export function registerImposterHandlers(io) {
         const players = room.players.map((player, index) => ({
           ...player.toObject(),
           role: index === imposterIndex ? 'imposter' : 'player',
-          secretWord: index === imposterIndex ? '' : selected.word
+          secretWord: index === imposterIndex ? '' : selected.word,
+          clue: ''
         }));
         const started = await ImposterRoom.findOneAndUpdate(
           { _id: room._id, status: 'lobby', hostId: tgId },
@@ -241,6 +241,26 @@ export function registerImposterHandlers(io) {
       } catch (error) {
         console.error('[Imposter] get_state:', error.message);
         fail(ack, 'STATE_FAILED', 'Xona ma’lumotini olib bo‘lmadi.');
+      }
+    });
+
+    socket.on('imposter:submit_clue', async (payload = {}, ack) => {
+      try {
+        const room = await findPlayerRoom(tgId, payload.roomCode);
+        if (!room || room.status !== 'active' || room.phase !== 'clue') return fail(ack, 'CLUE_CLOSED', 'Maslahat yuborish vaqti emas.');
+        const clue = String(payload.clue || '').trim().slice(0, 80);
+        if (!clue) return fail(ack, 'EMPTY_CLUE', 'Maslahat matnini kiriting.');
+        const updated = await ImposterRoom.findOneAndUpdate(
+          { _id: room._id, status: 'active', phase: 'clue', players: { $elemMatch: { tgId, clue: '' } } },
+          { $set: { 'players.$.clue': clue } },
+          { new: true }
+        );
+        if (!updated) return fail(ack, 'CLUE_ALREADY_SENT', 'Siz maslahat yuborib bo‘lgansiz.');
+        emitRoom(io, updated);
+        reply(ack, { ok: true, submitted: true });
+      } catch (error) {
+        console.error('[Imposter] submit_clue:', error.message);
+        fail(ack, 'CLUE_FAILED', 'Maslahatni saqlab bo‘lmadi.');
       }
     });
 
