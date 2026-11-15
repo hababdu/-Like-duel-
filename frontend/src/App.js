@@ -16,11 +16,13 @@ import Leaderboard from './components/Leaderboard';
 import Referrals from './components/Referrals';
 import Wallet from './components/Wallet';
 import Shop from './components/Shop';
+import GameHub from './features/gameHub/GameHub';
 import './App.css';
 
 // Ekran nomiga qarab fon rasmi (CSS: .app-bg--...)
 const BG_BY_SCREEN = {
   menu: 'menu',
+  hub: 'menu',
   game: 'duel',
   bot: 'duel',
   wallet: 'coins',
@@ -532,6 +534,14 @@ function App() {
   )}
 </div>
           </div>
+        )}
+
+        {currentScreen === 'hub' && (
+          <GameHub
+            onOnlineDuel={() => setCurrentScreen('game')}
+            onBotGame={() => setCurrentScreen('bot')}
+            onImposter={() => showNotification('Imposter moduli keyingi bosqichda ulanadi.', 'info')}
+          />
         )}
 
         {currentScreen === 'profile' && (
