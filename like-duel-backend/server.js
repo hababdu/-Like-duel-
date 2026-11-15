@@ -458,11 +458,18 @@ function verifyTelegramInitData(initData) {
       .update(dataCheckString)
       .digest('hex');
 
-    if (computedHash !== hash) return null;
+    if (computedHash !== hash) {
+      // Imzo mos kelmasa: odatda serverdagi TELEGRAM_BOT_TOKEN boshqa bot tokeni (bot id'si ochiq, sir emas)
+      console.warn(`⚠️ initData imzosi mos kelmadi. Serverdagi bot id=${String(TELEGRAM_BOT_TOKEN).split(':')[0]}, initData kalitlari=${[...params.keys()].join(',')}`);
+      return null;
+    }
 
     const authDate = Number(params.get('auth_date') || 0);
     const now = Math.floor(Date.now() / 1000);
-    if (!authDate || now - authDate > 60 * 60 * 24) return null;
+    if (!authDate || now - authDate > 60 * 60 * 24) {
+      console.warn(`⚠️ initData eskirgan: ${Math.round((now - authDate) / 3600)} soat oldin berilgan`);
+      return null;
+    }
 
     const userJson = params.get('user');
     return userJson ? JSON.parse(userJson) : null;
