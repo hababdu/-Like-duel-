@@ -17,12 +17,14 @@ import Referrals from './components/Referrals';
 import Wallet from './components/Wallet';
 import Shop from './components/Shop';
 import GameHub from './features/gameHub/GameHub';
+import ImposterGame from './features/imposter/ImposterGame';
 import './App.css';
 
 // Ekran nomiga qarab fon rasmi (CSS: .app-bg--...)
 const BG_BY_SCREEN = {
   menu: 'menu',
   hub: 'menu',
+  imposter: 'duel',
   game: 'duel',
   bot: 'duel',
   wallet: 'coins',
@@ -545,7 +547,16 @@ function App() {
           <GameHub
             onOnlineDuel={() => setCurrentScreen('game')}
             onBotGame={() => setCurrentScreen('bot')}
-            onImposter={() => showNotification('Imposter moduli keyingi bosqichda ulanadi.', 'info')}
+            onImposter={() => setCurrentScreen('imposter')}
+          />
+        )}
+
+        {currentScreen === 'imposter' && (
+          <ImposterGame
+            socket={socket}
+            user={user}
+            onBack={() => setCurrentScreen('hub')}
+            onNotification={showNotification}
           />
         )}
 
