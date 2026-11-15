@@ -37,7 +37,7 @@ const {
   NODE_ENV = 'development',
   MONGODB_URI,
   ADMIN_TOKEN,                  // MAJBURIY - default yo'q (xavfsizlik uchun)
-  TELEGRAM_BOT_TOKEN,           // Bot tokeni - initData tekshiruvi VA to'lovlar uchun MAJBURIY
+  TELEGRAM_BOT_TOKEN: RAW_BOT_TOKEN,  // Bot tokeni - initData tekshiruvi uchun MAJBURIY
   ALLOWED_ORIGIN = '',
   JWT_SECRET = '',              // Ilova (Google/Apple) kirishi uchun sessiya tokeni imzosi
   GOOGLE_CLIENT_IDS = '',       // Google OAuth client ID'lar (vergul bilan): web client ID majburiy
@@ -47,6 +47,11 @@ const {
   CLICK_SECRET_KEY = '',
   CLICK_RETURN_URL = ''         // To'lovdan keyin qaytish manzili (ixtiyoriy)
 } = process.env;
+
+// Render'ga qo'yishda tushib qolishi mumkin bo'lgan bo'sh joy, yangi qator va qo'shtirnoqlarni olib tashlaymiz
+const TELEGRAM_BOT_TOKEN = String(RAW_BOT_TOKEN || '').trim().replace(/^['"]|['"]$/g, '').trim();
+if (RAW_BOT_TOKEN && RAW_BOT_TOKEN !== TELEGRAM_BOT_TOKEN) console.warn('⚠️ TELEGRAM_BOT_TOKEN ichida ortiqcha bo\'sh joy/qo\'shtirnoq bor edi - tozalandi.');
+if (TELEGRAM_BOT_TOKEN && !/^\d{6,12}:[A-Za-z0-9_-]{30,}$/.test(TELEGRAM_BOT_TOKEN)) console.warn(`⚠️ TELEGRAM_BOT_TOKEN formati noto'g'ri ko'rinadi (uzunligi ${TELEGRAM_BOT_TOKEN.length}).`);
 
 const IS_PRODUCTION = NODE_ENV === 'production';
 
