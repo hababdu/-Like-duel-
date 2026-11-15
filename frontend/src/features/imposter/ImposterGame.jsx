@@ -38,6 +38,7 @@ export default function ImposterGame({ socket, user, onBack, onNotification }) {
       const response = await request(event, payload);
       if (response.room) setRoom(response.room);
       if (response.privateRole) setPrivateRole(response.privateRole);
+      if (response.result) setResult(response.result);
       if (event === 'imposter:vote') setVoted(true);
       return response;
     } catch (err) {
