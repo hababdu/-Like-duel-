@@ -63,6 +63,15 @@ const startupErrors = [];
 if (!MONGODB_URI) {
   startupErrors.push('MONGODB_URI o\'rnatilmagan.');
 }
+// Token Telegram'da haqiqatan amal qiladimi? (token o'zi logga yozilmaydi)
+if (TELEGRAM_BOT_TOKEN) {
+  fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`)
+    .then(r => r.json())
+    .then(d => console.log(d.ok
+      ? `✅ TELEGRAM_BOT_TOKEN amal qiladi: @${d.result.username} (id=${d.result.id})`
+      : `❌ TELEGRAM_BOT_TOKEN Telegram tomonidan rad etildi: ${d.error_code} ${d.description} (token eskirgan/revoke qilingan yoki noto'g'ri)`))
+    .catch(e => console.warn('⚠️ getMe tekshiruvi bajarilmadi:', e.message));
+}
 if (!TELEGRAM_BOT_TOKEN) {
   startupErrors.push('TELEGRAM_BOT_TOKEN o\'rnatilmagan. Telegram auth ishlamaydi.');
 }
