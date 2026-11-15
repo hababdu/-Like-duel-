@@ -454,6 +454,11 @@ function App() {
             </div>
 
            <div className="menu-buttons">
+  <button className="btn-gamehub" onClick={() => setCurrentScreen('hub')}>
+    <span className="btn-icon"><Icon name="gamepad" /></span>
+    <span className="btn-text">O'yinlar markazi</span>
+    <span className="badge">2 ta o'yin</span>
+  </button>
   <button
     className="btn-play"
     onClick={() => {
