@@ -18,6 +18,8 @@ export default function ImposterGame({ socket, user, onBack, onNotification }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [voted, setVoted] = useState(false);
+  const [playerCount, setPlayerCount] = useState(5);
+  const [searching, setSearching] = useState(false);
 
   const request = useCallback((event, payload = {}) => new Promise((resolve, reject) => {
     if (!socket?.connected) {
@@ -58,15 +60,18 @@ export default function ImposterGame({ socket, user, onBack, onNotification }) {
       if (data.room) setRoom(data.room);
     };
     const onProgress = () => {};
+    const onMatchFound = (data) => { if (data?.room) { setRoom(data.room); setSearching(false); onNotification?.('O‘yinchilar topildi! O‘yin boshlandi.', 'success'); } };
     socket.on('imposter:room_updated', onRoom);
     socket.on('imposter:private_role', onRole);
     socket.on('imposter:game_result', onResult);
     socket.on('imposter:vote_progress', onProgress);
+    socket.on('imposter:match_found', onMatchFound);
     return () => {
       socket.off('imposter:room_updated', onRoom);
       socket.off('imposter:private_role', onRole);
       socket.off('imposter:game_result', onResult);
       socket.off('imposter:vote_progress', onProgress);
+      socket.off('imposter:match_found', onMatchFound);
     };
   }, [socket]);
 
@@ -79,6 +84,24 @@ export default function ImposterGame({ socket, user, onBack, onNotification }) {
     // Only refresh when a new room is first assigned by create/join.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.roomCode]);
+
+  const findMatch = async () => {
+    setSearching(true);
+    const response = await run('imposter:find_match', { playerCount });
+    if (response?.room) {
+      setRoom(response.room);
+      setSearching(Boolean(response.waiting));
+      onNotification?.(response.waiting ? `${playerCount} kishilik xona uchun qidiruv boshlandi.` : 'O‘yin boshlandi!', 'success');
+    } else {
+      setSearching(false);
+    }
+  };
+
+  const cancelMatch = async () => {
+    await run('imposter:cancel_match');
+    setRoom(null);
+    setSearching(false);
+  };
 
   const createRoom = async () => {
     const response = await run('imposter:create_room');
@@ -132,9 +155,14 @@ export default function ImposterGame({ socket, user, onBack, onNotification }) {
 
       {!room ? (
         <section className="imposter-panel">
-          <div className="imposter-hero"><span>🕵️</span><h3>Kim Imposter?</h3><p>Do‘stlaringiz bilan xona yarating yoki taklif kodini kiriting.</p></div>
-          <button className="imposter-primary" disabled={busy || !socket?.connected} onClick={createRoom}>＋ Yangi xona yaratish</button>
-          <div className="imposter-separator"><span>YOKI KOD ORQALI KIRISH</span></div>
+          <div className="imposter-hero"><span>🕵️</span><h3>Kim Imposter?</h3><p>O‘yinchilar sonini tanlang. Tizim sizga mos raqiblarni avtomatik topadi.</p></div>
+          <div className="imposter-count-title">Xonada nechta o‘yinchi bo‘lsin?</div>
+          <div className="imposter-count-grid">{Array.from({ length: 10 }, (_, index) => index + 3).map((count) => <button key={count} type="button" className={`imposter-count-option ${playerCount === count ? 'is-selected' : ''}`} onClick={() => setPlayerCount(count)} disabled={busy || searching}>{count}<small>kishi</small></button>)}</div>
+          <button className="imposter-primary" disabled={busy || searching || !socket?.connected} onClick={findMatch}>{searching ? 'O‘yinchilar qidirilmoqda…' : '⚡ Tasodifiy o‘yinchilarni topish'}</button>
+          {searching && <div className="imposter-searching"><span className="imposter-pulse" /> {playerCount} kishilik xona to‘lishi kutilmoqda…<button className="imposter-quiet" disabled={busy} onClick={cancelMatch}>Qidiruvni bekor qilish</button></div>}
+          <div className="imposter-separator"><span>YOKI DO‘STLAR BILAN</span></div>
+          <button className="imposter-secondary" disabled={busy || !socket?.connected} onClick={createRoom}>＋ Maxsus xona yaratish</button>
+          <div className="imposter-separator"><span>TAKLIF KODI ORQALI KIRISH</span></div>
           <label className="imposter-label" htmlFor="imposter-room-code">Xona kodi</label>
           <input id="imposter-room-code" className="imposter-input" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6))} placeholder="MASALAN: AB23CD" maxLength={6} />
           <button className="imposter-secondary" disabled={busy || roomCode.length !== 6 || !socket?.connected} onClick={joinRoom}>Xonaga qo‘shilish</button>
@@ -151,7 +179,7 @@ export default function ImposterGame({ socket, user, onBack, onNotification }) {
             <div className="imposter-section-title"><h3>{PHASE_LABELS[room.phase] || 'O‘yin'}</h3><span>{room.playerCount}/{room.maxPlayers} o‘yinchi</span></div>
             {room.phase === 'lobby' ? (
               <>
-                <p className="imposter-hint">Barcha ishtirokchilar tayyor bo‘lgach, xona egasi o‘yinni boshlaydi.</p>
+                <p className="imposter-hint">{room.isMatchmaking ? 'Tasodifiy o‘yinchilar yig‘ilmoqda. Xona belgilangan songa yetishi bilan o‘yin avtomatik boshlanadi.' : 'Barcha ishtirokchilar tayyor bo‘lgach, xona egasi o‘yinni boshlaydi.'}</p>
                 <div className="imposter-player-list">
                   {room.players.map((player, index) => (
                     <div className="imposter-player" key={player.tgId}>
@@ -162,8 +190,8 @@ export default function ImposterGame({ socket, user, onBack, onNotification }) {
                   ))}
                 </div>
                 <button className="imposter-secondary" disabled={busy} onClick={() => run('imposter:set_ready', { roomCode: room.roomCode, isReady: !me?.isReady })}>{me?.isReady ? 'Tayyor emasman' : 'Men tayyorman'}</button>
-                {isHost && <button className="imposter-primary" disabled={busy || room.playerCount < room.minPlayers || room.players.some((p) => !p.isReady)} onClick={startGame}>O‘yinni boshlash</button>}
-                <button className="imposter-quiet" disabled={busy} onClick={leaveRoom}>Xonadan chiqish</button>
+                {isHost && !room.isMatchmaking && <button className="imposter-primary" disabled={busy || room.playerCount < room.minPlayers || room.players.some((p) => !p.isReady)} onClick={startGame}>O‘yinni boshlash</button>}
+                <button className="imposter-quiet" disabled={busy} onClick={room.isMatchmaking ? cancelMatch : leaveRoom}>{room.isMatchmaking ? 'Qidiruvdan chiqish' : 'Xonadan chiqish'}</button>
               </>
             ) : (
               <>
