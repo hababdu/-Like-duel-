@@ -1,7 +1,7 @@
 import React from 'react';
 import './GameHub.css';
 
-export default function GameHub({ onOnlineDuel, onBotGame, onImposter }) {
+export default function GameHub({ onOnlineDuel, onBotGame, onImposter, onJumanji }) {
   return (
     <section className="game-hub">
       <div className="game-hub__intro">
@@ -43,7 +43,18 @@ export default function GameHub({ onOnlineDuel, onBotGame, onImposter }) {
         <span className="game-hub__arrow">→</span>
       </button>
 
-      <p className="game-hub__note">Yangi Imposter xonasini yarating yoki do‘stlaringiz yuborgan kod orqali qo‘shiling.</p>
+
+      <button className="game-hub__card game-hub__card--jumanji" onClick={onJumanji}>
+        <span className="game-hub__symbol">🌿</span>
+        <span className="game-hub__copy">
+          <strong>Jumanji: Sirli O‘rmon</strong>
+          <small>Xarita, qahramonlar va jamoaviy jumboqlar</small>
+        </span>
+        <span className="game-hub__tag">NEW</span>
+        <span className="game-hub__arrow">→</span>
+      </button>
+
+      <p className="game-hub__note">O‘zingizga yoqqan o‘yinni tanlang va do‘stlaringiz bilan sarguzasht boshlang.</p>
     </section>
   );
 }
