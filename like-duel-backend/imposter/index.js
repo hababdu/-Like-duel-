@@ -148,7 +148,7 @@ async function startMatchedGame(io, room) {
   }));
   const started = await ImposterRoom.findOneAndUpdate(
     { _id: room._id, status: 'lobby', matchingSize: room.matchingSize, $expr: { $eq: [{ $size: '$players' }, room.matchingSize] } },
-    { $set: { status: 'active', phase: 'clue', category: selected.category, word: selected.word, players, votes: [], startedAt: new Date(), matchKey: null } },
+    { $set: { status: 'active', phase: 'clue', category: selected.category, word: selected.word, players, votes: [], startedAt: new Date() }, $unset: { matchKey: 1 } },
     { new: true }
   );
   if (!started) return null;
