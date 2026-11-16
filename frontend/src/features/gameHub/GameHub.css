@@ -18,3 +18,5 @@
 .game-hub__arrow { position:absolute; right:16px; bottom:13px; font-size:18px; color:rgba(255,255,255,.75); }
 .game-hub__note { color:#77778b; font-size:11px; line-height:1.5; text-align:center; padding:4px 12px; }
 @media (prefers-reduced-motion:reduce) { .game-hub__card { transition:none; } }
+
+.game-hub__card--jumanji { background:linear-gradient(115deg,#345b37,#1d3428 78%); border-color:rgba(176,218,126,.35); }
