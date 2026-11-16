@@ -49,7 +49,7 @@ export default function JumanjiGame({socket,user,onBack,onNotification}){
           <div className="jumanji-heroes">{room.heroes.map(h=><button key={h.id} className={me?.heroId===h.id?'selected':''} disabled={busy} onClick={()=>act('jumanji:choose_hero',{code:room.code,heroId:h.id})}><b>{({scout:'🧭',scholar:'📚',guardian:'🛡️',explorer:'🗺️'})[h.id]}</b><strong>{h.name}</strong><small>{h.ability}</small></button>)}</div>
           <div className="jumanji-players">{room.players.map(p=><div key={p.tgId}><span>🧑‍🚀 {p.name}{p.tgId===String(user?.tgId)?' (Siz)':''}</span><small>{room.heroes.find(h=>h.id===p.heroId)?.name||'Izquvar'}</small></div>)}</div>
           {isHost&&<button className="jumanji-primary" disabled={busy||room.players.length<2} onClick={()=>act('jumanji:start',{code:room.code})}>Sarguzashtni boshlash</button>}
-          <button className="jumanji-quiet" onClick={()=>{setRoom(null);}}>Orqaga</button>
+          <button className="jumanji-quiet" onClick={async()=>{await act('jumanji:leave',{code:room.code});setRoom(null);}}>Xonadan chiqish</button>
         </>:<>
           <div className="jumanji-board"><div className="jumanji-path">{Array.from({length:30},(_,i)=><div key={i} className={room.players.some(p=>p.position===i+1)?'occupied':''}><small>{i+1}</small>{room.players.filter(p=>p.position===i+1).map(p=><span key={p.tgId} title={p.name}>{p.tgId===String(user?.tgId)?'🟢':'🔵'}</span>)}</div>)}</div></div>
           <div className="jumanji-score">{room.players.map(p=><div key={p.tgId}><b>{p.name}</b><span>{p.position}/30 · ⭐ {p.score}</span></div>)}</div>
