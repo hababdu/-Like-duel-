@@ -210,6 +210,28 @@ export function registerImposterHandlers(io) {
       }
     });
 
+
+    socket.on('imposter:cancel_match', async (payload = {}, ack) => {
+      try {
+        const room = await ImposterRoom.findOne({ 'players.tgId': tgId, status: 'lobby', matchingSize: { $ne: null } });
+        if (!room) return reply(ack, { ok: true, cancelled: false });
+        const remaining = room.players.filter((player) => player.tgId !== tgId);
+        if (!remaining.length) {
+          await ImposterRoom.deleteOne({ _id: room._id, status: 'lobby' });
+        } else {
+          await ImposterRoom.updateOne(
+            { _id: room._id, status: 'lobby', 'players.tgId': tgId },
+            { $pull: { players: { tgId } } }
+          );
+        }
+        socket.leave(room.roomCode);
+        reply(ack, { ok: true, cancelled: true });
+      } catch (error) {
+        console.error('[Imposter] cancel_match:', error.message);
+        fail(ack, 'CANCEL_MATCH_FAILED', 'Qidiruvni bekor qilib bo‘lmadi.');
+      }
+    });
+
     socket.on('imposter:create_room', async (payload = {}, ack) => {
       try {
         const existing = await findPlayerRoom(tgId);
