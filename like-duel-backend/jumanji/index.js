@@ -41,7 +41,8 @@ const safeRoom = room => ({
   code: room.code, status: room.status, players: room.players.map(p => ({
     tgId: p.tgId, name: p.name, heroId: p.heroId, position: p.position, score: p.score
   })),
-  turnIndex: room.turnIndex, lastRoll: room.lastRoll, currentEvent: room.currentEvent,
+  turnIndex: room.turnIndex, lastRoll: room.lastRoll,
+  currentEvent: room.currentEvent ? (({ answer, ...visibleEvent }) => visibleEvent)(room.currentEvent.toObject ? room.currentEvent.toObject() : room.currentEvent) : null,
   winnerId: room.winnerId, heroes: HEROES
 });
 const code = () => Array.from({length:6},()=> 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[crypto.randomInt(0,32)]).join('');
