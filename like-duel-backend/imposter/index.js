@@ -35,6 +35,8 @@ const VoteSchema = new mongoose.Schema({
 const ImposterRoomSchema = new mongoose.Schema({
   roomCode: { type: String, required: true, unique: true, index: true },
   hostId: { type: String, required: true, index: true },
+  matchingSize: { type: Number, min: MIN_PLAYERS, max: MAX_PLAYERS, default: null },
+  matchKey: { type: String, unique: true, sparse: true },
   status: { type: String, enum: ['lobby', 'active', 'finished'], default: 'lobby', index: true },
   phase: { type: String, enum: ['lobby', 'clue', 'discussion', 'voting', 'results'], default: 'lobby' },
   category: { type: String, default: '' },
@@ -67,6 +69,8 @@ function publicRoom(room) {
     phase: room.phase,
     category: room.category,
     hostId: room.hostId,
+    matchingSize: room.matchingSize || null,
+    isMatchmaking: Boolean(room.matchingSize),
     players: room.players.map((player) => ({
       tgId: player.tgId,
       displayName: player.displayName,
@@ -130,10 +134,81 @@ async function findPlayerRoom(tgId, roomCode) {
   return ImposterRoom.findOne(query);
 }
 
+
+async function startMatchedGame(io, room) {
+  if (!room || room.status !== 'lobby' || !room.matchingSize || room.players.length !== room.matchingSize) return null;
+  const selected = WORD_PAIRS[crypto.randomInt(0, WORD_PAIRS.length)];
+  const imposterIndex = crypto.randomInt(0, room.players.length);
+  const players = room.players.map((player, index) => ({
+    ...player.toObject(),
+    isReady: true,
+    role: index === imposterIndex ? 'imposter' : 'player',
+    secretWord: index === imposterIndex ? '' : selected.word,
+    clue: ''
+  }));
+  const started = await ImposterRoom.findOneAndUpdate(
+    { _id: room._id, status: 'lobby', matchingSize: room.matchingSize, $expr: { $eq: [{ $size: '$players' }, room.matchingSize] } },
+    { $set: { status: 'active', phase: 'clue', category: selected.category, word: selected.word, players, votes: [], startedAt: new Date(), matchKey: null } },
+    { new: true }
+  );
+  if (!started) return null;
+  for (const player of started.players) {
+    const recipient = io.sockets.sockets.get(player.socketId);
+    if (recipient) recipient.emit('imposter:private_role', privateRole(started, player.tgId));
+  }
+  emitRoom(io, started);
+  io.to(started.roomCode).emit('imposter:match_found', { room: publicRoom(started) });
+  return started;
+}
+
 export function registerImposterHandlers(io) {
   io.on('connection', (socket) => {
     const tgId = String(socket.data.tgId || '');
     if (!tgId) return;
+
+
+    socket.on('imposter:find_match', async (payload = {}, ack) => {
+      try {
+        const requestedSize = Number(payload.playerCount);
+        if (!Number.isInteger(requestedSize) || requestedSize < MIN_PLAYERS || requestedSize > MAX_PLAYERS) {
+          return fail(ack, 'INVALID_PLAYER_COUNT', `O‘yinchilar soni ${MIN_PLAYERS} dan ${MAX_PLAYERS} gacha bo‘lishi kerak.`);
+        }
+        const existing = await findPlayerRoom(tgId);
+        if (existing) return fail(ack, 'ALREADY_IN_ROOM', 'Siz allaqachon faol xona yoki navbatdasiz.');
+        let room = await ImposterRoom.findOneAndUpdate(
+          { status: 'lobby', matchingSize: requestedSize, matchKey: `match:${requestedSize}`, 'players.tgId': { $ne: tgId }, $expr: { $lt: [{ $size: '$players' }, requestedSize] } },
+          { $push: { players: { tgId, displayName: playerName(tgId), isReady: true, socketId: socket.id } } },
+          { new: true, sort: { createdAt: 1 } }
+        );
+        if (!room) {
+          try {
+            room = await ImposterRoom.create({
+              roomCode: makeRoomCode(),
+              hostId: tgId,
+              matchingSize: requestedSize,
+              matchKey: `match:${requestedSize}`,
+              players: [{ tgId, displayName: playerName(tgId), isHost: true, isReady: true, socketId: socket.id }]
+            });
+          } catch (error) {
+            if (error?.code !== 11000) throw error;
+            room = await ImposterRoom.findOneAndUpdate(
+              { status: 'lobby', matchingSize: requestedSize, matchKey: `match:${requestedSize}`, 'players.tgId': { $ne: tgId }, $expr: { $lt: [{ $size: '$players' }, requestedSize] } },
+              { $push: { players: { tgId, displayName: playerName(tgId), isReady: true, socketId: socket.id } } },
+              { new: true, sort: { createdAt: 1 } }
+            );
+            if (!room) throw error;
+          }
+        }
+        await socket.join(room.roomCode);
+        emitRoom(io, room);
+        const started = await startMatchedGame(io, room);
+        const latest = started || room;
+        reply(ack, { ok: true, room: publicRoom(latest), waiting: !started, playerCount: latest.players.length, matchingSize: requestedSize });
+      } catch (error) {
+        console.error('[Imposter] find_match:', error.message);
+        fail(ack, 'MATCH_FAILED', 'Mos o‘yinchilarni topib bo‘lmadi. Qayta urinib ko‘ring.');
+      }
+    });
 
     socket.on('imposter:create_room', async (payload = {}, ack) => {
       try {
