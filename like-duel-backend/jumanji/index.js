@@ -22,7 +22,8 @@ const PlayerSchema = new mongoose.Schema({
   heroId: { type: String, default: 'scout' },
   position: { type: Number, default: 0 },
   score: { type: Number, default: 0 },
-  socketId: { type: String, default: '' }
+  socketId: { type: String, default: '' },
+  abilityUsed: { type: Boolean, default: false }
 }, { _id: false });
 const RoomSchema = new mongoose.Schema({
   code: { type: String, unique: true, index: true },
@@ -90,7 +91,7 @@ export function registerJumanjiHandlers(io) {
         const steps=roll+(hero?.id==='scout'?1:0);
         player.position=Math.min(30,player.position+steps);room.lastRoll=roll;
         room.currentEvent={...event,playerId:tgId,createdAt:new Date().toISOString()};
-        if(event.type==='reward'){player.score+=event.success;room.currentEvent=null;room.turnIndex=(room.turnIndex+1)%room.players.length;}
+        if(event.type==='reward'){player.score+=event.success+(hero?.id==='explorer'?1:0);room.currentEvent=null;room.turnIndex=(room.turnIndex+1)%room.players.length;}
         if(player.position>=30){room.status='finished';room.winnerId=tgId;}
         await room.save();io.to(room.code).emit('jumanji:updated',safeRoom(room));send(ack,{ok:true,room:safeRoom(room)});
       }catch(e){console.error('[Jumanji] roll',e);fail(ack,'Kubik tashlashda xato.');}
@@ -101,7 +102,8 @@ export function registerJumanjiHandlers(io) {
         if(!room||!room.currentEvent||room.currentEvent.playerId!==tgId)return fail(ack,'Topshiriq sizga tegishli emas.');
         const event=room.currentEvent;const player=room.players[room.turnIndex];
         const correct=event.answer===null||Number(payload.answer)===event.answer;
-        if(correct){player.score+=event.success||1;if(event.type==='scholar')player.score+=1;}
+        if(correct){player.score+=event.success||1;if(player.heroId==='scholar'&&!player.abilityUsed){player.score+=1;player.abilityUsed=true;}}
+        else if(player.heroId==='guardian'&&!player.abilityUsed){player.abilityUsed=true;}
         else player.position=Math.max(0,player.position-1);
         room.currentEvent=null;room.turnIndex=(room.turnIndex+1)%room.players.length;
         if(player.position>=30){room.status='finished';room.winnerId=tgId;}
