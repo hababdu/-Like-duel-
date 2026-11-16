@@ -18,6 +18,7 @@ import Wallet from './components/Wallet';
 import Shop from './components/Shop';
 import GameHub from './features/gameHub/GameHub';
 import ImposterGame from './features/imposter/ImposterGame';
+import JumanjiGame from './features/jumanji/JumanjiGame';
 import './App.css';
 
 // Ekran nomiga qarab fon rasmi (CSS: .app-bg--...)
@@ -25,6 +26,7 @@ const BG_BY_SCREEN = {
   menu: 'menu',
   hub: 'menu',
   imposter: 'duel',
+  jumanji: 'menu',
   game: 'duel',
   bot: 'duel',
   wallet: 'coins',
@@ -548,11 +550,22 @@ function App() {
             onOnlineDuel={() => setCurrentScreen('game')}
             onBotGame={() => setCurrentScreen('bot')}
             onImposter={() => setCurrentScreen('imposter')}
+            onJumanji={() => setCurrentScreen('jumanji')}
           />
         )}
 
         {currentScreen === 'imposter' && (
           <ImposterGame
+            socket={socket}
+            user={user}
+            onBack={() => setCurrentScreen('hub')}
+            onNotification={showNotification}
+          />
+        )}
+
+
+        {currentScreen === 'jumanji' && (
+          <JumanjiGame
             socket={socket}
             user={user}
             onBack={() => setCurrentScreen('hub')}
