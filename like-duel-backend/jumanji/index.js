@@ -37,8 +37,23 @@ const RoomSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 const Room = mongoose.models.JumanjiRoom || mongoose.model('JumanjiRoom', RoomSchema);
+const HistorySchema = new mongoose.Schema({
+  roomCode: { type: String, required: true, unique: true },
+  winnerId: { type: String, default: '' },
+  players: [{ tgId: String, name: String, heroId: String, position: Number, score: Number }],
+  finishedAt: { type: Date, default: Date.now }
+});
+const History = mongoose.models.JumanjiHistory || mongoose.model('JumanjiHistory', HistorySchema);
+async function persistResult(room) {
+  if (room.status !== 'finished') return;
+  await History.updateOne({ roomCode: room.code }, { $setOnInsert: {
+    roomCode: room.code, winnerId: room.winnerId,
+    players: room.players.map(p => ({ tgId:p.tgId, name:p.name, heroId:p.heroId, position:p.position, score:p.score })),
+    finishedAt: new Date()
+  } }, { upsert: true });
+}
 const safeRoom = room => ({
-  code: room.code, status: room.status, players: room.players.map(p => ({
+  code: room.code, hostId: room.hostId, status: room.status, players: room.players.map(p => ({
     tgId: p.tgId, name: p.name, heroId: p.heroId, position: p.position, score: p.score
   })),
   turnIndex: room.turnIndex, lastRoll: room.lastRoll,
@@ -54,6 +69,23 @@ export function registerJumanjiHandlers(io) {
     const tgId = String(socket.data.tgId || '');
     if (!tgId) return;
     const playerName = String(socket.data.firstName || `O‘yinchi ${tgId.slice(-4)}`).slice(0,32);
+    socket.on('jumanji:resume', async (payload={}, ack) => {
+      try {
+        const room = await Room.findOne({ code:String(payload.code||'').toUpperCase(), status:{$in:['lobby','active']}, 'players.tgId':tgId });
+        if (!room) return fail(ack, 'Davom etayotgan xona topilmadi.');
+        await Room.updateOne({ _id:room._id, 'players.tgId':tgId }, { $set:{ 'players.$.socketId':socket.id } });
+        await socket.join(room.code);
+        const fresh = await Room.findById(room._id);
+        io.to(room.code).emit('jumanji:updated', safeRoom(fresh));
+        send(ack, {ok:true, room:safeRoom(fresh)});
+      } catch(e) { console.error('[Jumanji] resume',e); fail(ack,'Qayta ulanish amalga oshmadi.'); }
+    });
+    socket.on('jumanji:history', async (payload={}, ack) => {
+      try {
+        const history = await History.find({'players.tgId':tgId}).sort({finishedAt:-1}).limit(20).lean();
+        send(ack,{ok:true,history});
+      } catch(e) { console.error('[Jumanji] history',e); fail(ack,'O‘yin tarixini yuklab bo‘lmadi.'); }
+    });
     socket.on('jumanji:create', async (payload={}, ack) => {
       try {
         if (await Room.findOne({ 'players.tgId':tgId, status:{ $in:['lobby','active'] } })) return fail(ack,'Siz allaqachon Jumanji xonasidasiz.');
@@ -94,21 +126,46 @@ export function registerJumanjiHandlers(io) {
         room.currentEvent={...event,playerId:tgId,createdAt:new Date().toISOString()};
         if(event.type==='reward'){player.score+=event.success+(hero?.id==='explorer'?1:0);room.currentEvent=null;room.turnIndex=(room.turnIndex+1)%room.players.length;}
         if(player.position>=30){room.status='finished';room.winnerId=tgId;}
-        await room.save();io.to(room.code).emit('jumanji:updated',safeRoom(room));send(ack,{ok:true,room:safeRoom(room)});
+        await room.save();await persistResult(room);io.to(room.code).emit('jumanji:updated',safeRoom(room));send(ack,{ok:true,room:safeRoom(room)});
       }catch(e){console.error('[Jumanji] roll',e);fail(ack,'Kubik tashlashda xato.');}
+    });
+    socket.on('jumanji:vote',async(payload={},ack)=>{
+      try{
+        const room=await Room.findOne({code:payload.code,status:'active'});
+        if(!room||room.currentEvent?.type!=='team')return fail(ack,'Jamoaviy ovoz berish mavjud emas.');
+        if(!room.players.some(p=>p.tgId===tgId))return fail(ack,'Siz bu xonada emassiz.');
+        const option=Number(payload.option);
+        if(!Number.isInteger(option)||option<0||option>=room.currentEvent.options.length)return fail(ack,'Variant noto‘g‘ri.');
+        const votes=Array.isArray(room.currentEvent.votes)?room.currentEvent.votes:[];
+        if(votes.some(v=>v.tgId===tgId))return fail(ack,'Siz allaqachon ovoz bergansiz.');
+        votes.push({tgId,option});room.currentEvent.votes=votes;
+        const allVoted=room.players.every(p=>votes.some(v=>v.tgId===p.tgId));
+        if(allVoted){
+          const counts=room.currentEvent.options.map((_,i)=>votes.filter(v=>v.option===i).length);
+          const high=Math.max(...counts);
+          const tied=counts.map((n,i)=>n===high?i:-1).filter(i=>i>=0);
+          const chosen=tied[crypto.randomInt(0,tied.length)];
+          const active=room.players.find(p=>p.tgId===room.currentEvent.playerId);
+          if(active)active.score+=room.currentEvent.success||1;
+          room.currentEvent=null;room.turnIndex=(room.turnIndex+1)%room.players.length;
+        }
+        await room.save();io.to(room.code).emit('jumanji:updated',safeRoom(room));
+        send(ack,{ok:true,room:safeRoom(room),resolved:allVoted});
+      }catch(e){console.error('[Jumanji] vote',e);fail(ack,'Ovoz saqlanmadi.');}
     });
     socket.on('jumanji:answer',async(payload={},ack)=>{
       try{
         const room=await Room.findOne({code:payload.code,status:'active'});
-        if(!room||!room.currentEvent||room.currentEvent.playerId!==tgId)return fail(ack,'Topshiriq sizga tegishli emas.');
+        if(!room||!room.currentEvent||room.currentEvent.type==='team'||room.currentEvent.playerId!==tgId)return fail(ack,'Topshiriq sizga tegishli emas.');
         const event=room.currentEvent;const player=room.players[room.turnIndex];
-        const correct=event.answer===null||Number(payload.answer)===event.answer;
+        if(!player||player.tgId!==tgId)return fail(ack,'Hozir sizning navbatingiz emas.');
+        const correct=Number(payload.answer)===event.answer;
         if(correct){player.score+=event.success||1;if(player.heroId==='scholar'&&!player.abilityUsed){player.score+=1;player.abilityUsed=true;}}
         else if(player.heroId==='guardian'&&!player.abilityUsed){player.abilityUsed=true;}
         else player.position=Math.max(0,player.position-1);
         room.currentEvent=null;room.turnIndex=(room.turnIndex+1)%room.players.length;
         if(player.position>=30){room.status='finished';room.winnerId=tgId;}
-        await room.save();io.to(room.code).emit('jumanji:updated',safeRoom(room));send(ack,{ok:true,room:safeRoom(room),correct});
+        await room.save();await persistResult(room);io.to(room.code).emit('jumanji:updated',safeRoom(room));send(ack,{ok:true,room:safeRoom(room),correct});
       }catch(e){console.error('[Jumanji] answer',e);fail(ack,'Javobni saqlab bo‘lmadi.');}
     });
     socket.on('jumanji:leave',async(payload={},ack)=>{
