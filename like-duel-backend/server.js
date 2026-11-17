@@ -117,21 +117,29 @@ const allowedOriginsList = ALLOWED_ORIGIN
 
 console.log('🔧 Ruxsat etilgan originlar:', allowedOriginsList);
 
+// API autentifikatsiyasi cookie'ga emas, Telegram initData / Bearer token'ga
+// tayanadi. Shu sababli public frontend domenlari CORS preflight'da bloklanmaydi.
+// CORS autentifikatsiya o'rnini bosmaydi: barcha himoyalangan endpointlar tokenni
+// serverda tekshirishi shart. Cookie credential'lari ataylab yoqilmagan.
 const corsOptions = {
   origin: (requestOrigin, callback) => {
     if (!requestOrigin) return callback(null, true);
-
     const normalized = normalizeOrigin(requestOrigin);
-    if (allowedOriginsList.includes(normalized)) {
-      return callback(null, true);
+    if (!allowedOriginsList.includes(normalized)) {
+      console.info(`ℹ️ CORS origin ruxsat etildi (token-auth API): ${normalized}`);
     }
-
-    console.warn(`⚠️ CORS rad etildi. Kelgan Origin: "${requestOrigin}" (normalized: "${normalized}"). Ruxsat etilganlar:`, allowedOriginsList);
-    return callback(new Error('CORS: bu origin ruxsat etilmagan'));
+    // cors paketi true qiymatida aynan kelgan Origin'ni response'ga qaytaradi.
+    // '*' ishlatilmaydi, shuning uchun brauzer preflight bilan mos keladi.
+    return callback(null, true);
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Admin-Token', 'X-Telegram-Init-Data']
+  credentials: false,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type', 'Authorization', 'Accept',
+    'X-Admin-Token', 'X-Telegram-Init-Data', 'X-Requested-With'
+  ],
+  optionsSuccessStatus: 204,
+  maxAge: 86400
 };
 
 app.set('trust proxy', 1); // Render/Proxy orqasida haqiqiy IP olish uchun
