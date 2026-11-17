@@ -138,7 +138,7 @@ export function registerJumanjiHandlers(io) {
         if(!Number.isInteger(option)||option<0||option>=room.currentEvent.options.length)return fail(ack,'Variant noto‘g‘ri.');
         const votes=Array.isArray(room.currentEvent.votes)?room.currentEvent.votes:[];
         if(votes.some(v=>v.tgId===tgId))return fail(ack,'Siz allaqachon ovoz bergansiz.');
-        votes.push({tgId,option});room.currentEvent.votes=votes;
+        votes.push({tgId,option});room.currentEvent.votes=votes;room.markModified('currentEvent');
         const allVoted=room.players.every(p=>votes.some(v=>v.tgId===p.tgId));
         if(allVoted){
           const counts=room.currentEvent.options.map((_,i)=>votes.filter(v=>v.option===i).length);
